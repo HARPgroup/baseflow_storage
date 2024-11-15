@@ -60,15 +60,43 @@ l90_seg_lzsn <- sqldf(
       a.landseg = b.hydrocode
     )
     where b.l90_RUnit is not null
-    and a.LZSN < 14.0
   "
 )
-l90_seg_lzsn$l90_RUnit <- as.numeric(l90_seg_lzsn$l90_RUnit)
+l90_seg_lzsn_nz <- sqldf(
+  "
+    select a.*, b.l90_RUnit 
+    from ro_data as b
+    left outer join all_seg_params as a
+    on (
+      a.landseg = b.hydrocode
+    )
+    where b.l90_RUnit > 0
+  "
+)
+l90_seg_lzsn_lt10<- sqldf(
+  "
+    select a.*, b.l90_RUnit 
+    from ro_data as b
+    left outer join all_seg_params as a
+    on (
+      a.landseg = b.hydrocode
+    )
+    where a.LZSN < 10.0
+  "
+)
 l90lm <- lm(l90_RUnit ~ LZSN, data=l90_seg_lzsn)
-l90lm <- lm(l90_seg_lzsn$l90_RUnit ~ l90_seg_lzsn$LZSN)
 plot(l90_RUnit ~ LZSN, data=l90_seg_lzsn)
 abline(l90lm, col = "red")
 summary(l90lm)
 
+
+l90lmnz <- lm(l90_RUnit ~ LZSN, data=l90_seg_lzsn_nz)
 plot(l90_RUnit ~ LZSN, data=l90_seg_lzsn)
-abline
+abline(l90lmnz, col = "red")
+summary(l90lmnz)
+
+l90lmlt10 <- lm(l90_RUnit ~ LZSN, data=l90_seg_lzsn_lt10)
+plot(l90_RUnit ~ LZSN, data=l90_seg_lzsn_lt10)
+abline(l90lmlt10, col = "red")
+summary(l90lmlt10)
+
