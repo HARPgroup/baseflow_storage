@@ -8,8 +8,8 @@ summary(regm)
 plot(AGWS ~ LZS, data=pwater_daily )
 
 rodf <- data.frame(
-  'model_version' = c('cbp-6.1'),
-  'runid' = c('subsheds'),
+  'model_version' = c('cbp-6.0'),
+  'runid' = c('CFBASE30Y20180615_vadeq'),
   'metric' = c('l90_RUnit'),
   'runlabel' = c('l90_RUnit')
 )
@@ -29,3 +29,46 @@ jar_rodata = fn_extract_basin(ro_data,'OR7_8490_0000')
 sqldf("select * from jar_rodata where abs((Runit_2 - Runit_0) / Runit_0) > 0.05")
 
 
+param_file = "http://deq1.bse.vt.edu:81/p6/vadeq/input/param/for/P620171001WQf/PWATER.csv"
+landseg = "N51135"
+table_name = "PWAT-PARM2"
+param_name = "LZSN"
+
+param_file_raw <- read.csv(param_file, header=FALSE)
+param_tables <- param_file_raw[1,]
+param_vars <- param_file_raw[2,]
+param_cols <- names(param_vars[which(param_vars == param_name)])
+target_table <- (param_file_raw[param_file_raw$V1 == landseg,])[,names(param_vars[,param_tables == table_name])]
+if (param_name == "") {
+  return_vals <- target_table
+} else {
+  return_vals <- target_table[,param_cols]
+}
+
+print(as.numeric(return_vals))
+
+all_seg_params <- param_file_raw[3:nrow(param_file_raw),c("V1",param_cols)]
+names(all_seg_params) <- c("landseg", param_name)
+all_seg_params$LZSN <- as.numeric(all_seg_params$LZSN)
+
+l90_seg_lzsn <- sqldf(
+  "
+    select a.*, b.l90_RUnit 
+    from ro_data as b
+    left outer join all_seg_params as a
+    on (
+      a.landseg = b.hydrocode
+    )
+    where b.l90_RUnit is not null
+    and a.LZSN < 14.0
+  "
+)
+l90_seg_lzsn$l90_RUnit <- as.numeric(l90_seg_lzsn$l90_RUnit)
+l90lm <- lm(l90_RUnit ~ LZSN, data=l90_seg_lzsn)
+l90lm <- lm(l90_seg_lzsn$l90_RUnit ~ l90_seg_lzsn$LZSN)
+plot(l90_RUnit ~ LZSN, data=l90_seg_lzsn)
+abline(l90lm, col = "red")
+summary(l90lm)
+
+plot(l90_RUnit ~ LZSN, data=l90_seg_lzsn)
+abline
