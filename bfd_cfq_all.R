@@ -1,0 +1,30 @@
+# This function creates a scatter plot of event flow and estimated AGWR
+bfd_cfq_all <- function(analysis_data){
+  source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/summarize_event.R")
+  data <- summarize_event(analysis_data)
+  mean_event_flow <- aggregate(Flow~GroupID, data = analysis_data, FUN = mean, na.rm=TRUE)
+  analysis_summary <- aggregate(Season ~ GroupID, data = analysis_data, FUN = function(x) tail(x, 1))
+  
+  data_combined <- sqldf("
+  select a.*, b.Flow, c.Season
+  from data as a
+  inner join mean_event_flow as b
+  on a.i = b.GroupID
+  left outer join analysis_summary as c
+  on a.i = c.GroupID
+")
+  
+ result <- ggplot(data = data_combined, mapping = aes(x = Flow))+
+    geom_point(mapping = aes(y = AGWR))+
+    geom_smooth(mapping = aes(y = AGWR), method = "lm")+
+    theme_bw()+
+   coord_cartesian(xlim = c(min(data_combined$Flow), max(data_combined$Flow)),
+                   ylim = c(min(data_combined$AGWR), max(data_combined$AGWR)))+
+    xlab("Mean Event Flow (cfs)")+
+    ylab("Estimated AGWR")+
+    ggtitle(paste0(analysis_data$site_no[1], " All Events"))+
+    theme(plot.title = element_text(hjust = 0.5))
+  
+ return(result)
+ 
+}
