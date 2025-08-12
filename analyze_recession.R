@@ -14,6 +14,9 @@ analyze_recession <- function(df, site_name = "", min_len = 0, max_len = Inf) {
       group_counter <- group_counter + 1
     }
   }
+  require(tidyr)
+  require(purrr)
+  require(dplyr)
   df$GroupID <- group_id
   
   recession_starts <- starts[!is.na(group_id[starts])]
