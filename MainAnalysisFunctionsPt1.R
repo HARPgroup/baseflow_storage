@@ -10,6 +10,7 @@ calc_delta_AGWR <- function(x) {
 
 ###FUNCTION #2: ADD SEASONAL INFO###
 add_month_season <- function(df) {
+  require(dplyr)
   df %>% mutate(
     Month = format(Date, "%m"),
     Season = case_when(
