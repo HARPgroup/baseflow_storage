@@ -12,7 +12,7 @@ end_path <- paste0(args[4])
 
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/main/MainAnalysisFunctionsPt1.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/analyze_recession.R")
-
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/attach_event_stats.R")
 # Load in stream data from USGS
 # flows <- readNWISdv("01633000", parameterCd = "00060") %>% renameNWISColumns()
 
@@ -48,5 +48,7 @@ results <- imap(sites, function(site, abbrev) {
 
 #extract
 analysis_df <- results$gage$analysis
+
+analysis_df <- attach_event_stats(analysis_df, r_lim = 0)
 
 write.csv(analysis_df, end_path)
