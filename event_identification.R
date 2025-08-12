@@ -5,6 +5,7 @@ if (length(args) != 4){
 }
 
 flow_csv <- read.csv(paste0(args[1]))
+flow_csv$Date <- as.Date(flow_csv$Date)
 flow_col <- paste0(args[2])
 gage_name <- as.character(args[3])
 end_path <- paste0(args[4])
