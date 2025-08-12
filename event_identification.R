@@ -9,11 +9,13 @@ flow_col <- paste0(args[2])
 gage_name <- as.character(args[3])
 end_path <- paste0(args[4])
 
-source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/will_baseflow/MainAnalysisFunctionsPt1.R")
-source("https://github.com/HARPgroup/baseflow_storage/blob/Ben_drought_report_functions/analyze_recession.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/main/MainAnalysisFunctionsPt1.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/analyze_recession.R")
 
 # Load in stream data from USGS
-# flows <- readNWISdv("01632000", parameterCd = "00060") %>% renameNWISColumns()
+# flows <- readNWISdv("01633000", parameterCd = "00060") %>% renameNWISColumns()
+
+suppressPackageStartupMessages(library(purrr))
 
 #calculate AGWR and delta_AGWR
 flow_csv$AGWR <- calc_AGWR(flow_csv[[flow_col]])
