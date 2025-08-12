@@ -9,7 +9,7 @@ plot_event_values <- function(analysis_data,
   eventnum <- event_number
   
   # Get event data using previous function
-  event <- summarize.event(data, event_number)[[1]]
+  event <- summarize_event(data, event_number)[[1]]
   
   # log flow plot
   a <- ggplot(data = event, mapping = aes(x = Date, y = log(Flow)))+
