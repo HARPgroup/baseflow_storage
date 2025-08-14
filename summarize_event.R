@@ -6,6 +6,8 @@ summarize_event <- function(analysis_data,
                             event_number = 0,
                             dAGWR_range = 0.03){
   
+  source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/calc_event_stats.R")
+  
   require(sqldf)
   
   data <- analysis_data
@@ -32,26 +34,7 @@ summarize_event <- function(analysis_data,
     
     for(i in (1:max(data$GroupID))){
       
-      # Set sqldf query for valid days since fn$ wasnt working
-      sqldf_query <- paste0(
-        "select * from data 
-    where GroupID = ", i, " and
-    AGWR < 1 and
-    delta_AGWR < ", dAGWRmax," and
-    delta_AGWR > ", dAGWRmin,"
-    ")
-      
-      event_data <- sqldf(sqldf_query)
-      
-      # Create lm of event selected dates
-      logFlow_lm <-lm(log(event_data$Flow) ~ event_data$Date)
-      event_sum <- summary(logFlow_lm)
-      
-      # Assign AWGR and R-squared
-      AGWR <- exp(event_sum$coefficients[[2,1]])
-      R_squared <- event_sum$r.squared
-      
-      new_row <- data.frame(i, AGWR, R_squared)
+      new_row <- calc_event_stats(data, event_num = i, dAGWRmax, dAGWRmin)
       
       event_df <- rbind(event_df, new_row)
       
@@ -61,51 +44,12 @@ summarize_event <- function(analysis_data,
     
   } else {
     
-    event_data <- fn$sqldf(
-      "select * from data 
-    where GroupID = $eventnum
-    ")
+  event_df <- calc_event_stats(data, event_number, dAGWRmax, dAGWRmin)
+  
+  names(event_df)[names(event_df)=="event_num"] <- "i"
     
-    # and
-    #AGWR < 1 and
-    #delta_AGWR < $dAGWRmax and
-    #delta_AGWR > $dAGWRmin
+    return(event_df)
     
-    #new (for integration with app)
-    if (nrow(event_data) == 0) {
-      return(list(data = NULL, AGWR = NA_real_, R2 = NA_real_))
-    }
-    #new/changes made (for integration with app) (applies to rest of function)
-    logFlow_lm <- tryCatch(
-      lm(log(event_data$Flow) ~ event_data$Date),
-      error = function(e) NULL
-    )
-    
-    if (is.null(logFlow_lm)) {
-      return(list(data = event_data, AGWR = NA_real_, R2 = NA_real_))
-    }
-    
-    event_sum <- summary(logFlow_lm)
-    
-    return(list(
-      data = event_data,
-      summary = event_sum,
-      AGWR = suppressWarnings(round(exp(coef(logFlow_lm)[[2]]), 4)),
-      R2   = suppressWarnings(round(event_sum$r.squared, 4))
-    ))
   }
   
 }
-
-# Example of how to run function
-# ... To create list object with all relevant data for one event
-# event_3_list <- summarize.event(analysis_S, 3)
-
-# ... To get dataframe with valid data from event number 8
-# event_8_data <- summarize.event(analysis_S, 8)[[1]]
-
-# ... To print lm summary for event 130
-# print(summarize.event(analysis_S, 130)[[2]])
-
-# ... To view the AGWR and R-squared for all events
-# View(summarize.event(analysis_S))
