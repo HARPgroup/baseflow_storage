@@ -1,6 +1,6 @@
 args <- commandArgs(trailingOnly = T)
 if (length(args) != 4){
-  message("Missing or extra arguments. Usage: flow_path flow_col 'gage_name' end_path")
+  message("Missing or extra arguments. Usage: flow_path flow_col 'gage_name' manual_opt end_path")
   q()
 }
 
@@ -8,13 +8,14 @@ flow_csv <- read.csv(paste0(args[1]))
 flow_csv$Date <- as.Date(flow_csv$Date)
 flow_col <- paste0(args[2])
 gage_name <- as.character(args[3])
-end_path <- paste0(args[4])
+manual_opt <- as.logical(args[4])
+end_path <- paste0(args[5])
 
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/main/MainAnalysisFunctionsPt1.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/analyze_recession.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/attach_event_stats.R")
 # Load in stream data from USGS
-# flows <- readNWISdv("01633000", parameterCd = "00060") %>% renameNWISColumns()
+ flow_csv <- readNWISdv("01633000", parameterCd = "00060") %>% renameNWISColumns()
 
 suppressPackageStartupMessages(library(purrr))
 
@@ -24,7 +25,12 @@ flow_csv$delta_AGWR <- calc_delta_AGWR(flow_csv$AGWR)
 
 flow_csv <- add_month_season(flow_csv)
 
-flow_csv <- flag_stable_baseflow(flow_csv, flow_csv[[flow_col]])
+if(manual_opt == TRUE){
+  flow_csv$GroupID <- 1
+  flow_csv$RecessionDay <- TRUE
+}else{
+  flow_csv <- flag_stable_baseflow(flow_csv, flow_csv[[flow_col]])
+}
 
 #remove NAs
 flow_csv <- flow_csv[!is.na(flow_csv$RecessionDay), ]
