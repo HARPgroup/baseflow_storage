@@ -15,7 +15,7 @@ source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/main/MainAn
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/analyze_recession.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/attach_event_stats.R")
 # Load in stream data from USGS
- flow_csv <- readNWISdv("01633000", parameterCd = "00060") %>% renameNWISColumns()
+# flow_csv <- readNWISdv("01633000", parameterCd = "00060") %>% renameNWISColumns()
 
 suppressPackageStartupMessages(library(purrr))
 
