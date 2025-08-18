@@ -16,6 +16,7 @@ usgs_daily$agwrc_proj985 <- Q0*(bfd_agwrc_project(1, 0.985, 1:(n+1)))
 plot(
   usgs_daily$X_00060_00003 ~ usgs_daily$Date, 
   xaxt = "n", 
+  type = "l",
   ylim=c(0,max(usgs_daily$X_00060_00003)),
   main=(
     paste("Observed and projected baseflows for", gage_no, 
