@@ -1,6 +1,6 @@
 # project flow timeseries
 n = 75
-start_date <- '2023-07-15'
+start_date <- '2023-07-18'
 end_date <- as.Date(start_date) + n
 gage_no = "01634000"
 C = 0.975
