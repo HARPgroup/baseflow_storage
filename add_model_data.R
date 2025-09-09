@@ -1,0 +1,31 @@
+add_model_data <- function(timeseries_data, land_code, land_type, model_col) {
+
+   source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/make_model_daily.R")
+  
+  # Get model data from given land code and land type
+  model_data <- read.csv(paste0("https://deq1.bse.vt.edu:81/p6/out/land/subsheds2/pwater/", land_type, land_code,"_pwater.csv"))
+  
+  # Make model data daily using func make_model_daily
+  model_data <- make_model_daily(model_data, "index")
+  
+  # Make sure all date columns are in the right form
+  colnames(model_data)[which(names(model_data) == "date")] <- "Date"
+  model_data$Date <- as.Date(model_data$Date)
+  timeseries_data$Date <- as.Date(timeseries_data$Date)
+  
+  # select date and column from model data
+  m_col <- sqldf(sprintf(
+    "select Date, %s from model_data"
+  , model_col))
+  
+  #combine m_col and original data
+  final_df <- sqldf(sprintf(
+    "select a.*, b.%s from
+    timeseries_data as a
+    left outer join m_col as b
+    on( a.Date = b.Date)"
+  , model_col))
+
+  return(final_df) 
+  
+}
