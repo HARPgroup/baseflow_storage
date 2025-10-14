@@ -7,18 +7,20 @@ if (length(args) != 4){
 flow_csv <- read.csv(paste0(args[1]))
 flow_csv$Date <- as.Date(flow_csv$Date)
 flow_col <- "Flow"
-gage_name <- "Strasburg"
+gage_name <- "Cootes Store"
 manual_opt <- F
 
 library(dplyr)
 library(lubridate)
 library(dataRetrieval)
+library(tidyr)
 
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/main/MainAnalysisFunctionsPt1.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/analyze_recession.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/attach_event_stats.R")
 # Load in stream data from USGS
-flow_csv <- readNWISdv("01634000", parameterCd = "00060") %>% renameNWISColumns()
+#Change NWISdv for different gages
+flow_csv <- readNWISdv("01632000", parameterCd = "00060") %>% renameNWISColumns()
 
 suppressPackageStartupMessages(library(purrr))
 
@@ -58,20 +60,20 @@ results <- imap(sites, function(site, abbrev) {
 })
 
 # extract the analysis dataframe from results
-S_original_analysis_df <- results$gage$analysis
+CS_original_analysis_df <- results$gage$analysis
 
 # Trim each event
-S_trimmed_analysis_df <- S_original_analysis_df %>%
+CS_trimmed_analysis_df <- CS_original_analysis_df %>%
   group_by(GroupID) %>%
   group_modify(~ trim_event_mk(.x)) %>%
   ungroup()
 
 # Keep only the rows marked as kept = TRUE
-S_trimmed_kept <- S_trimmed_analysis_df %>%
+CS_trimmed_kept <- CS_trimmed_analysis_df %>%
   filter(kept == TRUE)
 
 # Recalculate AGWR & delta_AGWR after trimming
-S_trimmed_kept <- S_trimmed_kept %>%
+CS_trimmed_kept <- CS_trimmed_kept %>%
   mutate(
     AGWR = calc_AGWR(Flow),
     delta_AGWR = calc_delta_AGWR(AGWR)
@@ -99,9 +101,9 @@ attach_event_stats <- function(analysis_data, r_lim = 0) {
 }
 
 
-S_original_analysis_df <- attach_event_stats(S_original_analysis_df, r_lim = 0)
+CS_original_analysis_df <- attach_event_stats(CS_original_analysis_df, r_lim = 0)
 
-S_trimmed_analysis_df <- attach_event_stats(S_trimmed_kept, r_lim = 0) %>%
+CS_trimmed_analysis_0.1_df <- attach_event_stats(CS_trimmed_kept, r_lim = 0) %>%
   rename(
     trimmed_calc_AGWR = calc_AGWR,
     trimmed_event_R_squared = event_R_squared
@@ -117,3 +119,18 @@ S_trimmed_analysis_df <- attach_event_stats(S_trimmed_kept, r_lim = 0) %>%
 # 
 # # Write final csvs out
 # write.csv(analysis_df, end_path)
+
+library(purrr)
+
+problem_groups <- CS_trimmed_kept %>%
+  group_split(GroupID) %>%
+  keep(~ {
+    # test summarize_event for each group
+    df <- .
+    tryCatch({
+      test <- summarize_event(df)
+      FALSE  # works fine
+    }, error = function(e) TRUE)  # fails
+  })
+
+length(problem_groups)

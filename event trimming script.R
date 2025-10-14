@@ -3,7 +3,7 @@ library(ggplot2)
 library(Kendall)
 library(gridExtra)
 
-trim_event_mk <- function(event_df, alpha = 0.05) {
+trim_event_mk <- function(event_df, alpha = 0.1) {
   n <- nrow(event_df)
   
   # compute MK p-value for the full event (no trimming)
