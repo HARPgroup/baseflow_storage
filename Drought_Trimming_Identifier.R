@@ -111,7 +111,7 @@ CS_trimmed_analysis_0.1_df <- attach_event_stats(CS_trimmed_kept, r_lim = 0) %>%
 
 
 CS_trimmed_analysis_0.1_df <- CS_trimmed_analysis_0.1_df %>%
-  filter(trimmed_calc_AGWR < 1.0)
+  mutate(AGWR_flag = trimmed_calc_AGWR > 1.0)
 
 # Add AGW model data
 #
