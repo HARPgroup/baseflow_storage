@@ -1,11 +1,11 @@
-args <- commandArgs(trailingOnly = T)
-if (length(args) != 4){
-  message("Missing or extra arguments. Usage: flow_path flow_col 'gage_name' manual_opt end_path")
-  q()
-}
-
-flow_csv <- read.csv(paste0(args[1]))
-flow_csv$Date <- as.Date(flow_csv$Date)
+# args <- commandArgs(trailingOnly = T)
+# if (length(args) != 4){
+#   message("Missing or extra arguments. Usage: flow_path flow_col 'gage_name' manual_opt end_path")
+#   q()
+# }
+# 
+# flow_csv <- read.csv(paste0(args[1]))
+# flow_csv$Date <- as.Date(flow_csv$Date)
 flow_col <- "Flow"
 gage_name <- "Cootes Store"
 manual_opt <- F
@@ -18,6 +18,7 @@ library(tidyr)
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/main/MainAnalysisFunctionsPt1.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/analyze_recession.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/attach_event_stats.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/will_baseflow/will_mk_trim.R")
 # Load in stream data from USGS
 #Change NWISdv for different gages
 flow_csv <- readNWISdv("01632000", parameterCd = "00060") %>% renameNWISColumns()
@@ -111,7 +112,7 @@ CS_trimmed_analysis_0.1_df <- attach_event_stats(CS_trimmed_kept, r_lim = 0) %>%
 
 
 CS_trimmed_analysis_0.1_df <- CS_trimmed_analysis_0.1_df %>%
-  mutate(AGWR_flag = trimmed_calc_AGWR > 1.0)
+  mutate(AGWR_flag = trimmed_calc_AGWR >= 1.0)
 
 # Add AGW model data
 #
