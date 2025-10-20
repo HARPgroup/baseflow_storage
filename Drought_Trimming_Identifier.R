@@ -109,6 +109,10 @@ CS_trimmed_analysis_0.1_df <- attach_event_stats(CS_trimmed_kept, r_lim = 0) %>%
     trimmed_event_R_squared = event_R_squared
   )
 
+
+CS_trimmed_analysis_0.1_df <- CS_trimmed_analysis_0.1_df %>%
+  filter(trimmed_calc_AGWR < 1.0)
+
 # Add AGW model data
 #
 # analysis_df <- add_model_data(analysis_df, land_type_code, "AGWI")
