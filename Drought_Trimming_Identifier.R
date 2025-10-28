@@ -4,10 +4,10 @@
 #   q()
 # }
 # 
-# flow_csv <- read.csv(paste0(args[1]))
-# flow_csv$Date <- as.Date(flow_csv$Date)
+# flow_ccsv <- read.csv(paste0(args[1]))
+# flow_ccsv$Date <- as.Date(flow_csv$Date)
 flow_col <- "Flow"
-gage_name <- "Cootes Store"
+gage_name <- "Mount Jackson"
 manual_opt <- F
 
 library(dplyr)
@@ -18,10 +18,10 @@ library(tidyr)
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/main/MainAnalysisFunctionsPt1.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/analyze_recession.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/attach_event_stats.R")
-source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/will_baseflow/will_mk_trim.R")
+#source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/will_baseflow/will_mk_trim.R")
 # Load in stream data from USGS
 #Change NWISdv for different gages
-flow_csv <- readNWISdv("01632000", parameterCd = "00060") %>% renameNWISColumns()
+flow_csv <- readNWISdv("01633000", parameterCd = "00060") %>% renameNWISColumns()
 
 suppressPackageStartupMessages(library(purrr))
 
@@ -61,26 +61,26 @@ results <- imap(sites, function(site, abbrev) {
 })
 
 # extract the analysis dataframe from results
-CS_original_analysis_df <- results$gage$analysis
+MJ_original_analysis_df <- results$gage$analysis
 
 # Trim each event
-CS_trimmed_analysis_df <- CS_original_analysis_df %>%
+MJ_trimmed_analysis_df <- MJ_original_analysis_df %>%
   group_by(GroupID) %>%
   group_modify(~ trim_event_mk(.x)) %>%
   ungroup()
 
 # Keep only the rows marked as kept = TRUE
-CS_trimmed_kept <- CS_trimmed_analysis_df %>%
+MJ_trimmed_kept <- MJ_trimmed_analysis_df %>%
   filter(kept == TRUE)
 
 # Recalculate AGWR & delta_AGWR after trimming
-CS_trimmed_kept <- CS_trimmed_kept %>%
+MJ_trimmed_kept <- MJ_trimmed_kept %>%
   mutate(
     AGWR = calc_AGWR(Flow),
     delta_AGWR = calc_delta_AGWR(AGWR)
   )
 
-# Attach event statistics
+# Attach event statistiS
 attach_event_stats <- function(analysis_data, r_lim = 0) {
   require(sqldf)
   source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/summarize_event.R")
@@ -102,17 +102,18 @@ attach_event_stats <- function(analysis_data, r_lim = 0) {
 }
 
 
-CS_original_analysis_df <- attach_event_stats(CS_original_analysis_df, r_lim = 0)
+MJ_original_analysis_df <- attach_event_stats(MJ_original_analysis_df, r_lim = 0)
 
-CS_trimmed_analysis_0.1_df <- attach_event_stats(CS_trimmed_kept, r_lim = 0) %>%
+MJ_trimmed_analysis_0.1_df <- attach_event_stats(MJ_trimmed_kept, r_lim = 0) %>%
   rename(
     trimmed_calc_AGWR = calc_AGWR,
     trimmed_event_R_squared = event_R_squared
   )
 
 
-CS_trimmed_analysis_0.1_df <- CS_trimmed_analysis_0.1_df %>%
+MJ_trimmed_analysis_0.1_df <- MJ_trimmed_analysis_0.1_df %>%
   mutate(AGWR_flag = trimmed_calc_AGWR >= 1.0)
+
 
 # Add AGW model data
 #
@@ -125,17 +126,17 @@ CS_trimmed_analysis_0.1_df <- CS_trimmed_analysis_0.1_df %>%
 # # Write final csvs out
 # write.csv(analysis_df, end_path)
 
-library(purrr)
-
-problem_groups <- CS_trimmed_kept %>%
-  group_split(GroupID) %>%
-  keep(~ {
-    # test summarize_event for each group
-    df <- .
-    tryCatch({
-      test <- summarize_event(df)
-      FALSE  # works fine
-    }, error = function(e) TRUE)  # fails
-  })
-
-length(problem_groups)
+# library(purrr)
+# 
+# problem_groups <- S_trimmed_kept %>%
+#   group_split(GroupID) %>%
+#   keep(~ {
+#     # test summarize_event for each group
+#     df <- .
+#     tryCatch({
+#       test <- summarize_event(df)
+#       FALSE  # works fine
+#     }, error = function(e) TRUE)  # fails
+#   })
+# 
+# length(problem_groups)
