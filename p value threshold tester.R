@@ -3,7 +3,7 @@ library(dplyr)
 
 # Define your gages and MK alpha thresholds
 gage_ids <- c("01634000", "01632000", "01634500")
-alpha_values <- c(0.01, 0.05, 0.1)
+alpha_values <- c(0.1, 0.2, 0.3)
 
 # Create a data frame of all combinations to test
 param_grid <- expand.grid(gage_id = gage_ids, alpha = alpha_values)

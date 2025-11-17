@@ -7,7 +7,7 @@
 # flow_ccsv <- read.csv(paste0(args[1]))
 # flow_ccsv$Date <- as.Date(flow_csv$Date)
 flow_col <- "Flow"
-gage_name <- "Mount Jackson"
+gage_name <- "Strasburg"
 manual_opt <- F
 
 library(dplyr)
@@ -18,10 +18,11 @@ library(tidyr)
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/main/MainAnalysisFunctionsPt1.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/analyze_recession.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/attach_event_stats.R")
-#source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/will_baseflow/will_mk_trim.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/will_baseflow/will_mk_trim.R")
+
 # Load in stream data from USGS
 #Change NWISdv for different gages
-flow_csv <- readNWISdv("01633000", parameterCd = "00060") %>% renameNWISColumns()
+flow_csv <- readNWISdv("01634000", parameterCd = "00060") %>% renameNWISColumns()
 
 suppressPackageStartupMessages(library(purrr))
 
@@ -61,20 +62,20 @@ results <- imap(sites, function(site, abbrev) {
 })
 
 # extract the analysis dataframe from results
-MJ_original_analysis_df <- results$gage$analysis
+S_original_analysis_df <- results$gage$analysis
 
 # Trim each event
-MJ_trimmed_analysis_df <- MJ_original_analysis_df %>%
+S_trimmed_analysis_df <- S_original_analysis_df %>%
   group_by(GroupID) %>%
   group_modify(~ trim_event_mk(.x)) %>%
   ungroup()
 
 # Keep only the rows marked as kept = TRUE
-MJ_trimmed_kept <- MJ_trimmed_analysis_df %>%
+S_trimmed_kept <- S_trimmed_analysis_df %>%
   filter(kept == TRUE)
 
 # Recalculate AGWR & delta_AGWR after trimming
-MJ_trimmed_kept <- MJ_trimmed_kept %>%
+S_trimmed_kept <- S_trimmed_kept %>%
   mutate(
     AGWR = calc_AGWR(Flow),
     delta_AGWR = calc_delta_AGWR(AGWR)
@@ -102,17 +103,17 @@ attach_event_stats <- function(analysis_data, r_lim = 0) {
 }
 
 
-MJ_original_analysis_df <- attach_event_stats(MJ_original_analysis_df, r_lim = 0)
+S_original_analysis_df <- attach_event_stats(S_original_analysis_df, r_lim = 0)
 
-MJ_trimmed_analysis_0.1_df <- attach_event_stats(MJ_trimmed_kept, r_lim = 0) %>%
-  rename(
-    trimmed_calc_AGWR = calc_AGWR,
-    trimmed_event_R_squared = event_R_squared
-  )
-
-
-MJ_trimmed_analysis_0.1_df <- MJ_trimmed_analysis_0.1_df %>%
-  mutate(AGWR_flag = trimmed_calc_AGWR >= 1.0)
+# S_trimmed_analysis_0.1_df <- attach_event_stats(S_trimmed_kept, r_lim = 0) %>%
+#   rename(
+#     trimmed_calc_AGWR = calc_AGWR,
+#     trimmed_event_R_squared = event_R_squared
+#   )
+# 
+# 
+# S_trimmed_analysis_0.1_df <- S_trimmed_analysis_0.1_df %>%
+#   mutate(AGWR_flag = trimmed_calc_AGWR >= 1.0)
 
 
 # Add AGW model data

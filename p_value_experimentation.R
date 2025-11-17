@@ -2,7 +2,7 @@ library(dplyr)
 library(purrr)
 library(ggplot2)
 
-# original data
+# load original data
 analysis_list <- list(
   "Cootes Store" = CS_original_analysis_df,
   "Strasburg" = S_original_analysis_df,
@@ -10,15 +10,10 @@ analysis_list <- list(
 )
 
 names(S_original_analysis_df)
+names(CS_original_analysis_df)
+names(MJ_original_analysis_df)
 
-S_original_analysis_df <- S_original_analysis_df %>%
-  select(-matches("\\.\\.\\.\\d+$")) %>%  # drops columns with ...11, ...12, etc.
-  rename(
-    calc_AGWR = calc_AGWR, 
-    event_R_squared = event_R_squared
-  )
-
-alpha_vals <- c(0.05, 0.10, 0.20)
+alpha_vals <- c(0.1, 0.20, 0.30)
 
 process_trim_with_event_stats <- function(df, gage_name, alpha) {
   df_trimmed <- df %>%
@@ -53,6 +48,8 @@ trimmed_event_results <- imap_dfr(
     map_dfr(alpha_vals, ~ process_trim_with_event_stats(df, gage_name, .x))
   }
 )
+
+
 
 event_population_stats <- trimmed_event_results %>%
   group_by(site_name, alpha, GroupID) %>%
