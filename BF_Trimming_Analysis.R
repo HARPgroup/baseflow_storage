@@ -91,7 +91,7 @@ process_site_alpha <- function(df, site_name, alpha) {
   df_trimmed_kept <- df_trimmed_kept %>%
     filter(is.na(trimmed_AGWRC) | trimmed_AGWRC < 1.0)
   
-  # 6) Also compute summary_event (original AWGR & R²)
+  # 6) Also compute summary_event (original AWGR & R²)wri
   orig_event_stats <- df_trimmed_kept %>%
     group_split(GroupID) %>%
     map_dfr(~ safe_summarize_event(.x))
