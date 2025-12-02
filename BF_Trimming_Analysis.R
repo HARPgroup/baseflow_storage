@@ -4,6 +4,22 @@ library(purrr)
 library(tidyr)
 library(ggplot2)
 
+#load original data
+CS_original_analysis_df <- read.csv(
+  "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/ben_trimming/CS_original_analysis_df.csv"
+)
+
+S_original_analysis_df <- read.csv(
+  "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/ben_trimming/S_original_analysis_df.csv"
+)
+
+MJ_original_analysis_df <- read.csv(
+  "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/ben_trimming/MJ_original_analysis_df.csv"
+)
+
+# load MK trimming function
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/ben_trimming/will_mk_trim.R")
+
 alpha_vals <- c(0.10, 0.20, 0.30)
 
 analysis_list <- list(
@@ -14,7 +30,7 @@ analysis_list <- list(
 
 
 # ---------------- REGRESSION-BASED EVENT STATS ----------------
-#Based of methodology from calc_event_stats
+#Based of methodology from calc_event_stats function
 calc_regression_AGWRC <- function(df) {
   # Need at least 3 rows for a regression
   if (nrow(df) < 3) {
@@ -75,7 +91,7 @@ process_site_alpha <- function(df, site_name, alpha) {
     ungroup()
   
   # 2) Keep rows in the MK window
-  df_trimmed_kept <- df_trimmed %>% filter(kept == TRUE)
+  df_trimmed_kept <- df_trimmed
   
   # 3) Regression-based AGWRC for each trimmed event
   event_regression_stats <- df_trimmed_kept %>%
@@ -109,33 +125,73 @@ process_site_alpha <- function(df, site_name, alpha) {
 
 
 
-# ---------------- RUN SWEEP ----------------
-trimmed_event_results <- imap_dfr(
+# ---------------- RUN SWEEP SEPARATELY FOR EACH SITE ----------------
+site_results_list <- imap(
   analysis_list,
   function(df, site_name) {
     map_dfr(alpha_vals, ~ process_site_alpha(df, site_name, .x))
   }
 )
 
+# Extract individually
+CS_trimmed_event_results <- site_results_list[["Cootes Store"]]
+S_trimmed_event_results  <- site_results_list[["Strasburg"]]
+MJ_trimmed_event_results <- site_results_list[["Mount Jackson"]]
+
+
 
 
 # ---------------- EVENT-LEVEL STATS ----------------
-event_population_stats <- trimmed_event_results %>%
-  group_by(site_name, alpha, GroupID) %>%
+CS_event_population_stats <- CS_trimmed_event_results %>%
+  group_by(alpha, GroupID) %>%
   summarise(
     event_AGWRC_mean   = mean(trimmed_AGWRC, na.rm = TRUE),
     event_AGWRC_median = median(trimmed_AGWRC, na.rm = TRUE),
-    event_duration    = n(),
-    event_R2          = first(trimmed_event_R_squared),
-    n_kept_rows       = sum(!is.na(trimmed_AGWRC)),
+    event_duration     = n(),
+    event_R2           = first(trimmed_event_R_squared),
+    n_kept_rows        = sum(!is.na(trimmed_AGWRC)),
+    .groups = "drop"
+  )
+
+S_event_population_stats <- S_trimmed_event_results %>%
+  group_by(alpha, GroupID) %>%
+  summarise(
+    event_AGWRC_mean   = mean(trimmed_AGWRC, na.rm = TRUE),
+    event_AGWRC_median = median(trimmed_AGWRC, na.rm = TRUE),
+    event_duration     = n(),
+    event_R2           = first(trimmed_event_R_squared),
+    n_kept_rows        = sum(!is.na(trimmed_AGWRC)),
+    .groups = "drop"
+  )
+
+MJ_event_population_stats <- MJ_trimmed_event_results %>% 
+  group_by(alpha, GroupID) %>%
+  summarise(
+    event_AGWRC_mean   = mean(trimmed_AGWRC, na.rm = TRUE),
+    event_AGWRC_median = median(trimmed_AGWRC, na.rm = TRUE),
+    event_duration     = n(),
+    event_R2           = first(trimmed_event_R_squared),
+    n_kept_rows        = sum(!is.na(trimmed_AGWRC)),
     .groups = "drop"
   )
 
 
 
+
 # ---------------- SITE-LEVEL STATS ----------------
-site_summary <- event_population_stats %>%
-  group_by(site_name, alpha) %>%
+CS_site_summary <- CS_event_population_stats %>%
+  group_by(alpha) %>%
+  summarise(
+    Average_AGWRCC_Across_All_Events = mean(event_AGWRC_mean, na.rm = TRUE),
+    p25    = quantile(event_AGWRC_mean, 0.25, na.rm = TRUE),
+    median = median(event_AGWRC_mean, na.rm = TRUE),
+    p75    = quantile(event_AGWRC_mean, 0.75, na.rm = TRUE),
+    n_events = n(),
+    .groups = "drop"
+  )
+
+S_site_summary <- S_event_population_stats %>%
+  group_by(alpha) %>%
   summarise(
     Average_AGWRCC_Across_All_Events = mean(event_AGWRC_mean, na.rm = TRUE),
     p25    = quantile(event_AGWRC_mean, 0.25, na.rm = TRUE),
@@ -147,20 +203,91 @@ site_summary <- event_population_stats %>%
 
 
 
-# ---------------- DIAGNOSTIC PLOT ----------------
-ggplot(event_population_stats, aes(x = factor(alpha), y = event_AGWRC_mean)) +
-  geom_boxplot() +
-  facet_wrap(~ site_name, scales = "free_y") +
-  labs(
-    title = "Event-level AGWRC after MK trimming",
-    x = "alpha",
-    y = "Mean AGWRC per Event"
+MJ_site_summary <- MJ_event_population_stats %>%
+  group_by(alpha) %>%
+  summarise(
+    Average_AGWRCC_Across_All_Events = mean(event_AGWRC_mean, na.rm = TRUE),
+    p25    = quantile(event_AGWRC_mean, 0.25, na.rm = TRUE),
+    median = median(event_AGWRC_mean, na.rm = TRUE),
+    p75    = quantile(event_AGWRC_mean, 0.75, na.rm = TRUE),
+    n_events = n(),
+    .groups = "drop"
   )
 
 
 
-list(
-  trimmed_event_results = trimmed_event_results,
-  event_population_stats = event_population_stats,
-  site_summary = site_summary
-) -> outputs
+
+
+
+# # ---------------- DIAGNOSTIC PLOT ----------------
+# ggplot(CS_event_population_stats, aes(x = factor(alpha), y = event_AGWRC_mean)) +
+#   geom_boxplot() +
+#   facet_wrap(~ site_name, scales = "free_y") +
+#   labs(
+#     title = "CS Event-level AGWRC after MK trimming",
+#     x = "alpha",
+#     y = "Mean AGWRC per Event"
+#   )
+# 
+# ggplot(S_event_population_stats, aes(x = factor(alpha), y = event_AGWRC_mean)) +
+#   geom_boxplot() +
+#   facet_wrap(~ site_name, scales = "free_y") +
+#   labs(
+#     title = "S Event-level AGWRC after MK trimming",
+#     x = "alpha",
+#     y = "Mean AGWRC per Event"
+#   )
+# 
+# ggplot(MJ_event_population_stats, aes(x = factor(alpha), y = event_AGWRC_mean)) +
+#   geom_boxplot() +
+#   facet_wrap(~ site_name, scales = "free_y") +
+#   labs(
+#     title = "MJ_Event-level AGWRC after MK trimming",
+#     x = "alpha",
+#     y = "Mean AGWRC per Event"
+#   )
+
+clean_event_df <- function(df) {
+  
+  df %>%
+    # 1. Drop all-NA columns
+    select(where(~ !all(is.na(.x)))) %>%
+    
+    # 2. Rename theoriginal regression columns
+    rename(
+      AGWRC        = AGWR,
+      delta_AGWRC  = delta_AGWR,
+      calc_AGWRC   = calc_AGWR
+    ) %>%
+    
+    # 3. Keep all relevant columns (whether trimmed or original)
+    select(
+      GroupID, site_no, site_name, Date, Year, Month, Day, Season,
+      Flow,
+      
+      # original untrimmed flow regression
+      AGWRC, delta_AGWRC, calc_AGWRC,
+      event_R_squared,
+      
+      # MK/trimming info
+      mk_pval, mk_pval_orig,
+      trim_start, trim_end, win_len,
+      is_short, met_alpha, kept,
+      
+      # trimmed regression results
+      trimmed_AGWRC,        # trimmed slope
+      trimmed_R2, trimmed_event_R_squared,
+      
+      # metadata
+      n_points, alpha
+    )
+}
+
+
+
+
+CS_trimmed_events_full  <- clean_event_df(CS_trimmed_event_results)
+S_trimmed_events_full   <- clean_event_df(S_trimmed_event_results)
+MJ_trimmed_events_full  <- clean_event_df(MJ_trimmed_event_results)
+
+
