@@ -187,3 +187,197 @@ ggplot(data = analysis_df, mapping = aes(x = AGWET, y = AGWO))+
 
 
 
+# AGWET vs. AGWS
+ggplot(data = analysis_df, mapping = aes(x = AGWET, y = AGWS))+ 
+  geom_point(size = 0.75)+
+  theme_bw()+
+  ggtitle("AGWET vs. AGWS")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+# Calculating AGWS from Flow (AGWO) and AGWRC ----
+site <- readNWISsite("01633000")
+da_sqmi <- site$drain_area_va
+
+conversion <- (86400*12*12*12)/(5280*5280*12*12)
+sp_conv <- conversion/da_sqmi
+
+analysis_df$Flow_in <- analysis_df$Flow * sp_conv
+
+analysis_df$calc_AGWS <- (analysis_df$Flow_in)/(1-(analysis_df$calc_AGWR))
+
+ggplot(data = analysis_df, mapping = aes(x = AGWS, y = calc_AGWS))+ 
+  geom_point(size = 0.75)+
+  theme_bw()+
+  ggtitle("Model AGWS vs. AGWS Calculated from Flow")+
+  theme(plot.title = element_text(hjust = 0.5))+
+  ylim(0,3)
+
+ggplot(data = analysis_df, mapping = aes(x = AGWO, y = Flow_in))+ 
+  geom_point(size = 0.75)+
+  theme_bw()+
+  ggtitle("Model AGWO vs. Flow in Watershed Inches")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+# Quantifying agwet effect on low and high storage days
+#calc. agws
+analysis_df$calc_AGWS <- (analysis_df$AGWO)/(1-(analysis_df$calc_AGWR))
+
+AGWS_df <- analysis_df[, c("Date", "AGWET", "AGWS")]
+AGWS_df$AGWS_model <- analysis_df$calc_AGWS
+
+
+analysis_df$calc_AGWS <- (analysis_df$Flow_in)/(1-(analysis_df$calc_AGWR))
+
+AGWS_df$AGWS_flow <- analysis_df$calc_AGWS
+
+AGWS_filtered <- AGWS_df[!is.na(AGWS_df$AGWS_model),]
+
+long_AGWS <- sqldf("
+  select Date, AGWET, AGWS as AGWS_orig, AGWS_flow as AGWS_calc, 'flow' as source from AGWS_filtered
+  union all
+  select Date, AGWET, AGWS as AGWS_orig, AGWS_model as AGWS_calc, 'model' as source from AGWS_filtered
+")
+
+ggplot(long_AGWS, aes(x = AGWS_orig, y = AGWS_calc, color = source)) +
+  geom_point(alpha = 0.4) +
+  labs(x = "AGWS (in)", y = "AGWS (in)", color = "Source") +
+  theme_bw()+
+  scale_color_manual(values = c("dodgerblue2","orange"))+
+  coord_cartesian(ylim = c(-1,5))+
+  ggtitle("AGWS vs. Two Inputs for Calculating AGWS")+
+  theme(plot.title = element_text(hjust = 0.5))
+  
+
+# Looking at individual events ----
+id_num <- 99
+
+ex <- sqldf(sprintf(
+  "select * from analysis_df where GroupID = %f"
+, id_num))
+
+ex$AGWS_model <- (ex$AGWO)/(1-(ex$calc_AGWR))
+ex$AGWS_flow <- (ex$Flow_in)/(1-(ex$calc_AGWR))
+
+ex_long <- sqldf("
+  select Date, AGWET, AGWS as AGWS_orig, AGWS_flow as AGWS_calc, 'flow' as source from ex
+  union all
+  select Date, AGWET, AGWS as AGWS_orig, AGWS_model as AGWS_calc, 'model' as source from ex
+")
+
+ggplot(ex_long, aes(x = AGWS_orig, y = AGWS_calc, color = source)) +
+  geom_point(alpha = 0.75) +
+  labs(x = "Model AGWS (in)", y = "Calculated AGWS (in)", color = "Source") +
+  theme_bw()+
+  scale_color_manual(values = c("dodgerblue2","orange"))+
+  ggtitle(paste0("Event ", id_num))+
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(ex, aes(x=Date, y= AGWO))+
+  geom_line(color = "dodgerblue4")+
+  theme_bw()+
+  ylab("AGWO (in)")+
+  ggtitle(paste0("Event ", id_num))+
+  theme(plot.title = element_text(hjust=0.5))+
+  coord_cartesian(ylim = c(0,0.028))
+
+scale_factor <- 1
+
+ggplot(ex, aes(x = Date)) +
+  geom_line(aes(y = Flow_in, color = "Flow")) +
+  geom_line(aes(y = AGWS_flow * scale_factor, color = "AGWS")) +
+  scale_y_continuous(name = "Flow (in)",
+                     sec.axis = sec_axis(~ . / scale_factor, name = "Model AGWS (in)")) +
+  scale_color_manual(name = "Variable",
+                     values = c("Flow" = "blue", "AGWS" = "red")) +
+  labs(x = "Date",
+       y = "Flow",
+       title = paste0("Flow and AGWS over Time: Event ", id_num)) +
+  theme_bw()
+
+  
+
+
+# Calculate the 50th percentile (median) of storage
+median_AGWS <- quantile(analysis_df$AGWS, 0.5, na.rm = TRUE)
+
+# Filter rows where storage is less than or equal to the median
+low_storage_data <- analysis_df[analysis_df$AGWS <= median_AGWS, ]
+
+high_storage_data <- analysis_df[analysis_df$AGWS >= median_AGWS, ]
+
+ggplot(low_storage_data, mapping = aes(AGWET, AGWS))+
+  geom_point()
+
+ggplot(high_storage_data, mapping = aes(AGWET, AGWS))+
+  geom_point()
+
+
+# Using Ben's Trimmed data
+mj_trimmed <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_trimming/MJ_trimmed_analysis.csv")
+
+land_type_code <- "forN51171"
+
+mj_trimmed <- add_model_data(mj_trimmed, land_type_code, "AGWI")
+
+mj_trimmed <- add_model_data(mj_trimmed, land_type_code, "AGWET")
+
+mj_trimmed <- add_model_data(mj_trimmed, land_type_code, "AGWO")
+
+mj_trimmed <- add_model_data(mj_trimmed, land_type_code, "AGWS")
+
+site <- readNWISsite("01633000")
+da_sqmi <- site$drain_area_va
+
+conversion <- (86400*12*12*12)/(5280*5280*12*12)
+sp_conv <- conversion/da_sqmi
+
+id_num <- 101
+
+ex <- sqldf(sprintf(
+  "select * from mj_trimmed where GroupID = %f"
+  , id_num))
+
+# For all events
+ex <- sqldf(
+  "select * from mj_trimmed "
+  )
+
+ex$AGWS_model <- (ex$AGWO)/(1-(ex$trimmed_calc_AGWR))
+ex$AGWS_flow <- (ex$Flow_in)/(1-(ex$trimmed_calc_AGWR))
+
+ex_long <- sqldf("
+  select Date, AGWET, AGWS as AGWS_orig, AGWS_flow as AGWS_calc, 'flow' as source from ex
+  union all
+  select Date, AGWET, AGWS as AGWS_orig, AGWS_model as AGWS_calc, 'model' as source from ex
+")
+
+ggplot(ex_long, aes(x = AGWS_orig, y = AGWS_calc, color = source)) +
+  geom_point(alpha = 0.75) +
+  labs(x = "Model AGWS (in)", y = "Calculated AGWS (in)", color = "Source") +
+  theme_bw()+
+  scale_color_manual(values = c("dodgerblue2","orange"))+
+  ggtitle(paste0("AGWS Calculated from Two Sources (Trimmed Data)"))+
+  theme(plot.title = element_text(hjust = 0.5))+
+  xlim(0,1)
+
+
+scale_factor <- 1
+
+ex$Date <- as.Date(ex$Date)
+
+
+ggplot(ex, aes(x = Date)) +
+  geom_line(aes(y = Flow_in, color = "Flow", group = 1)) +
+  geom_line(aes(y = AGWS_flow * scale_factor, color = "AGWS", group = 1)) +
+  scale_y_continuous(name = "Flow (in)",
+                     sec.axis = sec_axis(~ . / scale_factor, name = "Model AGWS (in)")) +
+  scale_color_manual(name = "Variable",
+                     values = c("Flow" = "blue", "AGWS" = "red")) +
+  labs(x = "Date",
+       y = "Flow",
+       title = paste0("Flow and AGWS over Time: Event ", id_num)) +
+  theme_bw()
+
+
