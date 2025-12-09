@@ -1,5 +1,7 @@
 bf_event_stats <- function(data, flow_col="Flow", date_col="Date"){
 
+  data[[date_col]]<-as.Date(data[[date_col]])
+  
   # Create lm of data
   logFlow_lm <-lm(log(data[[flow_col]]) ~ data[[date_col]])
   event_sum <- summary(logFlow_lm)
