@@ -1,8 +1,8 @@
 require(dplyr)
 require(Kendall)
 
-trim_event_mk <- function(event_df, alpha = 0.10, 
-                                    min_len_mk = 3,   # absolute minimum to test MK
+trim_event_mk <- function(event_df, alpha = 0.30, 
+                                    min_len_mk = 4,   # absolute minimum to test MK
                                     flag_len   = 5) { # flag if final window < this
   n <- nrow(event_df)
   
@@ -52,6 +52,9 @@ trim_event_mk <- function(event_df, alpha = 0.10,
   }
   
   kept_idx <- seq_len(n) >= best_i & seq_len(n) <= best_j
+  
+  if (best_len <4) {return(NULL)}
+  
   is_short <- best_len < flag_len
   
   event_df %>%
