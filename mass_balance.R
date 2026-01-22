@@ -1,5 +1,5 @@
 # Data Import
-mj_trimmed_old <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_trimming/MJ_trimmed_analysis.csv")
+mj_trimmed <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_trimming/bf_events_01633000.csv")
 
 mj_data <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/mount_jackson_event_dataset.csv")
 
@@ -62,10 +62,10 @@ ggplot(data = event_sums, mapping = aes(x=error, y = AGWET_tot))+
 
 # Done with USGS Data ----
 # Download trimmed data
-mj_trimmed <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_trimming/MJ_trimmed_events_full.csv")
+mj_trimmed <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_trimming/bf_events_01633000.csv")
 
 mj_trimmed <- sqldf(
-  "Select * from mj_trimmed where kept = TRUE and alpha = 0.3"
+  "Select * from mj_trimmed where kept = TRUE and met_alpha = TRUE"
   )
 
 mj_trimmed$Date <- as.Date(mj_trimmed$Date)
@@ -86,7 +86,7 @@ sp_conv <- conversion/da_sqmi
 mj_trimmed$Flow_in <- mj_trimmed$Flow * sp_conv
 
 # Calculate AGWS equivalent using agwo/1-agwrc
-mj_trimmed$Storage_in <- mj_trimmed$Flow_in/(1-mj_trimmed$trimmed_AGWRC)
+mj_trimmed$Storage_in <- mj_trimmed$Flow_in/(1-mj_trimmed$AGWRC)
 
 # 
 event_sums <- sqldf("
@@ -109,24 +109,24 @@ event_sums <- sqldf("
   group by a.GroupID
 ")
 
-event_sums$error <- (event_sums$Storage_0 - event_sums$Flow_tot - event_sums$Storage_f)
+event_sums$remainder <- (event_sums$Storage_0 - event_sums$Flow_tot - event_sums$Storage_f)
 event_sums$start_date <- as.Date(event_sums$start_date)
 event_sums$end_date <- as.Date(event_sums$end_date)
 
 
 # Plotting sme results
-ggplot(data = event_sums, mapping = aes(x=error))+
+ggplot(data = event_sums, mapping = aes(x=remainder))+
   geom_histogram(bins = 30, fill="firebrick2", color = "firebrick")+
   theme_bw()+
    #coord_cartesian(xlim = c(-0.25,.25))+
-  xlab("Error (in)")+
+  xlab("Remainder (in)")+
   ggtitle("Change in Storage - Total Outflow (USGS)")+
   theme(plot.title = element_text(hjust = 0.5))
 
-ggplot(data = event_sums, mapping = aes(x=error, y = (AGWET_tot)))+
+ggplot(data = event_sums, mapping = aes(x=remainder, y = (AGWET_tot)))+
   geom_point()+
   theme_bw()+
-  coord_cartesian(xlim = c(-20,1), ylim = c(0,20))+
+  #coord_cartesian(xlim = c(-1,1), ylim = c(0,0.2))+
   xlab("Remainder (% of Final Storage)")+
   ylab("Total AGWET (% of Final Storage)")+
   ggtitle("Remainder and Event total ET - Mount Jackson")+
