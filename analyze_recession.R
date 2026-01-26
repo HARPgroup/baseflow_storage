@@ -35,5 +35,5 @@ analyze_recession <- function(df, site_name = "", min_len = 0, max_len = Inf) {
   cat("Longest recession lasted", max_len, "days\n")
   cat("From", recession_event_df$StartDate[longest], "to", recession_event_df$EndDate[longest], "\n")
   
-  list(df = df, summary = recession_event_df)
+  return(list(df = df, summary = recession_event_df))
 }

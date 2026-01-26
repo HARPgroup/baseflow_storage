@@ -41,8 +41,8 @@ gap_fill <- function(flag_vec, max_gap = 5) {
   #     values[i] <- FALSE
   #   }
   # }
-  
-  inverse.rle(list(lengths = lengths, values = values))
+  result <-inverse.rle(list(lengths = lengths, values = values))
+  return(result)
 }
 
 ###FUNCTION #4: FLAG STABLE BASEFLOW###
@@ -55,14 +55,15 @@ flag_stable_baseflow <- function(df,
   AGWR <- df[[AGWR_col]]
   delta <- df[[delta_col]]
   
-  is_stable <- abs(delta - 1.0) < delta_thresh & AGWR < 1.0
-  df$RecessionDay <- gap_fill( is_stable, max_gap)
+  df$is_stable <- abs(delta - 1.0) < delta_thresh & AGWR < 1.0
+  df$RecessionDay <- gap_fill( df$is_stable, max_gap)
   
   for(i in 1:length(df$RecessionDay)) {
     # Compare flow at i to overall mean flow
-    if (flow_col[i] >= 1.15 * mean(flow_col, na.rm = TRUE)) {
-      df$RecessionDay <- FALSE
+    if (df[[flow_col]][i] >= (2.5 * mean(df[[flow_col]], na.rm = TRUE))) {
+      df$RecessionDay[i] <- FALSE
     }
-    return(df)
+  
   }
+  return(df)
 }
