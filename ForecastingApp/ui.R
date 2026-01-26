@@ -20,7 +20,7 @@ ui <- fluidPage(
     ),
     
     mainPanel(
-      droughtModuleUI("droughtModule")
+      droughtModuleUI("drought")
     )
   )
 )

@@ -1,13 +1,18 @@
-## server.R
-
+#server.R
 server <- function(input, output, session) {
   
-  # Reactive list with $original and $trimmed for the chosen site
-  site_data <- reactive({
-    req(input$site_choice)
-    site_data_list[[input$site_choice]]
+  # map the radio button choice to a gage_id
+  selected_gage <- reactive({
+    switch(input$site_choice,
+           "Cootes Store"   = "01632000",
+           "Mount Jackson"  = "01633000",
+           "Strasburg"      = "01634000"
+    )
   })
   
-  # Call the drought module
-  droughtModuleServer("droughtModule", site_data)
+  # call module, passing the reactive gage_id in
+  droughtModuleServer(
+    id      = "drought",
+    gage_id = selected_gage
+  )
 }

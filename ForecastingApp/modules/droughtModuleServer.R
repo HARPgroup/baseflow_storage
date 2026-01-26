@@ -1,32 +1,87 @@
 ## modules/droughtModuleServer.R
 
-droughtModuleServer <- function(id, site_data) {
+droughtModuleServer <- function(id, gage_id) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
     # ---------------------------------------------
+    # 0. Core data for this gage
+    #    - analysis/event points: from GitHub via bf_get_gage_analysis()
+    #    - daily flow for plots: USGS via dataRetrieval
+    # ---------------------------------------------
+    analysis_points <- reactive({
+      req(gage_id())
+
+      out <- tryCatch(
+        bf_get_gage_analysis(gage_id()),
+        error = function(e) {
+          showNotification(paste("Analysis CSV load failed:", e$message), type = "error", duration = NULL)
+          return(NULL)
+        }
+      )
+
+      req(!is.null(out), nrow(out) > 0)
+      message("Loaded GitHub analysis rows: ", nrow(out), " for gage_id = ", gage_id())
+      out
+    })
+
+    usgs_daily <- reactive({
+      req(gage_id())
+
+      # Pull a conservative window: from earliest analysis date to today.
+      # (No new calculations—this is just for fleshing out time-series plots.)
+      pts <- analysis_points()
+      start_date <- min(pts$Date, na.rm = TRUE)
+
+      dv <- tryCatch(
+        dataRetrieval::readNWISdv(
+          siteNumbers = gage_id(),
+          parameterCd = "00060",
+          startDate = as.character(start_date)
+        ),
+        error = function(e) {
+          showNotification(paste("USGS daily flow download failed:", e$message), type = "error", duration = NULL)
+          return(NULL)
+        }
+      )
+
+      req(!is.null(dv), nrow(dv) > 0)
+
+      # Standardize columns
+      q_col <- grep("^X_00060_00003$", names(dv), value = TRUE)
+      if (length(q_col) == 0) {
+        # dataRetrieval naming can vary; fall back to the first "00060" column
+        q_col <- grep("00060", names(dv), value = TRUE)[1]
+      }
+
+      dv %>%
+        dplyr::transmute(
+          Date = as.Date(Date),
+          Flow = as.numeric(.data[[q_col]])
+        ) %>%
+        dplyr::arrange(Date)
+    })
+
+    # ---------------------------------------------
     # 1. Convenience reactives
+    # --------------------------------------------- Convenience reactives
     # ---------------------------------------------
     original_df <- reactive({
-      dat <- site_data()$original
-      req(dat)
-      dat %>%
-        mutate(Date = as.Date(Date)) %>%
-        arrange(Date)
+      df <- analysis_points()
+      req(nrow(df) > 0)
+      df %>% arrange(Date)
     })
     
     trimmed_df <- reactive({
-      dat <- site_data()$trimmed
-      req(dat)
-      dat %>%
+      df <- analysis_points()
+      req(nrow(df) > 0)
+      df %>%
         mutate(Date = as.Date(Date)) %>%
-        # focus on events actually kept in trimming
-        filter(is.na(kept) | kept)   # if kept exists, use it; else keep all
+        filter(kept == TRUE, met_alpha == TRUE)
     })
     
     site_name <- reactive({
-      # prefer site_name column if present, otherwise fallback
-      df <- trimmed_df()
+      df <- analysis_points()
       if ("site_name" %in% names(df)) {
         unique(df$site_name)[1]
       } else if ("site_no" %in% names(df)) {
@@ -42,46 +97,19 @@ droughtModuleServer <- function(id, site_data) {
     events_summary <- reactive({
       df <- trimmed_df()
       req(nrow(df) > 0)
-      
-      agwrc_col <- dplyr::case_when(
-        "trimmed_AGWRC" %in% names(df) ~ "trimmed_AGWRC",
-        "calc_AGWRC"    %in% names(df) ~ "calc_AGWRC",
-        "AGWR.y"        %in% names(df) ~ "AGWR.y",
-        "AGWR.x"        %in% names(df) ~ "AGWR.x",
-        TRUE                             ~ NA_character_
-      )
-      
-      df %>%
-        dplyr::group_by(GroupID) %>%
-        dplyr::summarise(
-          site_name   = first(site_name),
-          start_date  = min(Date),
-          end_date    = max(Date),
-          n_days      = dplyr::n_distinct(Date),  # <<-- fix here
-          median_flow = median(Flow, na.rm = TRUE),
-          min_flow    = min(Flow, na.rm = TRUE),
-          max_flow    = max(Flow, na.rm = TRUE),
-          event_AGWRC = if (!is.na(agwrc_col)) first(.data[[agwrc_col]]) else NA_real_,
-          event_R2    = first(dplyr::coalesce(
-            if ("trimmed_event_R_squared" %in% names(.)) trimmed_event_R_squared else NA_real_,
-            if ("event_R_squared"         %in% names(.)) event_R_squared         else NA_real_
-          )),
-          .groups = "drop"
-        ) %>%
-        dplyr::arrange(start_date)
+      make_ben_event_summary(df)  # from global.R
     })
     
     # ---------------------------------------------
     # 3. Historical plot (recent window)
     # ---------------------------------------------
     output$historical_plot <- renderPlotly({
-      df <- original_df()
+      df <- usgs_daily()
       req(nrow(df) > 0)
       
-      # show last 2 years (or full if shorter)
-      max_date <- max(df$Date, na.rm = TRUE)
-      min_window <- max_date - years(2)
-      df_recent <- df %>% filter(Date >= min_window)
+      max_date   <- max(df$Date, na.rm = TRUE)
+      min_window <- max_date - lubridate::years(2)
+      df_recent  <- df %>% filter(Date >= min_window)
       
       plot_ly(
         df_recent,
@@ -96,7 +124,7 @@ droughtModuleServer <- function(id, site_data) {
           xaxis = list(title = "Date"),
           yaxis = list(
             title = "Flow (cfs)",
-            rangemode = "tozero"    # <-- ensure axis can go to 0
+            rangemode = "tozero"
           )
         )
     })
@@ -126,10 +154,8 @@ droughtModuleServer <- function(id, site_data) {
       evt <- evt %>% filter(!is.na(event_AGWRC), !is.na(median_flow))
       req(nrow(evt) > 1)
       
-      # Simple linear regression AGWRC ~ log(flow) for stability
       model <- lm(event_AGWRC ~ log(median_flow), data = evt)
       
-      # Build smooth line
       flow_seq <- seq(min(evt$median_flow, na.rm = TRUE),
                       max(evt$median_flow, na.rm = TRUE),
                       length.out = 100)
@@ -138,7 +164,7 @@ droughtModuleServer <- function(id, site_data) {
         event_AGWRC = predict(model, newdata = data.frame(median_flow = flow_seq))
       )
       
-      p <- plot_ly() |>
+      plot_ly() |>
         add_markers(
           data = evt,
           x    = ~median_flow,
@@ -165,13 +191,12 @@ droughtModuleServer <- function(id, site_data) {
           yaxis = list(title = "Event AGWRC",
                        rangemode = "tozero")
         )
-      
-      p
     })
     
     output$regression_summary <- renderPrint({
       evt <- events_summary()
       req(nrow(evt) > 1)
+      
       evt <- evt %>% filter(!is.na(event_AGWRC), !is.na(median_flow))
       req(nrow(evt) > 1)
       
@@ -248,17 +273,14 @@ droughtModuleServer <- function(id, site_data) {
       df_event <- df %>% filter(GroupID == gid)
       req(nrow(df_event) > 0)
       
-      # prefer AGWR.y (post-trim) then AGWR.x
-      agwr_col <- if ("AGWR.y" %in% names(df_event)) "AGWR.y" else
-        if ("AGWR.x" %in% names(df_event)) "AGWR.x" else "AGWR"
-      
+      # AGWR column is standardized by clean_ben_trimmed()
       plot_ly(
         df_event,
         x = ~Date,
-        y = df_event[[agwr_col]],
+        y = ~AGWR,
         type = "scatter",
         mode = "lines+markers",
-        name = agwr_col
+        name = "AGWR"
       ) |>
         layout(
           xaxis = list(title = "Date"),
@@ -269,10 +291,8 @@ droughtModuleServer <- function(id, site_data) {
     # ---------------------------------------------
     # 7. Forecast logic (single AGWRC for now)
     # ---------------------------------------------
-    
-    # Update default start date when site changes: use last date in original_df
-    observeEvent(original_df(), {
-      df <- original_df()
+    observeEvent(usgs_daily(), {
+      df <- usgs_daily()
       if (nrow(df) > 0) {
         updateDateInput(
           session,
@@ -282,11 +302,10 @@ droughtModuleServer <- function(id, site_data) {
       }
     }, ignoreInit = FALSE)
     
-    # horizons in days
     forecast_horizons <- c(15, 30, 45, 90)
     
     forecast_results <- reactive({
-      df <- original_df()
+      df <- usgs_daily()
       req(nrow(df) > 0)
       
       start_date <- input$forecast_start
@@ -295,7 +314,6 @@ droughtModuleServer <- function(id, site_data) {
       
       df <- df %>% arrange(Date)
       
-      # flow on the selected start date
       Q0 <- df$Flow[df$Date == start_date]
       if (length(Q0) == 0) {
         showNotification("Selected forecast start date has no flow record.", type = "error")
@@ -323,19 +341,17 @@ droughtModuleServer <- function(id, site_data) {
     })
     
     output$forecast_plot <- renderPlotly({
-      df <- original_df()
+      df <- usgs_daily()
       fr <- forecast_results()
       req(df, fr)
       
       start_date <- input$forecast_start
       req(start_date)
       
-      # Historical window: 90 days before start_date
       hist_window <- 90
       df_hist <- df %>%
         filter(Date >= start_date - hist_window & Date <= start_date)
       
-      # Construct combined data for plotting
       hist_plot <- df_hist %>%
         transmute(
           Date = Date,
@@ -372,7 +388,7 @@ droughtModuleServer <- function(id, site_data) {
           xaxis = list(title = "Date"),
           yaxis = list(
             title = "Flow (cfs)",
-            rangemode = "tozero"    # <-- keep axis grounded at 0
+            rangemode = "tozero"
           ),
           legend = list(orientation = "h", x = 0.1, y = -0.1)
         )
@@ -380,4 +396,3 @@ droughtModuleServer <- function(id, site_data) {
     
   })
 }
-

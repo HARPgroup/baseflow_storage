@@ -1,9 +1,9 @@
 require(dplyr)
 require(Kendall)
 
-trim_event_mk <- function(event_df, alpha = 0.10, 
+trim_event_mk <- function(event_df, alpha = 0.20, 
                                     min_len_mk = 3,   # absolute minimum to test MK
-                                    flag_len   = 5) { # flag if final window < this
+                                    flag_len   = 14) { # flag if final window < this
   n <- nrow(event_df)
   
   mk_full <- tryCatch(Kendall::MannKendall(event_df$AGWR), error = function(e) NULL)
