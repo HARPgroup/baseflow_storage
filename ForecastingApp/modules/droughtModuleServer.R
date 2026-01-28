@@ -82,13 +82,15 @@ droughtModuleServer <- function(id, gage_id) {
     
     site_name <- reactive({
       df <- analysis_points()
+      
       if ("site_name" %in% names(df)) {
-        unique(df$site_name)[1]
-      } else if ("site_no" %in% names(df)) {
-        paste("site", unique(df$site_no)[1])
-      } else {
-        "Selected site"
+        nm <- unique(df$site_name)
+        nm <- nm[!is.na(nm) & nzchar(nm)]
+        if (length(nm) > 0) return(nm[1])
       }
+      
+      # fallback that will never be NA
+      paste("USGS", gage_id())
     })
     
     # ---------------------------------------------
@@ -170,13 +172,13 @@ droughtModuleServer <- function(id, gage_id) {
           x    = ~median_flow,
           y    = ~event_AGWRC,
           name = "Events",
-          hovertemplate = paste(
-            "GroupID: %{customdata[1]}<br>",
+          customdata = ~GroupID,
+          hovertemplate = paste0(
+            "GroupID: %{customdata}<br>",
             "Median flow: %{x:.1f} cfs<br>",
-            "Event AGWRC: %{y:.3f}<br>",
+            "Event AGWRC: %{y:.3f}",
             "<extra></extra>"
-          ),
-          customdata = matrix(evt$GroupID, ncol = 1)
+          )
         ) |>
         add_lines(
           data = pred_df,
@@ -366,6 +368,23 @@ droughtModuleServer <- function(id, gage_id) {
           type = "Projected"
         )
       
+      # --- transition line (daily, hoverable) ---
+      end_date <- fr$forecast_date[1]
+      
+      transition_dates <- seq.Date(start_date, end_date, by = "day")
+      
+      Q_start <- df$Flow[df$Date == start_date][1]
+      Q_end   <- fr$proj_flow[1]
+      
+      transition_plot <- tibble::tibble(
+        Date = transition_dates,
+        Flow = approx(
+          x = c(as.numeric(start_date), as.numeric(end_date)),
+          y = c(Q_start, Q_end),
+          xout = as.numeric(transition_dates)
+        )$y
+      )
+      
       combined <- bind_rows(hist_plot, proj_plot)
       
       plot_ly() |>
@@ -375,6 +394,20 @@ droughtModuleServer <- function(id, gage_id) {
           y = ~Flow,
           name = "Observed",
           mode = "lines"
+        ) |>
+        add_lines(
+          data = transition_plot,
+          x = ~Date,
+          y = ~Flow,
+          name = "Transition",
+          line = list(dash = "dash", width = 2, color = "rgba(100,100,100,0.7)"),
+          hovertemplate = paste0(
+            "<b>Transition</b><br>",
+            "Date: %{x}<br>",
+            "Flow: %{y:.2f} cfs",
+            "<extra></extra>"
+          ),
+          showlegend = FALSE
         ) |>
         add_lines(
           data = combined %>% filter(type == "Projected"),
