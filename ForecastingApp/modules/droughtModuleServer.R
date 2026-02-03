@@ -291,6 +291,30 @@ droughtModuleServer <- function(id, gage_id) {
     })
     
     # ---------------------------------------------
+    # 6b. Auto-default AGWRC based on event that contains forecast_start
+    # ---------------------------------------------
+    observeEvent(list(input$forecast_start, events_summary()), {
+      req(input$forecast_start)
+      evt <- events_summary()
+      req(nrow(evt) > 0)
+      
+      sd <- as.Date(input$forecast_start)
+      
+      # Find event whose window contains the start date
+      hit <- evt %>%
+        dplyr::filter(start_date <= sd, end_date >= sd) %>%
+        dplyr::slice(1)
+      
+      if (nrow(hit) == 1 && !is.na(hit$event_AGWRC)) {
+        updateNumericInput(
+          session,
+          "agwrc_single",
+          value = round(hit$event_AGWRC, 3)
+        )
+      }
+    }, ignoreInit = TRUE)
+    
+    # ---------------------------------------------
     # 7. Forecast logic (single AGWRC for now)
     # ---------------------------------------------
     observeEvent(usgs_daily(), {

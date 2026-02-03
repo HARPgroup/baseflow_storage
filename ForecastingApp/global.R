@@ -29,7 +29,7 @@ BF_GH_REPO   <- "baseflow_storage"
 
 # ---- defaults for the CURRENT state (Ben branch; file at repo root) ----
 BF_GH_BRANCH_DEFAULT <- "ben_bf_csvs"
-BF_PATH_TEMPLATE_DEFAULT <- "bf_events_{gage_id}.csv"
+BF_PATH_TEMPLATE_DEFAULT <- "bf_model_events_{gage_id}.csv"
 
 # Cache so we don't re-download the same CSV repeatedly
 .bf_cache <- new.env(parent = emptyenv())
