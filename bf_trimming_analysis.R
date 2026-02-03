@@ -18,11 +18,11 @@ MJ_original_analysis_df <- read.csv(
 )
 
 #OR load in model data
-CS_original_analysis_df <- read.csv("C:/Github/baseflow_storage/CS_model_original_analysis.csv")
+CS_original_analysis_df <- read.csv("C:/Github/baseflow_storage/Cootes_Store_model_event_original_analysis.csv")
 
-MJ_original_analysis_df <- read.csv("C:/Github/baseflow_storage/MJ_model_original_analysis.csv")
+MJ_original_analysis_df <- read.csv("C:/Github/baseflow_storage/Mount_Jackson_model_event_original_analysis.csv")
 
-S_original_analysis_df <- read.csv("C:/Github/baseflow_storage/S_model_original_analysis.csv")
+S_original_analysis_df <- read.csv("C:/Github/baseflow_storage/Strasburg_model_event_original_analysis.csv")
 
 # load MK trimming function
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/ben_trimming/will_mk_trim.R")
@@ -49,11 +49,6 @@ S_trimmed <- S_original_analysis_df %>%
   group_modify(~ trim_event_mk(.x, alpha = 0.3)) %>%
   ungroup() %>%
   filter(kept == TRUE, met_alpha == TRUE)
-                
-# Rename Flow_in to Flow before applying bf_event_stats for model data only
-#CS_trimmed <- CS_trimmed %>% rename(Flow = Flow_in)
-#MJ_trimmed <- MJ_trimmed %>% rename(Flow = Flow_in)
-#S_trimmed <- S_trimmed %>% rename(Flow = Flow_in)
 
 
 #2. Apply bf_event_stats to determine post trimming values of AGWRC and Rsquared
@@ -110,6 +105,8 @@ bf_events_01634000 <- S_event_stats %>%
 write.csv(bf_events_01632000, file ="bf_model_events_01632000.csv", row.names = FALSE )
 write.csv(bf_events_01633000, file ="bf_model_events_01633000.csv", row.names = FALSE )
 write.csv(bf_events_01634000, file ="bf_model_events_01634000.csv", row.names = FALSE )
+getwd()
+
 
 
 
