@@ -5,7 +5,14 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
-      h4("Select USGS Gage"),
+      h4("Select Data Source"),
+      radioButtons(
+        "data_source",
+        label   = NULL,
+        choices = c("Model", "Gage"),
+        selected = "Gage",
+        inline  = TRUE
+      ),
       radioButtons(
         "site_choice",
         label   = NULL,
@@ -14,9 +21,14 @@ ui <- fluidPage(
         inline  = FALSE
       ),
       tags$hr(),
-      helpText("This prototype expects daily flow (Q) with AGWR/AGWRC analysis.",
-               "Historical data are from *_original_analysis_df.",
-               "Event stats are from *_trimmed_event_results.")
+      helpText(
+        "This prototype can load:",
+        tags$ul(
+          tags$li("Raw data (for historical flow overlays): Model flows from GitHub; Gage flows from USGS (dataRetrieval)."),
+          tags$li("Analyzed event data (for baseflow events/AGWRC): pulled from GitHub."),
+          tags$li("Switch between Model and Gage to compare behavior across sources.")
+        )
+      )
     ),
     
     mainPanel(
@@ -24,4 +36,5 @@ ui <- fluidPage(
     )
   )
 )
+
 

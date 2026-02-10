@@ -1,7 +1,7 @@
 #server.R
 server <- function(input, output, session) {
   
-  # map the radio button choice to a gage_id
+  # map the site choice to a gage_id (used for gage raw data + both analyses)
   selected_gage <- reactive({
     switch(input$site_choice,
            "Cootes Store"   = "01632000",
@@ -10,9 +10,16 @@ server <- function(input, output, session) {
     )
   })
   
-  # call module, passing the reactive gage_id in
+  selected_source <- reactive({
+    # normalize to lower-case internally
+    if (identical(input$data_source, "Model")) "model" else "gage"
+  })
+  
   droughtModuleServer(
-    id      = "drought",
-    gage_id = selected_gage
+    id          = "drought",
+    gage_id     = selected_gage,
+    data_source = selected_source,
+    site_choice = reactive(input$site_choice)
   )
 }
+
