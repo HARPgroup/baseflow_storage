@@ -70,6 +70,7 @@ mj_trimmed <- sqldf(
 
 mj_trimmed$Date <- as.Date(mj_trimmed$Date)
 
+#
 land_type_code <- "forN51171"
 
 mj_trimmed <- add_model_data(mj_trimmed, land_type_code, "AGWET")
