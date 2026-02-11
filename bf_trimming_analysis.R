@@ -1,28 +1,25 @@
-# --- dependencies ---
-library(dplyr)
-library(purrr)
-library(tidyr)
-library(ggplot2)
+# dependencies 
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(purrr))
+suppressPackageStartupMessages(library(ggplot2))
 
-#load original USGS data
-CS_original_analysis_df <- read.csv(
-  "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/ben_trimming/CS_original_analysis_df.csv"
-)
 
-S_original_analysis_df <- read.csv(
-  "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/ben_trimming/S_original_analysis_df.csv"
-)
+#set up command Args
+argst <- commandArgs(trailingOnly = T)
+if (length(argst) < 2) {
+  message("This script will take a time series of identified drought events and trim them to remove storm flow events/not baseflow events .")
+  message("Use: bf_trimming_analysis.R Drought_event_time_series_data_to_trim output_file ")
+  q()
+}
 
-MJ_original_analysis_df <- read.csv(
-  "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/ben_trimming/MJ_original_analysis_df.csv"
-)
 
-#OR load in model data
-CS_original_analysis_df <- read.csv("C:/Github/baseflow_storage/Cootes_Store_model_event_original_analysis.csv")
+csv1_path <- argst[1]
+output_file <- argst[2]
 
-MJ_original_analysis_df <- read.csv("C:/Github/baseflow_storage/Mount_Jackson_model_event_original_analysis.csv")
+#Load data to trim
+csv1 <- read.csv(csv1_path)
 
-S_original_analysis_df <- read.csv("C:/Github/baseflow_storage/Strasburg_model_event_original_analysis.csv")
 
 # load MK trimming function
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/ben_trimming/will_mk_trim.R")
@@ -32,27 +29,15 @@ source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/
 
 
 #1. Trim the Data with trim_event_mk
-CS_trimmed <- CS_original_analysis_df %>%
-  group_by(GroupID) %>%
-  group_modify(~ trim_event_mk(.x, alpha = 0.3)) %>%
-  ungroup() %>%
-  filter(kept == TRUE, met_alpha == TRUE)
-
-MJ_trimmed <- MJ_original_analysis_df %>%
-  group_by(GroupID) %>%
-  group_modify(~ trim_event_mk(.x, alpha = 0.3)) %>%
-  ungroup() %>%
-  filter(kept == TRUE, met_alpha == TRUE)
-
-S_trimmed <- S_original_analysis_df %>%
+csv1_trimmed <- csv1 %>%
   group_by(GroupID) %>%
   group_modify(~ trim_event_mk(.x, alpha = 0.3)) %>%
   ungroup() %>%
   filter(kept == TRUE, met_alpha == TRUE)
 
 
-#2. Apply bf_event_stats to determine post trimming values of AGWRC and Rsquared
-CS_event_stats <- CS_trimmed %>%
+#2. Apply bf_event_stats to determine post trimming values of AGWRC and R Squared
+csv1_event_stats <- csv1_trimmed %>%
   group_by(GroupID) %>%
   group_split() %>%
   map_df(~ {
@@ -64,48 +49,20 @@ CS_event_stats <- CS_trimmed %>%
   }) %>%
   ungroup()
 
-MJ_event_stats <- MJ_trimmed %>%
-  group_by(GroupID) %>%
-  group_split() %>%
-  map_df(~ {
-    res <- bf_event_stats(.x)
-    .x %>% mutate(
-      AGWRC = res$AGWRC,
-      R_squared = res$R_squared
-    )
-  }) %>%
-  ungroup()
-
-S_event_stats <- S_trimmed %>%
-  group_by(GroupID) %>%
-  group_split() %>%
-  map_df(~ {
-    res <- bf_event_stats(.x)
-    .x %>% mutate(
-      AGWRC = res$AGWRC,
-      R_squared = res$R_squared
-    )
-  }) %>%
-  ungroup()
 
 #3. Filter for AGWRC values < 1 introduced by trimming
 tol <- 1e-8
 
-bf_events_01632000 <- CS_event_stats %>%
+csv1_bf_events <- csv1_event_stats %>%
   filter(AGWRC < 1 - tol)
 
-bf_events_01633000 <- MJ_event_stats %>%
-  filter(AGWRC < 1 - tol)
-
-bf_events_01634000 <- S_event_stats %>%
-  filter(AGWRC < 1 - tol)
 
 #4. Export as .csv files
 
-write.csv(bf_events_01632000, file ="bf_model_events_01632000.csv", row.names = FALSE )
-write.csv(bf_events_01633000, file ="bf_model_events_01633000.csv", row.names = FALSE )
-write.csv(bf_events_01634000, file ="bf_model_events_01634000.csv", row.names = FALSE )
-getwd()
+#Save as .csv files
+write.csv(csv1_bf_events, file = output_file,
+          row.names = FALSE
+)
 
 
 

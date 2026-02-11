@@ -1,35 +1,46 @@
-args <- commandArgs(trailingOnly = T)
-if (length(args) != 6){
-  message("Usage: flow_path flow_col gage_name land_type_code manual_opt end_path")
-  q()
+args <- commandArgs(trailingOnly = TRUE)
+
+if (length(args) != 6) {
+  stop(
+    "Usage: Rscript event_identification_cli.R ",
+    "flow_path flow_col gage_name land_type_code manual_opt end_path"
+  )
 }
 
-x <- read.csv("data/Strasburg_model_flow_daily.csv")
-str(x)
 
-
-flow_csv <- read.csv(paste0(args[1]))
-flow_csv$Date <- as.Date(flow_csv$Date)
-flow_col <- paste0(args[2])
-gage_name <- as.character(args[3])
+flow_path      <- as.character(args[1])
+flow_col       <- as.character(args[2])
+gage_name      <- as.character(args[3])
 land_type_code <- as.character(args[4]) # for example, "forN51171"
-manual_opt <- as.logical(args[5])
-end_path <- paste0(args[6])
+manual_opt     <- as.logical(args[5])
+end_path       <- as.character(args[6])
+
+if (is.na(manual_opt)) {
+  stop("manual_opt must be TRUE or FALSE")
+}
+
+
+# Read input data
+flow_csv <- read.csv(flow_path)
+
+if (!(flow_col %in% names(flow_csv))) {
+  stop("flow_col not found in input CSV: ", flow_col)
+}
+
+# Ensure Date exists and is Date class
+flow_csv$Date <- as.Date(flow_csv$Date)
+
 
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/main/MainAnalysisFunctionsPt1.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/analyze_recession.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/attach_event_stats.R")
 # Load in stream data from USGS
 # flow_csv <- readNWISdv("01633000", parameterCd = "00060") %>% renameNWISColumns()
-flow_csv <- read.csv("C:/Github/baseflow_storage/Strasburg_model_flow_daily.csv")
-flow_csv$Date <- as.Date(flow_csv$Date, format = "%Y-%m-%d")
-flow_col <- "Flow"
-manual_opt <- FALSE
-gage_name <- "Strasburg"
-
 
 
 suppressPackageStartupMessages(library(purrr))
+suppressPackageStartupMessages(library(lubridate))
+
 
 #calculate AGWR and delta_AGWR
 flow_csv$AGWR <- calc_AGWR(flow_csv[[flow_col]])
@@ -41,7 +52,7 @@ if(manual_opt == TRUE){
   flow_csv$GroupID <- 1
   flow_csv$RecessionDay <- TRUE
 }else{
-  flow_csv <- flag_stable_baseflow(flow_csv, flow_col)
+  flow_csv <- flag_stable_baseflow(flow_csv, flow_csv[[flow_col]])
 }
 
 #remove NAs
@@ -72,11 +83,6 @@ analysis_df <- results$gage$analysis
 
 analysis_df <- attach_event_stats(analysis_df, r_lim = 0)
 
-write.csv(
-  analysis_df,
-  "C:/Github/baseflow_storage/Strasburg_model_event_original_analysis.csv",
-  row.names = FALSE
-)
 
 
 # Add AGW model data
@@ -88,4 +94,4 @@ write.csv(
 #analysis_df <- add_model_data(analysis_df, land_type_code, "AGWO")
 
 # Write final csvs out
-write.csv(analysis_df, end_path)
+write.csv(analysis_df, end_path, row.names= FALSE)

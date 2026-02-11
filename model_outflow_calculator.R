@@ -1,12 +1,22 @@
-#Puts model data into generalized form for event_identification.R
-Cootes_Store <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/data/PS2_5550_5560_flows_11.csv")
-Mount_Jackson <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/data/PS2_5560_5100_flows_11.csv")
-Strasburg <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/data/PS3_5100_5080_flows_11.csv")
+suppressPackageStartupMessages(library(dplyr))
+#argst <- c("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/data/PS2_5550_5560_flows_11.csv", " Cootes_Store", "01632000", "Cootes_store_model_flow_daily.csv")
 
-library(dplyr)
+argst <- commandArgs(trailingOnly = T)
+if (length(argst) < 4) {
+  message("This script will modify a file by changing Qout to flow and changing the date to the correct format.")
+  message("Use: model_outflow_calculator.R original_model_data_time_series_daily site_name site_no output_file ")
+  q()
+}
+csv1_path <- argst[1]
+site_name <- argst[2]
+site_no <- argst[3]
+output_file <- argst[4]
+
+#Puts model time series daily data into generalized form for event_identification.R
+csv1 <- read.csv(csv1_path)
+
 
 #reformat names and select important attributes
-
 prep_model_flow <- function(df, site_no, site_name = NULL) {
   
   df_clean <- df %>%
@@ -24,40 +34,17 @@ prep_model_flow <- function(df, site_no, site_name = NULL) {
   return(df_clean)
 }
 
-Cootes_Store_flow <- prep_model_flow(
-  Cootes_Store,
-  site_no = "01632000",
-  site_name = "Cootes Store"
+csv1 <- prep_model_flow(
+  csv1,
+  site_no = site_no,
+  site_name = site_name
 )
 
-Mount_Jackson_flow <- prep_model_flow(
-  Mount_Jackson,
-  site_no = "01633000",
-  site_name = "Mount Jackson"
-)
 
-Strasburg_flow <- prep_model_flow(
-  Strasburg,
-  site_no = "01634000",
-  site_name = "Strasburg"
-)
 
 #Save as .csv files
-
-write.csv(
-  Cootes_Store_flow,
-  "data/CootesStore_model_flow_daily.csv",
-  row.names = FALSE
+write.csv(csv1, file = output_file,
+    row.names = FALSE
 )
 
-write.csv(
-  Mount_Jackson_flow,
-  "data/MountJackson_model_flow_daily.csv",
-  row.names = FALSE
-)
-
-write.csv(
-  Strasburg_flow,
-  "data/Strasburg_model_flow_daily.csv",
-  row.names = FALSE
-)
+  
