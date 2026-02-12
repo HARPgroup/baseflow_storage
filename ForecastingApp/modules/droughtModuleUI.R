@@ -26,6 +26,17 @@ droughtModuleUI <- function(id) {
         "AGWRC vs Flow Regression",
         br(),
         h4("Event-Level AGWRC vs Characteristic Flow"),
+        
+        # ---- NEW: date range filter for regression ----
+        dateRangeInput(
+          inputId = ns("reg_date_range"),
+          label   = "Filter events by date range (event overlap with window):",
+          start   = Sys.Date() - 365,
+          end     = Sys.Date(),
+          format  = "yyyy-mm-dd",
+          separator = " to "
+        ),
+        
         plotlyOutput(ns("agwrc_regression_plot")),
         br(),
         verbatimTextOutput(ns("regression_summary"))
@@ -69,3 +80,4 @@ droughtModuleUI <- function(id) {
     )
   )
 }
+

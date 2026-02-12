@@ -172,6 +172,48 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
     })
     
     # ---------------------------------------------
+    # 2b. NEW: Update regression date range bounds based on available events
+    # ---------------------------------------------
+    observeEvent(events_summary(), {
+      evt <- events_summary()
+      req(nrow(evt) > 0)
+      
+      min_d <- min(evt$start_date, na.rm = TRUE)
+      max_d <- max(evt$end_date,   na.rm = TRUE)
+      
+      updateDateRangeInput(
+        session,
+        "reg_date_range",
+        start = min_d,
+        end   = max_d,
+        min   = min_d,
+        max   = max_d
+      )
+    }, ignoreInit = FALSE)
+    
+    # ---------------------------------------------
+    # 2c. NEW: Regression events filtered by date range
+    #     Logic: include events that overlap the window
+    #     (event end >= window start AND event start <= window end)
+    # ---------------------------------------------
+    reg_events_filtered <- reactive({
+      evt <- events_summary()
+      req(nrow(evt) > 0)
+      
+      dr <- input$reg_date_range
+      if (is.null(dr) || any(is.na(dr))) return(evt)
+      
+      start_win <- as.Date(dr[1])
+      end_win   <- as.Date(dr[2])
+      
+      evt %>%
+        dplyr::filter(
+          end_date   >= start_win,
+          start_date <= end_win
+        )
+    })
+    
+    # ---------------------------------------------
     # 3. Historical plot (recent window)
     # ---------------------------------------------
     output$historical_plot <- renderPlotly({
@@ -213,10 +255,10 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
     })
     
     # ---------------------------------------------
-    # 5. AGWRC vs Flow regression
+    # 5. AGWRC vs Flow regression (NOW FILTERED)
     # ---------------------------------------------
     output$agwrc_regression_plot <- renderPlotly({
-      evt <- events_summary()
+      evt <- reg_events_filtered()
       req(nrow(evt) > 1)
       
       evt <- evt %>% dplyr::filter(!is.na(event_AGWRC), !is.na(median_flow))
@@ -261,7 +303,7 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
     })
     
     output$regression_summary <- renderPrint({
-      evt <- events_summary()
+      evt <- reg_events_filtered()
       req(nrow(evt) > 1)
       
       evt <- evt %>% dplyr::filter(!is.na(event_AGWRC), !is.na(median_flow))
