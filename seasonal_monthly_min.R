@@ -19,21 +19,18 @@ output_file <- args[3]
 # -----------------------------
 # Read CSV
 # -----------------------------
-csv1 <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/cootes_store_usgs_flow.csv")
+csv1 <- input_csv
+#csv1 <- read.csv("C:/Github/baseflow_storage/Strasburg_model_flow_daily.csv")
 
 # Ensure Flow is numeric
 csv1$Flow <- as.numeric(csv1$Flow)
 
-# -----------------------------
 # Convert to zoo time series
-# -----------------------------
 fz <- csv1
 fz$timestamp <- as.POSIXct(fz$Date, tz = "EST")
 fz <- zoo::zoo(as.numeric(fz$Flow), order.by = fz$timestamp)
 
-# -----------------------------
 # Apply group1 (Monthly Min by Year)
-# -----------------------------
 csv1_group_1 <- hydrotools::group1(fz, yearType = "calendar", FUN = min)
 
 # Convert to dataframe
@@ -43,9 +40,7 @@ csv1_group_1 <- as.data.frame(csv1_group_1)
 csv1_group_1$Year <- as.numeric(rownames(csv1_group_1))
 rownames(csv1_group_1) <- NULL
 
-# -----------------------------
 #  Pivot to long format
-# -----------------------------
 csv1_group_1 <- csv1_group_1 %>%
   pivot_longer(
     cols = -Year,
@@ -61,13 +56,11 @@ csv1_group_1$Month <- factor(
   ordered = TRUE
 )
 
-# -----------------------------
 # Create Boxplot
-# -----------------------------
 p <- ggplot(csv1_group_1, aes(x = Month, y = MinFlow)) +
   geom_boxplot() +
   labs(
-    title = "Cootes Store USGS Gage Monthly Minimum Flow Distribution",
+    title = "plot_title",
     x = "Month",
     y = "Monthly Minimum Flow (CFS)"
   ) +
