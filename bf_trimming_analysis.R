@@ -26,7 +26,7 @@ source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/ben_trimmin
 
 #load bf_event_stats
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ih_function_cleanup/bf_event_stats.R")
-
+csv1 <- read.csv("C:/Github/baseflow_storage/strasburg_event_dataset.csv")
 
 #1. Trim the Data with trim_event_mk
 csv1_trimmed <- csv1 %>%
@@ -58,7 +58,7 @@ csv1_bf_events <- csv1_event_stats %>%
 
 
 #4. Export as .csv files
-
+output_file <- "bf_events_01634000.csv"
 #Save as .csv files
 write.csv(csv1_bf_events, file = output_file,
           row.names = FALSE
