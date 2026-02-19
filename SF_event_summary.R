@@ -4,12 +4,6 @@ args <- commandArgs(trailingOnly = T)
 suppressPackageStartupMessages(library(dataRetrieval))
 suppressPackageStartupMessages(library(sqldf))
 
-# Arg setup for command line
-# if (length(args) != 4){
-#   message("Missing or extra arguments. Usage: ...")
-#   q()
-# }
-
 # Do not use until SSL is fixed
 # source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/add_model_data.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ih_model_calcs/calc_storage.R")
@@ -32,14 +26,14 @@ event_data <- sqldf(
 event_data$Date <- as.Date(event_data$Date)
 
 # Add ET data from model
-event_data <- add_model_data(event_data, land_type_code, "AGWET")
+# event_data <- add_model_data(event_data, land_type_code, "AGWET")
 
 # Checking: ADD AGWO, SURO, and IFWO to calc total_model_flow
-event_data <- add_model_data(event_data, land_type_code, "AGWO")
-event_data <- add_model_data(event_data, land_type_code, "SURO")
-event_data <- add_model_data(event_data, land_type_code, "IFWO")
+# event_data <- add_model_data(event_data, land_type_code, "AGWO")
+# event_data <- add_model_data(event_data, land_type_code, "SURO")
+# event_data <- add_model_data(event_data, land_type_code, "IFWO")
 
-event_data$tot_model_flow <- event_data$AGWO + event_data$SURO + event_data$IFWO
+# event_data$tot_model_flow <- event_data$AGWO + event_data$SURO + event_data$IFWO
 
 # Convert flow to watershed in/day instead of cfs to match model units
 # Get site-specific drainage area
@@ -55,7 +49,7 @@ event_data$Flow_in <- event_data$Flow * sp_conv
 # Calculate AGWS equivalent using agwo/1-agwrc
 event_data <- calc_storage(event_data, "Flow_in", "AGWRC")
 
-# Summariz3 into groups
+# Summarize into groups, if needed
 event_sums <- sqldf("
   with date_range as(
     select GroupID, min(Date) as start_date, max(Date) as end_date

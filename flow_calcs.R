@@ -23,4 +23,8 @@ ex <- ex[-1,]
 colnames(ex)[1] <- "LANDSEG"
 
 
+ex <- ex[,-c(43:66)]
+
+write.csv(ex, "C:/Users/ilona/OneDrive - Virginia Tech/HARP/Github/baseflow_storage/data/P620171001WQf_model_params.csv")
+
 ex <- ex[,c("LANDSEG", "AGWR")]            
