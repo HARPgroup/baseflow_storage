@@ -16,11 +16,9 @@ input_csv  <- args[1]
 plot_title <- args[2]
 output_file <- args[3]
 
-# -----------------------------
 # Read CSV
-# -----------------------------
 csv1 <- input_csv
-#csv1 <- read.csv("C:/Github/baseflow_storage/Strasburg_model_flow_daily.csv")
+csv1 <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_bf_csvs/strasburg_usgs_flow.csv")
 
 # Ensure Flow is numeric
 csv1$Flow <- as.numeric(csv1$Flow)
