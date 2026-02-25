@@ -4,27 +4,29 @@ coef <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/r
 # Download event data
 event_data <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/bf_events_01634000.csv")
 
-
+model_params <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ih_model_calcs/data/P620171001WQf_model_params.csv")
+colnames(model_params) <- model_params[1,]
+model_params <- model_params[-1,]
+colnames(model_params)[1] <- "LANDSEG"
 
 # Add column for calculated flow 
-event_data$calc_flow_model <- 10^((event_data$AGWRC - coef$intercept[5])/coef$slope[2])
-event_data$calc_flow_gage <- 10^((event_data$AGWRC - coef$intercept[5])/coef$slope[1])
-
-# example
-(coef$slope[5]*log(70.9))+coef$intercept[5]
-
-myCsv <- getURL("https://deq1.bse.vt.edu/p6/out/land/subsheds/eos/N51165_0111-0211-0411.csv", ssl.verifypeer = FALSE)
-d <- read.csv(textConnection(myCsv))
+event_data$calc_AGWRC_gage <- (coef$slope[5]*log(event_data$Flow)) +coef$intercept[5]
+event_data$calc_AGWRC_model <- (coef$slope[6]*log(event_data$Flow)) +coef$intercept[6]
 
 
-ex <- read.csv("https://deq1.bse.vt.edu/p6/vadeq/input/param/for/P620171001WQf/PWATER.csv", header = TRUE)  
-colnames(ex) <- ex[1,]
-ex <- ex[-1,]
-colnames(ex)[1] <- "LANDSEG"
+# Plot new flow vs agwrc plot
+ggplot(data = event_data, mapping = aes(Flow, calc_AGWRC_model))+
+  geom_point()+
+  theme_bw()+
+  coord_cartesian(ylim = c(0.85,1.05), xlim = c(0,1500))+
+  xlab("Flow (cfs)")+
+  ylab("AGWRC (model)")+
+  ggtitle("Calculated AGWRCs using Model Coefficients (Strasburg)")
 
-
-ex <- ex[,-c(43:66)]
-
-write.csv(ex, "C:/Users/ilona/OneDrive - Virginia Tech/HARP/Github/baseflow_storage/data/P620171001WQf_model_params.csv")
-
-ex <- ex[,c("LANDSEG", "AGWR")]            
+ggplot(data = event_data, mapping = aes(Flow, calc_AGWRC_gage))+
+  geom_point()+
+  theme_bw()+
+  coord_cartesian(ylim = c(0.85,1.05), xlim = c(0,1500))+
+  xlab("Flow (cfs)")+
+  ylab("AGWRC (gage)")+
+  ggtitle("Calculated AGWRCs using Gage Coefficients (Strasburg)")
