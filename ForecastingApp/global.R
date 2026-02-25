@@ -1,7 +1,5 @@
 ## global.R  ------------------------------------------------------------
 
-#CHANGE TESTING FOR GITHUB
-
 # Packages
 suppressPackageStartupMessages({
   library(shiny)
@@ -22,6 +20,10 @@ suppressPackageStartupMessages({
 
 # ---- source Shiny modules ----
 # (Update these paths if your modules are stored elsewhere.)
+source("R/nwis_utils.R")
+source("R/calc_storage.R")
+source("R/add_storage_cols.R")
+
 source("modules/droughtModuleUI.R")
 source("modules/droughtModuleServer.R")
 
