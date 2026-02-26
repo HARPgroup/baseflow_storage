@@ -6,10 +6,6 @@ library(tidyr)
 library(ggplot2)
 library(gridExtra)
 
-mins <- data %>%
-  group_by(month, source) %>%
-  summarise(monthly_min = min(min_flow), .groups = "drop")
-
 #set up command args
 args <- commandArgs(trailingOnly = TRUE)
 
@@ -64,15 +60,27 @@ process_monthly_min <- function(input_csv, source_name, tz = "EST") {
   return(g1)
 }
 
-#input_observed_csv <- "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_bf_csvs/strasburg_usgs_flow.csv"
-#input_model_csv <- "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_bf_csvs/Strasburg_model_flow_daily.csv"
-#plot_title <- "Strasburg Minimum Monthly Flows"
+input_observed_csv <- "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_bf_csvs/strasburg_usgs_flow.csv"
+input_model_csv <- "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_bf_csvs/Strasburg_model_flow_daily.csv"
+plot_title <- "Strasburg Minimum Monthly Flows"
 
 observed_data <- process_monthly_min(input_observed_csv, "Observed")
 modeled_data  <- process_monthly_min(input_model_csv, "Modeled")
 
 
-monthly_data <- bind_rows(observed_data, modeled_data)
+monthly_data <- inner_join(observed_data, modeled_data,
+                           by = c("Year", "Month")) %>%
+  filter(!is.na(MinFlow.y))
+
+monthly_data <- monthly_data %>%
+  pivot_longer(
+    cols = c(MinFlow.x, MinFlow.y),
+    names_to = "Source",
+    values_to = "MinFlow"
+  ) %>%
+  mutate(Source = recode(Source,
+                         "MinFlow.x" = "Observed",
+                         "MinFlow.y" = "Modeled"))
 
 mins <- monthly_data %>%
   group_by(Month, Source) %>%
@@ -106,6 +114,19 @@ p <- ggplot(monthly_data, aes(x = Month, y = MinFlow, fill = Source)) +
     title = plot_title,
     fill = "Data Source"
   )
+
+p
+
+p2 <- ggplot(mins, aes(x = Month, y = monthly_min, fill = Source))+
+  geom_col( position = "dodge") + 
+  theme_minimal()+
+  labs(
+   y= "Minimum Flow CFS",
+   x= "Month",
+    title = plot_title
+  )
+
+p2
 
 # save plot
 ggsave(filename = output_file,
