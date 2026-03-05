@@ -15,12 +15,14 @@ end_path <- paste0(args[6])
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/main/MainAnalysisFunctionsPt1.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/analyze_recession.R")
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/attach_event_stats.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/add_model_data.R")
 # Load in stream data from USGS
 # flow_csv <- readNWISdv("01633000", parameterCd = "00060") %>% renameNWISColumns()
 
 suppressPackageStartupMessages(library(purrr))
 
 #calculate AGWR and delta_AGWR
+flow_csv$Flow <- flow_csv[[flow_col]]
 flow_csv$AGWR <- calc_AGWR(flow_csv[[flow_col]])
 flow_csv$delta_AGWR <- calc_delta_AGWR(flow_csv$AGWR)
 
@@ -62,11 +64,11 @@ analysis_df <- attach_event_stats(analysis_df, r_lim = 0)
 
 # Add AGW model data
 
-analysis_df <- add_model_data(analysis_df, land_type_code, "AGWI")
+analysis_df <- tryCatch(add_model_data(analysis_df, land_type_code, "AGWI"))
 
-analysis_df <- add_model_data(analysis_df, land_type_code, "AGWET")
+analysis_df <- tryCatch(add_model_data(analysis_df, land_type_code, "AGWET"))
 
-analysis_df <- add_model_data(analysis_df, land_type_code, "AGWO")
+analysis_df <- tryCatch(add_model_data(analysis_df, land_type_code, "AGWO"))
 
 # Write final csvs out
 write.csv(analysis_df, end_path)
