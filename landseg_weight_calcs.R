@@ -87,9 +87,23 @@ SB_weight <- sqldf(
 
 # Download model parameter data and make first row column names
 model_params <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ih_model_calcs/data/P620171001WQf_model_params.csv")
+colnames(model_params)[2] <- "LANDSEG"
+colnames(model_params)[18] <- "AGWR"
 colnames(model_params) <- model_params[1,]
 model_params <- model_params[-1,]
 colnames(model_params)[2] <- "LANDSEG"
+
+
+#get landseg agwrc table
+ex <- sqldf("select LANDSEG, AGWR from model_params")
+colnames(ex) <- ex[1,]
+ex <- ex[-1,]
+colnames(ex)[1] <- "LANDSEG"
+
+name <- df("H51165", "N51139", "N51165", "N51171", "N51187", "N51660", "N54031", "N54071")
+ex2 <- sqldf("select * from ex where LANDSEG in ('H51165', 'N51139', 'N51165', 'N51171', 'N51187', 'N51660', 'N54031', 'N54071') ")
+
+kableExtra::kable(ex2, format = "markdown")
 
 # select only necessary columns from model params to avoid sql issues
 model_params <- model_params |> dplyr::select(LANDSEG, AGWR)
@@ -156,3 +170,5 @@ weighted_AGWRC <- data.frame(usgs_gage = character(),
                              stringsAsFactors = FALSE)
 
 weighted_AGWRC <- rbind(weighted_AGWRC,a,b,c)
+
+write.csv(weighted_AGWRC, "C:/Users/ilona/OneDrive - Virginia Tech/HARP/Github/baseflow_storage/data/weighted_AGWRC.csv")
