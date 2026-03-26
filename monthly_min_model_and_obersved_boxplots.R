@@ -60,9 +60,9 @@ process_monthly_min <- function(input_csv, source_name, tz = "EST") {
   return(g1)
 }
 
-input_observed_csv <- "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_bf_csvs/strasburg_usgs_flow.csv"
-input_model_csv <- "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_bf_csvs/Strasburg_model_flow_daily.csv"
-plot_title <- "Strasburg Minimum Monthly Flows"
+input_observed_csv <- "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/cootes_store_usgs_flow.csv"
+input_model_csv <- "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_bf_csvs/CootesStore_model_flow_daily.csv"
+plot_title <- "Cootes Store Minimum Monthly Flows"
 
 observed_data <- process_monthly_min(input_observed_csv, "Observed")
 modeled_data  <- process_monthly_min(input_model_csv, "Modeled")
@@ -119,6 +119,13 @@ p
 
 p2 <- ggplot(mins, aes(x = Month, y = monthly_min, fill = Source))+
   geom_col( position = "dodge") + 
+  geom_text(data = mins,
+            aes(x = Month,
+                y = monthly_min,
+                label = round(monthly_min, 2)),
+            position = position_dodge(width = 0.8),
+            vjust = -0.8,
+            size = 3) +
   theme_minimal()+
   labs(
    y= "Minimum Flow CFS",
