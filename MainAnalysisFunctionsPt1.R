@@ -61,7 +61,7 @@ flag_stable_baseflow <- function(df,
   for(i in 1:length(df$RecessionDay)) {
     # Compare flow at i to overall mean flow
     if (flow_col[i] >= 1.15 * mean(flow_col, na.rm = TRUE)) {
-      df$RecessionDay[1] <- FALSE
+      df$RecessionDay[i] <- FALSE
     }
     return(df)
   }
