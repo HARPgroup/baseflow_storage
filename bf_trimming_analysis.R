@@ -56,7 +56,6 @@ tol <- 1e-8
 csv1_bf_events <- csv1_event_stats %>%
   filter(AGWRC < 1 - tol)
 
-
 #4. Export as .csv files
 output_file <- "bf_events_01634000.csv"
 #Save as .csv files
