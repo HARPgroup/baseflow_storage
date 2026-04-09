@@ -1,3 +1,7 @@
+analysis_df <- read.csv(
+  "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/bf_events_01632000.csv"
+)
+
 get_event_storage_agwrc_debug <- function(event_data,
                                           selected_group_id,
                                           land_type_code = "forN51171",
