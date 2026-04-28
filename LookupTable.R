@@ -1,7 +1,7 @@
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/main/add_model_data.R")
 
 analysis_df <- read.csv(
-  "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/bf_events_01632000.csv"
+  "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/bf_events_01633000.csv"
 )
 
 get_event_storage_agwrc_debug <- function(event_data,
@@ -82,6 +82,6 @@ get_event_storage_agwrc_debug <- function(event_data,
 
 event_storage_lookup_df <- get_event_storage_agwrc_debug(
   event_data = analysis_df,
-  selected_group_id = 136,
+  selected_group_id = 96,
   land_type_code = "forN51171"
 )
