@@ -13,6 +13,7 @@ droughtModuleUI <- function(id) {
         "Overview & Events",
         br(),
         h4("Historical Flow (Recent)"),
+        p(em("Tip:"), " click a row in the events table to zoom the hydrograph to ~9 months before the event and up to 3 months after (capped to available data)."),
         plotlyOutput(ns("historical_plot")),
         br(),
         h4("Identified Baseflow Events (Trimmed)"),
@@ -27,7 +28,6 @@ droughtModuleUI <- function(id) {
         br(),
         h4("Event-Level AGWRC vs Characteristic Flow"),
         
-        # ---- NEW: date range filter for regression ----
         dateRangeInput(
           inputId = ns("reg_date_range"),
           label   = "Filter events by date range (event overlap with window):",
@@ -62,6 +62,15 @@ droughtModuleUI <- function(id) {
               max = 1.2,
               step = 0.001
             ),
+            radioButtons(
+              ns("forecast_metric"),
+              label = "Plot metric:",
+              choices = c(
+                "Flow (cfs)" = "flow",
+                "Storage (in) — computed from Flow + AGWRC" = "storage"
+              ),
+              selected = "flow"
+            ),
             helpText("Future Q_t+Δ ≈ Q_start × AGWRC^Δ, where Δ is days."),
             tags$hr(),
             p(em("Future enhancement: allow AGWRC vs Flow matrix input ",
@@ -69,15 +78,17 @@ droughtModuleUI <- function(id) {
           ),
           column(
             8,
-            h4("Historical + Projected Flow"),
+            h4("Historical + Projected"),
             plotlyOutput(ns("forecast_plot")),
             br(),
-            h4("Projected Flows"),
-            DTOutput(ns("forecast_table"))
+            h4("Projected Values"),
+            DTOutput(ns("forecast_table")),
+            br(),
+            h4("Storage summaries (from Flow + AGWRC)"),
+            DTOutput(ns("storage_event_table"))
           )
         )
       )
     )
   )
 }
-

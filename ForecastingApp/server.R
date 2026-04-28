@@ -22,4 +22,3 @@ server <- function(input, output, session) {
     site_choice = reactive(input$site_choice)
   )
 }
-

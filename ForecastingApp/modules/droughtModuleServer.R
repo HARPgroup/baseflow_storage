@@ -50,17 +50,13 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
       )
       req(!is.null(raw), nrow(raw) > 0)
       
-      # --- FLOW column ---
       flow_col <- if ("Qout" %in% names(raw)) "Qout" else if ("Flow" %in% names(raw)) "Flow" else NA_character_
       req(!is.na(flow_col))
       
-      # --- DATE column logic ---
-      # 1) Prefer thisdate/Date if it exists AND has non-NA values
       date_vec <- NULL
       if ("thisdate" %in% names(raw)) date_vec <- raw$thisdate
       if (is.null(date_vec) && "Date" %in% names(raw)) date_vec <- raw$Date
       
-      # if thisdate exists but is all NA/blank, build from year/month/day
       need_build <- is.null(date_vec) || all(is.na(date_vec)) || all(trimws(as.character(date_vec)) == "")
       
       if (need_build) {
@@ -130,6 +126,8 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
     })
     
     # ---------------------------------------------
+    
+    
     # 1. Convenience reactives
     # ---------------------------------------------
     original_df <- reactive({
@@ -139,12 +137,133 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
     })
     
     trimmed_df <- reactive({
+      trimmed_points()
+    })
+    
+    
+    # ---------------------------------------------
+    # 0b. Storage (AGWS-equivalent) computed locally
+    # ---------------------------------------------
+    # Storage is computed from the analyzed "points" table for the ACTIVE source (model|gage):
+    #   - required: Date, Flow (cfs), AGWRC
+    #   - optional: kept, met_alpha (used for trimming if present)
+    #
+    # This reproduces the middle portion of SF_event_summary.R (Flow_in + Storage_in),
+    # but keeps everything local (no GitHub runtime sourcing) for reproducibility.
+    
+    validate_required_cols <- function(df, required, context = "data") {
+      missing <- setdiff(required, names(df))
+      if (length(missing) > 0) {
+        msg <- paste0(
+          "Missing required column(s) in ", context, ": ",
+          paste(missing, collapse = ", "),
+          ".\n\n",
+          "Available columns: ", paste(names(df), collapse = ", ")
+        )
+        showNotification(msg, type = "error", duration = NULL)
+        stop(msg, call. = FALSE)
+      }
+      invisible(TRUE)
+    }
+    
+    trimmed_points <- reactive({
       df <- analysis_points()
       req(nrow(df) > 0)
-      df %>%
-        dplyr::mutate(Date = as.Date(Date)) %>%
-        dplyr::filter(kept == TRUE, met_alpha == TRUE)
+      
+      # Date coercion (defensive)
+      if (!inherits(df$Date, "Date")) {
+        df$Date <- as.Date(df$Date)
+      }
+      
+      validate_required_cols(df, c("Date", "Flow", "AGWRC"), context = paste0("analysis points (", data_source(), ")"))
+      
+      # Optional trimming: only apply if columns exist
+      if (all(c("kept", "met_alpha") %in% names(df))) {
+        df <- df %>% dplyr::filter(.data$kept == TRUE, .data$met_alpha == TRUE)
+      }
+      
+      # Remove rows that can't support storage math
+      df <- df %>%
+        dplyr::filter(!is.na(.data$Date), !is.na(.data$Flow), !is.na(.data$AGWRC))
+      
+      df
     })
+    
+    storage_points <- reactive({
+      df <- trimmed_points()
+      req(nrow(df) > 0)
+      
+      out <- tryCatch(
+        add_storage_cols(
+          df = df,
+          site_num = gage_id(),
+          flow_col = "Flow",
+          agwrc_col = "AGWRC"
+        ),
+        error = function(e) {
+          showNotification(paste("Storage calculation failed:", e$message), type = "error", duration = NULL)
+          return(NULL)
+        }
+      )
+      
+      req(!is.null(out), nrow(out) > 0)
+      validate_required_cols(out, c("Date", "Flow_in", "Storage_in"), context = "storage_points() output")
+      
+      out
+    })
+    
+    storage_event_sums <- reactive({
+      df <- storage_points()
+      req(nrow(df) > 0)
+      
+      validate_required_cols(df, c("Date", "GroupID", "Flow_in", "Storage_in"), context = "storage_points() for event summary")
+      
+      has_agwet <- "AGWET" %in% names(df)
+      
+      df %>%
+        dplyr::arrange(.data$GroupID, .data$Date) %>%
+        dplyr::group_by(.data$GroupID) %>%
+        dplyr::summarise(
+          start_date = min(.data$Date, na.rm = TRUE),
+          end_date   = max(.data$Date, na.rm = TRUE),
+          Storage_0  = .data$Storage_in[which.min(.data$Date)],
+          Storage_f  = .data$Storage_in[which.max(.data$Date)],
+          Flow_tot   = sum(.data$Flow_in, na.rm = TRUE),
+          AGWET_tot  = if (has_agwet) sum(.data$AGWET, na.rm = TRUE) else NA_real_,
+          .groups = "drop"
+        ) %>%
+        dplyr::mutate(
+          remainder = .data$Storage_0 - .data$Flow_tot - .data$Storage_f
+        )
+    })
+    
+    # When plotting/forecasting STORAGE, enforce that the chosen start date exists in storage_points().
+    observeEvent(list(input$forecast_metric, storage_points()), {
+      metric <- input$forecast_metric %||% "flow"
+      if (metric != "storage") return()
+      
+      sp <- storage_points()
+      req(nrow(sp) > 0)
+      
+      storage_dates <- sort(unique(sp$Date))
+      min_d <- min(storage_dates, na.rm = TRUE)
+      max_d <- max(storage_dates, na.rm = TRUE)
+      
+      current <- as.Date(input$forecast_start)
+      if (is.na(current) || !(current %in% storage_dates)) {
+        # default to latest available storage date
+        updateDateInput(session, "forecast_start", value = max_d, min = min_d, max = max_d)
+        showNotification(
+          paste0("Storage forecast start date must exist in Storage_in series. Set to ", as.character(max_d), "."),
+          type = "message",
+          duration = 6
+        )
+      } else {
+        # also constrain picker range when storage is selected
+        updateDateInput(session, "forecast_start", min = min_d, max = max_d)
+      }
+    }, ignoreInit = TRUE)
+    
     
     site_name <- reactive({
       df <- analysis_points()
@@ -171,9 +290,6 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
       make_ben_event_summary(df)
     })
     
-    # ---------------------------------------------
-    # 2b. NEW: Update regression date range bounds based on available events
-    # ---------------------------------------------
     observeEvent(events_summary(), {
       evt <- events_summary()
       req(nrow(evt) > 0)
@@ -191,11 +307,6 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
       )
     }, ignoreInit = FALSE)
     
-    # ---------------------------------------------
-    # 2c. NEW: Regression events filtered by date range
-    #     Logic: include events that overlap the window
-    #     (event end >= window start AND event start <= window end)
-    # ---------------------------------------------
     reg_events_filtered <- reactive({
       evt <- events_summary()
       req(nrow(evt) > 0)
@@ -216,24 +327,83 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
     # ---------------------------------------------
     # 3. Historical plot (recent window)
     # ---------------------------------------------
+    selected_event <- reactive({
+      evt <- events_summary()
+      s   <- input$events_table_rows_selected
+      if (is.null(s) || length(s) == 0) return(NULL)
+      evt[s[1], , drop = FALSE]
+    })
+    
     output$historical_plot <- renderPlotly({
       df <- raw_daily()
       req(nrow(df) > 0)
       
-      max_date   <- max(df$Date, na.rm = TRUE)
-      min_window <- max_date - lubridate::years(2)
-      df_recent  <- df %>% dplyr::filter(Date >= min_window)
+      max_date <- max(df$Date, na.rm = TRUE)
       
-      plotly::plot_ly(
-        df_recent,
+      window_start <- max_date - lubridate::years(2)
+      window_end   <- max_date
+      
+      ev <- selected_event()
+      if (!is.null(ev)) {
+        ev_start <- as.Date(ev$start_date[1])
+        ev_end   <- as.Date(ev$end_date[1])
+        if (!is.na(ev_start) && !is.na(ev_end)) {
+          window_start <- ev_start %m-% lubridate::period(months = 9)
+          desired_end  <- ev_end   %m+% lubridate::period(months = 3)
+          window_end   <- min(desired_end, max_date, na.rm = TRUE)
+        }
+      }
+      
+      window_start <- max(window_start, min(df$Date, na.rm = TRUE), na.rm = TRUE)
+      df_window    <- df %>% dplyr::filter(Date >= window_start, Date <= window_end)
+      req(nrow(df_window) > 1)
+      
+      p <- plotly::plot_ly(
+        df_window,
         x = ~Date,
         y = ~Flow,
         type = "scatter",
         mode = "lines",
         name = if (data_source() == "model") "Model flow" else "USGS flow"
-      ) |>
+      )
+      
+      if (!is.null(ev)) {
+        ev_start <- as.Date(ev$start_date[1])
+        ev_end   <- as.Date(ev$end_date[1])
+        if (!is.na(ev_start) && !is.na(ev_end)) {
+          y_max <- max(df_window$Flow, na.rm = TRUE)
+          p <- p |>
+            plotly::add_segments(
+              x = ev_start, xend = ev_start,
+              y = 0, yend = y_max,
+              inherit = FALSE,
+              line = list(dash = "dot"),
+              showlegend = FALSE,
+              hovertemplate = paste0("Event start: ", ev_start, "<extra></extra>")
+            ) |>
+            plotly::add_segments(
+              x = ev_end, xend = ev_end,
+              y = 0, yend = y_max,
+              inherit = FALSE,
+              line = list(dash = "dot"),
+              showlegend = FALSE,
+              hovertemplate = paste0("Event end: ", ev_end, "<extra></extra>")
+            )
+        }
+      }
+      
+      title_txt <- if (is.null(ev)) {
+        paste("Recent Daily Flow -", site_name(), "(", toupper(data_source()), ")")
+      } else {
+        paste0(
+          "Daily Flow (event window) - ", site_name(), " (", toupper(data_source()), ") | GroupID ",
+          ev$GroupID[1]
+        )
+      }
+      
+      p |>
         plotly::layout(
-          title = paste("Recent Daily Flow -", site_name(), "(", toupper(data_source()), ")"),
+          title = title_txt,
           xaxis = list(title = "Date"),
           yaxis = list(title = "Flow (cfs)", rangemode = "tozero")
         )
@@ -408,7 +578,7 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
     }, ignoreInit = TRUE)
     
     # ---------------------------------------------
-    # 7. Forecast logic (single AGWRC for now)
+    # 7. Forecast logic (single AGWRC for now) + AGWS display
     # ---------------------------------------------
     observeEvent(raw_daily(), {
       df <- raw_daily()
@@ -423,97 +593,244 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
       df <- raw_daily()
       req(nrow(df) > 0)
       
-      start_date <- input$forecast_start
+      start_date <- as.Date(input$forecast_start)
       agwrc      <- input$agwrc_single
       req(!is.na(start_date), !is.na(agwrc))
       
       df <- df %>% dplyr::arrange(Date)
-      
       Q0 <- df$Flow[df$Date == start_date]
       if (length(Q0) == 0) {
         showNotification("Selected forecast start date has no flow record.", type = "error")
         return(NULL)
       }
+      Q0 <- as.numeric(Q0[1])
       
-      Q0 <- Q0[1]
+      proj_flow <- Q0 * (agwrc ^ forecast_horizons)
+      
+      
+      metric <- input$forecast_metric %||% "flow"
+      
+      # Convert projected flow to inches/day (used for diagnostics/table; not required for storage projection)
+      da <- da_sqmi(gage_id())
+      sp_conv <- if (!is.na(da) && da > 0) ((86400 * 12) / (5280 * 5280)) / da else NA_real_
+      proj_flow_in <- proj_flow * sp_conv
+      
+      # Storage projection:
+      # - if metric == "storage": anchor to observed Storage_in at start_date (must exist)
+      # - else: keep a simple derived estimate for display (may be NA if DA missing)
+      if (metric == "storage") {
+        sp <- storage_points()
+        if (is.null(sp) || nrow(sp) == 0 || !(start_date %in% sp$Date)) {
+          showNotification("Storage forecast start date must exist in Storage_in series (after trimming).", type = "error", duration = 10)
+          return(NULL)
+        }
+        S0 <- sp$Storage_in[sp$Date == start_date][1]
+        if (is.na(S0)) {
+          showNotification("Storage_in at the selected start date is NA; cannot project storage.", type = "error", duration = 10)
+          return(NULL)
+        }
+        proj_storage_in <- S0 * (agwrc ^ forecast_horizons)
+      } else {
+        proj_storage_in <- if (isTRUE(agwrc < 0.9999) && !is.na(sp_conv)) {
+          proj_flow_in / (1 - agwrc)
+        } else {
+          rep(NA_real_, length(proj_flow))
+        }
+      }
       
       tibble::tibble(
-        horizon_days  = forecast_horizons,
-        forecast_date = as.Date(start_date) + horizon_days,
-        AGWRC         = agwrc,
-        proj_flow     = Q0 * (agwrc ^ horizon_days)
+        horizon_days      = forecast_horizons,
+        forecast_date     = start_date + horizon_days,
+        AGWRC             = agwrc,
+        proj_flow_cfs     = proj_flow,
+        proj_flow_in_day  = proj_flow_in,
+        proj_storage_in   = proj_storage_in
       )
     })
     
     output$forecast_table <- renderDT({
       fr <- forecast_results()
       req(fr)
-      DT::datatable(fr, rownames = FALSE, options = list(dom = "tp", pageLength = 5))
+      
+      DT::datatable(
+        fr %>%
+          dplyr::transmute(
+            horizon_days,
+            forecast_date,
+            AGWRC,
+            proj_flow_cfs    = round(proj_flow_cfs, 2),
+            proj_storage_in  = round(proj_storage_in, 4)
+          ),
+        rownames = FALSE,
+        options = list(dom = "tp", pageLength = 6)
+      )
+    })
+    
+    output$storage_event_table <- renderDT({
+      evs <- storage_event_sums()
+      req(nrow(evs) > 0)
+      
+      DT::datatable(
+        evs %>%
+          dplyr::mutate(
+            Storage_0 = round(Storage_0, 4),
+            Storage_f = round(Storage_f, 4),
+            Flow_tot  = round(Flow_tot, 4),
+            AGWET_tot = round(AGWET_tot, 4),
+            remainder = round(remainder, 4)
+          ),
+        rownames = FALSE,
+        options = list(pageLength = 8, scrollX = TRUE)
+      )
     })
     
     output$forecast_plot <- renderPlotly({
+      metric <- input$forecast_metric %||% "flow"
+      
       df <- raw_daily()
       fr <- forecast_results()
-      req(df, fr)
+      req(nrow(df) > 0, fr)
       
       start_date <- as.Date(input$forecast_start)
-      req(start_date)
+      agwrc      <- input$agwrc_single
+      req(!is.na(start_date), !is.na(agwrc))
       
       hist_window <- 90
-      df_hist <- df %>% dplyr::filter(Date >= start_date - hist_window & Date <= start_date)
       
-      hist_plot <- df_hist %>% dplyr::transmute(Date = Date, Flow = Flow, type = "Observed")
-      proj_plot <- fr %>% dplyr::transmute(Date = forecast_date, Flow = proj_flow, type = "Projected")
-      
-      end_date <- fr$forecast_date[1]
-      
-      transition_dates <- seq.Date(start_date, end_date, by = "day")
-      Q_start <- df$Flow[df$Date == start_date][1]
-      Q_end   <- fr$proj_flow[1]
-      
-      transition_plot <- tibble::tibble(
-        Date = transition_dates,
-        Flow = stats::approx(
+      if (metric == "storage") {
+        ed <- tryCatch(storage_points(), error = function(e) NULL)
+        if (is.null(ed) || nrow(ed) == 0) {
+          showNotification("No historical Storage_in available for this site.", type = "warning", duration = 6)
+          return(plotly::plotly_empty())
+        }
+        
+        
+        
+        # Enforce start_date exists in storage series
+        if (!(start_date %in% ed$Date)) {
+          showNotification(
+            "Storage forecast start date must exist in Storage_in series (after trimming). Choose a highlighted/valid date or switch to Flow.",
+            type = "error", duration = 10
+          )
+          return(plotly::plotly_empty())
+        }
+        ed_win <- ed %>%
+          dplyr::filter(Date >= start_date - hist_window, Date <= start_date) %>%
+          dplyr::arrange(Date)
+        req(nrow(ed_win) > 1)
+        
+        hist_plot <- ed_win %>% dplyr::transmute(Date = Date, value = Storage_in, type = "Observed")
+        proj_plot <- fr %>% dplyr::transmute(Date = forecast_date, value = proj_storage_in, type = "Projected")
+        
+        S_start <- ed$Storage_in[ed$Date == start_date]
+        if (length(S_start) == 0 || is.na(S_start[1])) {
+          da <- da_sqmi(gage_id())
+          sp_conv <- if (!is.na(da) && da > 0) ((86400 * 12) / (5280 * 5280)) / da else NA_real_
+          Q_start <- df$Flow[df$Date == start_date][1]
+          S_start <- if (isTRUE(agwrc < 0.9999) && !is.na(sp_conv)) (Q_start * sp_conv) / (1 - agwrc) else NA_real_
+        } else {
+          S_start <- S_start[1]
+        }
+        
+        end_date <- fr$forecast_date[1]
+        S_end    <- fr$proj_storage_in[1]
+        
+        transition_dates <- seq.Date(start_date, end_date, by = "day")
+        transition_vals <- stats::approx(
+          x = c(as.numeric(start_date), as.numeric(end_date)),
+          y = c(S_start, S_end),
+          xout = as.numeric(transition_dates)
+        )$y
+        
+        transition_plot <- tibble::tibble(Date = transition_dates, value = transition_vals)
+        combined <- dplyr::bind_rows(hist_plot, proj_plot)
+        
+        plotly::plot_ly() |>
+          plotly::add_lines(
+            data = combined %>% dplyr::filter(type == "Observed"),
+            x = ~Date, y = ~value,
+            name = "Observed storage",
+            mode = "lines"
+          ) |>
+          plotly::add_lines(
+            data = transition_plot,
+            x = ~Date, y = ~value,
+            name = "Transition",
+            line = list(dash = "dash", width = 2, color = "rgba(100,100,100,0.7)"),
+            hovertemplate = paste0(
+              "<b>Transition</b><br>",
+              "Date: %{x}<br>",
+              "Storage: %{y:.4f} in",
+              "<extra></extra>"
+            ),
+            showlegend = FALSE
+          ) |>
+          plotly::add_lines(
+            data = combined %>% dplyr::filter(type == "Projected"),
+            x = ~Date, y = ~value,
+            name = "Projected storage",
+            mode = "lines+markers"
+          ) |>
+          plotly::layout(
+            title = paste("Observed & Projected Storage (AGWS) -", site_name(), "(", toupper(data_source()), ")"),
+            xaxis = list(title = "Date"),
+            yaxis = list(title = "Storage (in)", rangemode = "tozero"),
+            legend = list(orientation = "h", x = 0.1, y = -0.1)
+          )
+      } else {
+        df_hist <- df %>% dplyr::filter(Date >= start_date - hist_window & Date <= start_date)
+        req(nrow(df_hist) > 1)
+        
+        hist_plot <- df_hist %>% dplyr::transmute(Date = Date, value = Flow, type = "Observed")
+        proj_plot <- fr %>% dplyr::transmute(Date = forecast_date, value = proj_flow_cfs, type = "Projected")
+        
+        end_date <- fr$forecast_date[1]
+        transition_dates <- seq.Date(start_date, end_date, by = "day")
+        Q_start <- df$Flow[df$Date == start_date][1]
+        Q_end   <- fr$proj_flow_cfs[1]
+        
+        transition_vals <- stats::approx(
           x = c(as.numeric(start_date), as.numeric(end_date)),
           y = c(Q_start, Q_end),
           xout = as.numeric(transition_dates)
         )$y
-      )
-      
-      combined <- dplyr::bind_rows(hist_plot, proj_plot)
-      
-      plotly::plot_ly() |>
-        plotly::add_lines(
-          data = combined %>% dplyr::filter(type == "Observed"),
-          x = ~Date, y = ~Flow,
-          name = "Observed",
-          mode = "lines"
-        ) |>
-        plotly::add_lines(
-          data = transition_plot,
-          x = ~Date, y = ~Flow,
-          name = "Transition",
-          line = list(dash = "dash", width = 2, color = "rgba(100,100,100,0.7)"),
-          hovertemplate = paste0(
-            "<b>Transition</b><br>",
-            "Date: %{x}<br>",
-            "Flow: %{y:.2f} cfs",
-            "<extra></extra>"
-          ),
-          showlegend = FALSE
-        ) |>
-        plotly::add_lines(
-          data = combined %>% dplyr::filter(type == "Projected"),
-          x = ~Date, y = ~Flow,
-          name = "Projected",
-          mode = "lines+markers"
-        ) |>
-        plotly::layout(
-          title = paste("Observed & Projected Flow -", site_name(), "(", toupper(data_source()), ")"),
-          xaxis = list(title = "Date"),
-          yaxis = list(title = "Flow (cfs)", rangemode = "tozero"),
-          legend = list(orientation = "h", x = 0.1, y = -0.1)
-        )
+        
+        transition_plot <- tibble::tibble(Date = transition_dates, value = transition_vals)
+        combined <- dplyr::bind_rows(hist_plot, proj_plot)
+        
+        plotly::plot_ly() |>
+          plotly::add_lines(
+            data = combined %>% dplyr::filter(type == "Observed"),
+            x = ~Date, y = ~value,
+            name = "Observed flow",
+            mode = "lines"
+          ) |>
+          plotly::add_lines(
+            data = transition_plot,
+            x = ~Date, y = ~value,
+            name = "Transition",
+            line = list(dash = "dash", width = 2, color = "rgba(100,100,100,0.7)"),
+            hovertemplate = paste0(
+              "<b>Transition</b><br>",
+              "Date: %{x}<br>",
+              "Flow: %{y:.2f} cfs",
+              "<extra></extra>"
+            ),
+            showlegend = FALSE
+          ) |>
+          plotly::add_lines(
+            data = combined %>% dplyr::filter(type == "Projected"),
+            x = ~Date, y = ~value,
+            name = "Projected flow",
+            mode = "lines+markers"
+          ) |>
+          plotly::layout(
+            title = paste("Observed & Projected Flow -", site_name(), "(", toupper(data_source()), ")"),
+            xaxis = list(title = "Date"),
+            yaxis = list(title = "Flow (cfs)", rangemode = "tozero"),
+            legend = list(orientation = "h", x = 0.1, y = -0.1)
+          )
+      }
     })
     
   })
