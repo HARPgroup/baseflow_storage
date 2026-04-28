@@ -1,13 +1,11 @@
-# ============================================================
 # FINAL REGRESSION SCRIPT
 # Standalone AGWRC Regression Workflow
 # Uses Q in inches/day
 # Output: site, m, b, Landseg
-# ============================================================
 
-# -----------------------------
-# 0) Install/load packages
-# -----------------------------
+#
+#Install/load packages
+#
 
 needed_pkgs <- c("dplyr", "readr", "httr", "dataRetrieval")
 
@@ -26,9 +24,9 @@ suppressPackageStartupMessages({
   library(dataRetrieval)
 })
 
-# -----------------------------
-# 1) Convert flow from cfs to inches/day
-# -----------------------------
+#
+#Convert flow from cfs to inches/day
+#
 
 convert.flow <- function(flow_col, area_sqmi) {
   cfs <- flow_col
@@ -40,9 +38,9 @@ convert.flow <- function(flow_col, area_sqmi) {
   return(flow_in)
 }
 
-# -----------------------------
-# 2) Get drainage area from USGS
-# -----------------------------
+#
+#Get drainage area from USGS
+#
 
 get_drainage_area_sqmi <- function(gage_id) {
   site <- dataRetrieval::readNWISsite(as.character(gage_id))
@@ -60,11 +58,11 @@ get_drainage_area_sqmi <- function(gage_id) {
   area_sqmi
 }
 
-# -----------------------------
-# 3) GitHub loading helpers
-# Uses main branch:
-# https://raw.githubusercontent.com/HARPgroup/baseflow_storage/main/bf_events_01632000.csv
-# -----------------------------
+#
+#GitHub loading helpers
+#Uses main branch:
+#https://raw.githubusercontent.com/HARPgroup/baseflow_storage/main/bf_events_01632000.csv
+#
 
 bf_github_raw_url <- function(
     gage_id,
@@ -89,9 +87,9 @@ bf_github_raw_url <- function(
   url
 }
 
-# -----------------------------
-# 4) Standardize analysis data
-# -----------------------------
+#
+#Standardize analysis data
+#
 
 bf_standardize_analysis_df <- function(df, gage_id) {
   df$site_no <- as.character(gage_id)
@@ -137,9 +135,9 @@ load_analysis_points <- function(gage_id) {
   bf_standardize_analysis_df(df, gage_id = gage_id)
 }
 
-# -----------------------------
-# 5) Build event-level regression dataframe
-# -----------------------------
+#
+#Build event-level regression dataframe
+#
 
 make_event_regression_df <- function(points_df, area_sqmi, flow_col = "Flow") {
   required <- c("GroupID", "Date", flow_col, "AGWRC", "kept", "met_alpha")
@@ -184,9 +182,9 @@ make_event_regression_df <- function(points_df, area_sqmi, flow_col = "Flow") {
     arrange(start_date)
 }
 
-# -----------------------------
-# 6) Fit AGWRC ~ log(Q inches/day)
-# -----------------------------
+#
+#Fit AGWRC ~ log(Q inches/day)
+#
 
 fit_agwrc_regression_in_day <- function(event_df) {
   required <- c("GroupID", "median_flow_in_day", "event_AGWRC")
@@ -211,9 +209,9 @@ fit_agwrc_regression_in_day <- function(event_df) {
   )
 }
 
-# -----------------------------
-# 7) One-site regression wrapper
-# -----------------------------
+#
+#One-site regression wrapper
+#
 
 run_one_site_regression <- function(gage_id) {
   points_df <- load_analysis_points(gage_id = gage_id)
@@ -234,9 +232,9 @@ run_one_site_regression <- function(gage_id) {
   )
 }
 
-# -----------------------------
-# 8) Site lookup table
-# -----------------------------
+#
+#Site lookup table
+#
 
 site_lookup <- data.frame(
   site_no = c("01632000", "01633000", "01634000"),
@@ -244,9 +242,9 @@ site_lookup <- data.frame(
   Landseg = c("N51165", "N51171", "N51187")
 )
 
-# -----------------------------
-# 9) Run all regressions
-# -----------------------------
+#
+#Run all regressions
+#
 
 regression_results <- dplyr::bind_rows(
   run_one_site_regression("01632000"),
@@ -254,9 +252,9 @@ regression_results <- dplyr::bind_rows(
   run_one_site_regression("01634000")
 )
 
-# -----------------------------
-# 10) Final comparison table
-# -----------------------------
+#
+#Final comparison table
+#
 
 final_regression_table <- regression_results %>%
   left_join(site_lookup, by = "site_no") %>%
@@ -264,7 +262,7 @@ final_regression_table <- regression_results %>%
 
 print(final_regression_table)
 
-# Optional export
+#Optional export
 readr::write_csv(
   final_regression_table,
   "agwrc_regression_coefficients_inches.csv"
