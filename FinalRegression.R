@@ -1,13 +1,10 @@
 # FINAL REGRESSION SCRIPT
-# Standalone AGWRC Regression Workflow
-# Uses Q in inches/day
-# Output: site, m, b, Landseg
 
 #
-#Install/load packages
+# Install/load packages
 #
 
-needed_pkgs <- c("dplyr", "readr", "httr", "dataRetrieval")
+needed_pkgs <- c("dplyr", "dataRetrieval")
 
 to_install <- needed_pkgs[
   !vapply(needed_pkgs, requireNamespace, logical(1), quietly = TRUE)
@@ -19,13 +16,11 @@ if (length(to_install) > 0) {
 
 suppressPackageStartupMessages({
   library(dplyr)
-  library(readr)
-  library(httr)
   library(dataRetrieval)
 })
 
 #
-#Convert flow from cfs to inches/day
+# Convert flow from cfs to inches/day
 #
 
 convert.flow <- function(flow_col, area_sqmi) {
@@ -35,11 +30,12 @@ convert.flow <- function(flow_col, area_sqmi) {
   sp_conv <- conversion / area_sqmi
   
   flow_in <- cfs * sp_conv
+  
   return(flow_in)
 }
 
 #
-#Get drainage area from USGS
+# Get drainage area from USGS
 #
 
 get_drainage_area_sqmi <- function(gage_id) {
@@ -55,13 +51,30 @@ get_drainage_area_sqmi <- function(gage_id) {
     stop("Invalid drainage area returned for gage_id = ", gage_id)
   }
   
-  area_sqmi
+  return(area_sqmi)
 }
 
 #
-#GitHub loading helpers
-#Uses main branch:
-#https://raw.githubusercontent.com/HARPgroup/baseflow_storage/main/bf_events_01632000.csv
+# Add flow in inches/day
+#
+
+add_flow_in_day <- function(points_df, area_sqmi, source_flow_col = "Flow", new_col = "flow_in_day") {
+  
+  if (!(source_flow_col %in% names(points_df))) {
+    stop("Missing source_flow_col: ", source_flow_col)
+  }
+  
+  if (is.na(area_sqmi) || !is.numeric(area_sqmi) || area_sqmi <= 0) {
+    stop("area_sqmi must be a single positive numeric value.")
+  }
+  
+  points_df[[new_col]] <- convert.flow(points_df[[source_flow_col]], area_sqmi)
+  
+  return(points_df)
+}
+
+#
+# GitHub URL helper
 #
 
 bf_github_raw_url <- function(
@@ -70,25 +83,14 @@ bf_github_raw_url <- function(
     owner = "HARPgroup",
     repo = "baseflow_storage"
 ) {
-  url <- sprintf(
+  sprintf(
     "https://raw.githubusercontent.com/%s/%s/%s/bf_events_%s.csv",
     owner, repo, branch, gage_id
   )
-  
-  ok <- tryCatch({
-    resp <- httr::HEAD(url, httr::timeout(10))
-    httr::status_code(resp) == 200
-  }, error = function(e) FALSE)
-  
-  if (!ok) {
-    stop("Could not find analyzed CSV at: ", url)
-  }
-  
-  url
 }
 
 #
-#Standardize analysis data
+# Standardize analysis data
 #
 
 bf_standardize_analysis_df <- function(df, gage_id) {
@@ -126,68 +128,72 @@ bf_standardize_analysis_df <- function(df, gage_id) {
     )
 }
 
+#
+# Load analysis points
+#
+
 load_analysis_points <- function(gage_id) {
   url <- bf_github_raw_url(gage_id = gage_id)
   message("Reading analyzed CSV from: ", url)
   
-  df <- readr::read_csv(url, show_col_types = FALSE)
+  df <- utils::read.csv(
+    file = url,
+    stringsAsFactors = FALSE
+  )
   
   bf_standardize_analysis_df(df, gage_id = gage_id)
 }
 
 #
-#Build event-level regression dataframe
+# Build event-level regression dataframe
 #
 
-make_event_regression_df <- function(points_df, area_sqmi, flow_col = "Flow") {
-  required <- c("GroupID", "Date", flow_col, "AGWRC", "kept", "met_alpha")
+make_event_regression_df <- function(points_df, regression_flow_col = "Flow") {
+  
+  required <- c("GroupID", "Date", regression_flow_col, "AGWRC", "kept", "met_alpha")
   missing <- setdiff(required, names(points_df))
   
   if (length(missing) > 0) {
     stop("Missing required columns: ", paste(missing, collapse = ", "))
   }
   
-  if (is.na(area_sqmi) || !is.numeric(area_sqmi) || area_sqmi <= 0) {
-    stop("area_sqmi must be a single positive numeric value.")
-  }
-  
   points_df %>%
     mutate(
       Date = as.Date(Date),
-      flow_in_day = convert.flow(.data[[flow_col]], area_sqmi)
+      regression_flow = as.numeric(.data[[regression_flow_col]])
     ) %>%
     filter(
       kept == TRUE,
       met_alpha == TRUE,
       !is.na(GroupID),
-      !is.na(flow_in_day),
+      !is.na(regression_flow),
       !is.na(AGWRC),
-      flow_in_day > 0
+      regression_flow > 0
     ) %>%
     group_by(GroupID) %>%
     summarise(
       start_date = min(Date, na.rm = TRUE),
       end_date = max(Date, na.rm = TRUE),
       n_days = dplyr::n(),
-      median_flow_cfs = median(.data[[flow_col]], na.rm = TRUE),
-      median_flow_in_day = median(flow_in_day, na.rm = TRUE),
+      median_flow = median(regression_flow, na.rm = TRUE),
       event_AGWRC = dplyr::first(AGWRC),
       .groups = "drop"
     ) %>%
     filter(
-      !is.na(median_flow_in_day),
+      !is.na(median_flow),
       !is.na(event_AGWRC),
-      median_flow_in_day > 0
+      median_flow > 0
     ) %>%
     arrange(start_date)
 }
 
 #
-#Fit AGWRC ~ log(Q inches/day)
+# Fit AGWRC ~ log(Q)
 #
 
-fit_agwrc_regression_in_day <- function(event_df) {
-  required <- c("GroupID", "median_flow_in_day", "event_AGWRC")
+fit_agwrc_regression <- function(event_df) {
+  
+  required <- c("GroupID", "median_flow", "event_AGWRC")
   missing <- setdiff(required, names(event_df))
   
   if (length(missing) > 0) {
@@ -199,7 +205,7 @@ fit_agwrc_regression_in_day <- function(event_df) {
   }
   
   reg_df <- event_df %>%
-    mutate(logQ = log(median_flow_in_day))
+    mutate(logQ = log(median_flow))
   
   model <- lm(event_AGWRC ~ logQ, data = reg_df)
   
@@ -210,60 +216,39 @@ fit_agwrc_regression_in_day <- function(event_df) {
 }
 
 #
-#One-site regression wrapper
+# One-site regression wrapper
 #
 
-run_one_site_regression <- function(gage_id) {
+run_one_site_regression <- function(
+    gage_id,
+    regression_flow_col = "Flow",
+    add_inches_day = FALSE
+) {
+  
   points_df <- load_analysis_points(gage_id = gage_id)
-  area_sqmi <- get_drainage_area_sqmi(gage_id)
+  
+  if (add_inches_day || regression_flow_col == "flow_in_day") {
+    area_sqmi <- get_drainage_area_sqmi(gage_id)
+    
+    points_df <- add_flow_in_day(
+      points_df = points_df,
+      area_sqmi = area_sqmi,
+      source_flow_col = "Flow",
+      new_col = "flow_in_day"
+    )
+  }
   
   event_df <- make_event_regression_df(
     points_df = points_df,
-    area_sqmi = area_sqmi,
-    flow_col = "Flow"
+    regression_flow_col = regression_flow_col
   )
   
-  coeffs <- fit_agwrc_regression_in_day(event_df)
+  coeffs <- fit_agwrc_regression(event_df)
   
   data.frame(
     site_no = as.character(gage_id),
+    flow_metric = regression_flow_col,
     m = coeffs$m,
     b = coeffs$b
   )
 }
-
-#
-#Site lookup table
-#
-
-site_lookup <- data.frame(
-  site_no = c("01632000", "01633000", "01634000"),
-  site = c("Cootes Store", "Mount Jackson", "Strasburg"),
-  Landseg = c("N51165", "N51171", "N51187")
-)
-
-#
-#Run all regressions
-#
-
-regression_results <- dplyr::bind_rows(
-  run_one_site_regression("01632000"),
-  run_one_site_regression("01633000"),
-  run_one_site_regression("01634000")
-)
-
-#
-#Final comparison table
-#
-
-final_regression_table <- regression_results %>%
-  left_join(site_lookup, by = "site_no") %>%
-  select(site, m, b, Landseg)
-
-print(final_regression_table)
-
-#Optional export
-readr::write_csv(
-  final_regression_table,
-  "agwrc_regression_coefficients_inches.csv"
-)
