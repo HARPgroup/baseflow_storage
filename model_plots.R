@@ -71,6 +71,8 @@ ggplot(data=all_df, mapping = aes(Flow_in, V_flow))+
 
 # Plots for using sample event----
 # scale fact for second axis
+ex <- sqldf("select * from all_df where GroupID = 96")
+S0 <- ex$AGWS[1]
 scale_factor <- S0 + 0.01
 
 # No flow on plot
@@ -114,6 +116,32 @@ ggplot(data = ex, aes(Date)) +
   ggtitle(paste0("Storage and AGWRC over time, MJ Event ", ex$GroupID[1])) +
   theme(plot.title = element_text(hjust = 0.5))
 
+# Plot with lookup table value
+ggplot(data = ex, mapping = aes(Date))+
+  geom_line(mapping = aes(,U_storage, color = "Constant AGWRC"))+
+  geom_line(mapping = aes(,L_storage, color = "Lookup Table"))+
+  geom_line(mapping = aes(,AGWS, color = "Model Data"))+
+  scale_color_manual(name="Legend", values = c("Constant AGWRC" = "lightseagreen",
+                                               "Lookup Table" = "firebrick2",
+                                               "Model Data" = "purple3"))+
+  theme_bw()+
+  ylab("Storage (in)")+
+  ggtitle("Storage Calculated by Different Methods (Cootes Store Event 96)")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+# Lookup table values plot
+ggplot(data = all_df, mapping = aes(AGWS, L_storage))+
+  geom_point()+
+  geom_abline(slope = 1, color = "firebrick2", linewidth = 1)+
+  theme_bw()+
+  coord_cartesian(xlim = c(0,1.25), ylim = c(0,1.25))+
+  xlab("Model AGWS (in)")+
+  ylab("Storage from lookup Table (in)")+
+  ggtitle("Lookup Table Storage Compared to Model (SB)")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
 
 # Storage vs. AGWRC Plot
 ggplot(data = ex, aes(V_storage, V_AGWRC))+
@@ -132,3 +160,7 @@ ggplot(data=test_df, aes(Storage, AGWRC))+
   xlab("Storage (in)")+
   theme_bw()+
   theme(plot.title = element_text(hjust = 0.5))
+
+
+
+

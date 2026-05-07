@@ -4,13 +4,14 @@ event_data <- read.csv("https://raw.githubusercontent.com/HARPgroup/baseflow_sto
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/add_model_data.R")
 
 # get regression function loaded
-source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/will_baseflow/RegressionFunctionTesting.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/FinalRegression.R")
 
 
 # Add storage data from model and convert flow to inches
 event_df <- add_model_data(event_data,land_type_code = "forN51171", "AGWS", scenario = "subsheds2",site = "http://deq1.bse.vt.edu:81")
 da_sqmi <- get_drainage_area_sqmi("01633000")
 event_df$Flow_in <- convert.flow(event_df$Flow, da_sqmi)
+
 
 # optional For loop to do every event ----
 group_ids <- unique(event_df$GroupID)
