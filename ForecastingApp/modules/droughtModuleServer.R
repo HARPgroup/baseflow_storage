@@ -4,14 +4,14 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
-    # ---------------------------------------------
+    # Core Data Initialize ####
     # 0. Core data for this site
-    #    - analyzed events/points: from GitHub via bf_get_analysis(kind = model|gage)
+    #    - analyzed events/points: from omsite via bf_get_analysis(kind = model|gage)
     #    - raw daily flow for plots:
-    #        * model: model daily flows CSV from GitHub
-    #        * gage:  USGS via dataRetrieval
-    # ---------------------------------------------
+    #        * model: model daily flows CSV from GitHub (needs update)
+    #        * gage:  USGS via WaterGageBase
     
+    ## Read in baseflow analysis data ####
     analysis_points <- reactive({
       req(gage_id(), data_source())
       
@@ -24,112 +24,23 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
       )
       
       req(!is.null(out), nrow(out) > 0)
-      message("Loaded GitHub analysis rows: ", nrow(out), " for gage_id = ", gage_id(), " (", data_source(), ")")
+      message("Loaded analysis rows from om_site: ", nrow(out), " for gage_id = ", gage_id(), " (", data_source(), ")")
       out
     })
     
-    # ---- FIXED: model raw daily loader ----
-    model_raw_daily <- reactive({
-      req(site_choice())
-      
-      url_map <- c(
-        "Cootes Store"  = "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/data/PS2_5550_5560_flows_11.csv",
-        "Mount Jackson" = "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/data/PS2_5560_5100_flows_11.csv",
-        "Strasburg"     = "https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/data/PS3_5100_5080_flows_11.csv"
-      )
-      
-      url <- unname(url_map[site_choice()])
-      req(!is.na(url), nzchar(url))
-      
-      raw <- tryCatch(
-        readr::read_csv(url, show_col_types = FALSE),
-        error = function(e) {
-          showNotification(paste("Model raw CSV load failed:", e$message), type = "error", duration = NULL)
-          return(NULL)
-        }
-      )
-      req(!is.null(raw), nrow(raw) > 0)
-      
-      flow_col <- if ("Qout" %in% names(raw)) "Qout" else if ("Flow" %in% names(raw)) "Flow" else NA_character_
-      req(!is.na(flow_col))
-      
-      date_vec <- NULL
-      if ("thisdate" %in% names(raw)) date_vec <- raw$thisdate
-      if (is.null(date_vec) && "Date" %in% names(raw)) date_vec <- raw$Date
-      
-      need_build <- is.null(date_vec) || all(is.na(date_vec)) || all(trimws(as.character(date_vec)) == "")
-      
-      if (need_build) {
-        req(all(c("year", "month", "day") %in% names(raw)))
-        date_vec <- sprintf("%04d-%02d-%02d", raw$year, raw$month, raw$day)
-      }
-      
-      out <- tibble::tibble(
-        Date = as.Date(date_vec),
-        Flow = as.numeric(raw[[flow_col]])
-      ) %>%
-        dplyr::filter(!is.na(Date)) %>%
-        dplyr::arrange(Date)
-      
-      if (nrow(out) == 0) {
-        showNotification(
-          "Model raw data loaded, but no valid dates were parsed (Date ended up empty). Check date fields in the model CSV.",
-          type = "error", duration = NULL
-        )
-      } else {
-        message(
-          "Model raw_daily: rows=", nrow(out),
-          " min=", min(out$Date, na.rm = TRUE),
-          " max=", max(out$Date, na.rm = TRUE)
-        )
-      }
-      
-      out
-    })
-    
-    gage_raw_daily <- reactive({
-      req(gage_id())
-      
-      pts <- analysis_points()
-      start_date <- min(pts$Date, na.rm = TRUE)
-      
-      dv <- tryCatch(
-        dataRetrieval::readNWISdv(
-          siteNumbers = gage_id(),
-          parameterCd = "00060",
-          startDate = as.character(start_date)
-        ),
-        error = function(e) {
-          showNotification(paste("USGS daily flow download failed:", e$message), type = "error", duration = NULL)
-          return(NULL)
-        }
-      )
-      
-      req(!is.null(dv), nrow(dv) > 0)
-      
-      q_col <- grep("^X_00060_00003$", names(dv), value = TRUE)
-      if (length(q_col) == 0) {
-        q_col <- grep("00060", names(dv), value = TRUE)[1]
-      }
-      
-      dv %>%
-        dplyr::transmute(
-          Date = as.Date(Date),
-          Flow = as.numeric(.data[[q_col]])
-        ) %>%
-        dplyr::arrange(Date)
-    })
     
     raw_daily <- reactive({
       req(data_source())
-      if (data_source() == "model") model_raw_daily() else gage_raw_daily()
+      if (data_source() == "model"){
+        out <- model_raw_daily(site_choice)
+      }  else {
+        out <- gage_raw_daily(gage_id, analysis_points, ds)
+      }
+      return(out)
     })
     
-    # ---------------------------------------------
     
-    
-    # 1. Convenience reactives
-    # ---------------------------------------------
+    # 1. Convenience reactives ####
     original_df <- reactive({
       df <- analysis_points()
       req(nrow(df) > 0)
@@ -140,10 +51,8 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
       trimmed_points()
     })
     
-    
-    # ---------------------------------------------
-    # 0b. Storage (AGWS-equivalent) computed locally
-    # ---------------------------------------------
+    # SKIPPED FOR NOW - Do we still need this? Is this separate workflow runs? ####
+    # 0b. Storage (AGWS-equivalent) computed locally ####
     # Storage is computed from the analyzed "points" table for the ACTIVE source (model|gage):
     #   - required: Date, Flow (cfs), AGWRC
     #   - optional: kept, met_alpha (used for trimming if present)
@@ -281,13 +190,19 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
       }
     })
     
-    # ---------------------------------------------
-    # 2. Event-level summary (for DT & regression)
-    # ---------------------------------------------
+    # 2. Event-level summary (for DT & regression) ####
     events_summary <- reactive({
       df <- trimmed_df()
       req(nrow(df) > 0)
-      make_ben_event_summary(df)
+      #Read in baseflow event summary for gage:
+      ows_results <- read_ows_data(gage_id = gage_id(),
+                                   kind = "baseflow_summary",
+                                   templates = BF_SUMMARY_TEMPLATES_DEFAULT,
+                                   use_cache = TRUE)
+      #Update cache:
+      assign(ows_results$cache_key, ows_results$df, envir = .bf_cache)
+      
+      return(ows_results$df)
     })
     
     observeEvent(events_summary(), {
@@ -324,12 +239,11 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
         )
     })
     
-    # ---------------------------------------------
-    # 3. Historical plot (recent window)
-    # ---------------------------------------------
+    # 3. Historical plot (recent window) ####
     selected_event <- reactive({
       evt <- events_summary()
       s   <- input$events_table_rows_selected
+      
       if (is.null(s) || length(s) == 0) return(NULL)
       evt[s[1], , drop = FALSE]
     })
@@ -353,7 +267,6 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
           window_end   <- min(desired_end, max_date, na.rm = TRUE)
         }
       }
-      
       window_start <- max(window_start, min(df$Date, na.rm = TRUE), na.rm = TRUE)
       df_window    <- df %>% dplyr::filter(Date >= window_start, Date <= window_end)
       req(nrow(df_window) > 1)
@@ -409,9 +322,7 @@ droughtModuleServer <- function(id, gage_id, data_source, site_choice) {
         )
     })
     
-    # ---------------------------------------------
-    # 4. Events table (DT)
-    # ---------------------------------------------
+    # 4. Events table (DT) ####
     output$events_table <- renderDT({
       evt <- events_summary()
       req(nrow(evt) > 0)

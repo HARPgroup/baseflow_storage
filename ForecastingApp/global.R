@@ -1,4 +1,7 @@
 ## global.R  ------------------------------------------------------------
+#Hydro Configs
+basepath='/var/www/R'
+source(paste(basepath,'config.R',sep='/'))
 
 # Packages
 suppressPackageStartupMessages({
@@ -23,6 +26,7 @@ suppressPackageStartupMessages({
 source("R/nwis_utils.R")
 source("R/calc_storage.R")
 source("R/add_storage_cols.R")
+source("R/get_data.R")
 
 source("modules/droughtModuleUI.R")
 source("modules/droughtModuleServer.R")
@@ -36,27 +40,27 @@ BF_GH_BRANCH_DEFAULT <- "ben_bf_csvs"
 
 # analyzed CSV name templates (tries in order)
 BF_MODEL_TEMPLATES_DEFAULT <- c(
-  "bf_model_events_{gage_id}.csv",
-  "bf_events_{gage_id}.csv"   # fallback
+  "model_baseflow_trimmed_stats_{gage_id}.csv"
 )
 
 BF_GAGE_TEMPLATES_DEFAULT <- c(
-  "bf_gage_events_{gage_id}.csv",
-  "bf_events_{gage_id}.csv"   # fallback
+  "baseflow_trimmed_stats_{gage_id}.csv"
+)
+
+BF_SUMMARY_TEMPLATES_DEFAULT <- c(
+  "baseflow_summary_df_{gage_id}.csv"
 )
 
 # cache for analysis dfs and script text
 .bf_cache <- new.env(parent = emptyenv())
 .sf_script_cache <- new.env(parent = emptyenv())
 
-bf_github_raw_url <- function(gage_id,
-                              branch = BF_GH_BRANCH_DEFAULT,
-                              path_template,
-                              owner = BF_GH_OWNER,
-                              repo  = BF_GH_REPO) {
+bf_raw_url <- function(gage_id,
+                       path_template,
+                       host_site = omsite) {
   stopifnot(!is.null(gage_id), nzchar(gage_id))
   path <- gsub("\\{gage_id\\}", as.character(gage_id), path_template)
-  sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", owner, repo, branch, path)
+  sprintf("%s/usgs/agws/%s", host_site, path)
 }
 
 bf_url_exists <- function(url, timeout_sec = 10) {
@@ -111,27 +115,17 @@ bf_standardize_analysis_df <- function(df, gage_id) {
       met_alpha = as.logical(met_alpha)
     )
 }
-
-bf_get_analysis <- function(gage_id,
-                            kind = c("model", "gage"),
-                            branch = BF_GH_BRANCH_DEFAULT,
-                            owner = BF_GH_OWNER,
-                            repo  = BF_GH_REPO,
-                            templates_model = BF_MODEL_TEMPLATES_DEFAULT,
-                            templates_gage  = BF_GAGE_TEMPLATES_DEFAULT,
-                            use_cache = TRUE) {
-  kind <- match.arg(kind)
-  templates <- if (kind == "model") templates_model else templates_gage
-  
+#Either read URL or retrieve from cache and return data read from URL and cache_key
+read_ows_data <- function(gage_id,
+                     kind = c("model", "gage"),
+                     templates,
+                     use_cache = TRUE) {
   hit_url <- NULL
   hit_template <- NULL
   for (tpl in templates) {
-    candidate_url <- bf_github_raw_url(
+    candidate_url <- bf_raw_url(
       gage_id = gage_id,
-      branch = branch,
-      path_template = tpl,
-      owner = owner,
-      repo = repo
+      path_template = tpl
     )
     if (bf_url_exists(candidate_url)) {
       hit_url <- candidate_url
@@ -143,22 +137,42 @@ bf_get_analysis <- function(gage_id,
   if (is.null(hit_url)) {
     stop(
       "No analyzed ", kind, " file found for gage_id = ", gage_id, "\n",
-      "Tried templates: ", paste(templates, collapse = ", "), "\n",
-      "Branch: ", branch, "; Repo: ", owner, "/", repo
+      "Tried templates: ", paste(templates, collapse = ", "), "\n"
     )
   }
   
-  cache_key <- paste(owner, repo, branch, hit_template, gage_id, kind, sep = "|")
+  cache_key <- paste(hit_template, gage_id, kind, sep = "|")
   if (use_cache && exists(cache_key, envir = .bf_cache, inherits = FALSE)) {
     return(get(cache_key, envir = .bf_cache, inherits = FALSE))
   }
   
   df <- readr::read_csv(hit_url, show_col_types = FALSE)
-  df <- bf_standardize_analysis_df(df, gage_id)
+  
+  return(
+    list(
+      df = df,
+      cache_key = cache_key
+    )
+  )
+}
+
+bf_get_analysis <- function(gage_id,
+                            kind = c("model", "gage"),
+                            templates_model = BF_MODEL_TEMPLATES_DEFAULT,
+                            templates_gage  = BF_GAGE_TEMPLATES_DEFAULT,
+                            use_cache = TRUE) {
+  templates <- if (kind == "model") templates_model else templates_gage
+  
+  ows_results <- read_ows_data(gage_id = gage_id,
+                 kind = kind,
+                 templates = templates,
+                 use_cache = use_cache)
+  
+  df <- bf_standardize_analysis_df(ows_results$df, gage_id)
   df$analysis_kind <- kind
   
-  if (use_cache) assign(cache_key, df, envir = .bf_cache)
-  df
+  if (use_cache) assign(ows_results$cache_key, ows_results$df, envir = .bf_cache)
+  return(df)
 }
 
 # =============================================================================
