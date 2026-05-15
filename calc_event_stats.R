@@ -1,7 +1,7 @@
 calc_event_stats <- function (data, event_num, dAGWRmax, dAGWRmin){
 require(sqldf)
   
-source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/bf_event_stats.R")
+# source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/bf_event_stats.R")
   
 sqldf_query <- paste0(
   "select * from data 
