@@ -5,10 +5,12 @@ attach_event_stats <- function(analysis_data, r_lim =0){
   event_stats <- summarize_event(analysis_data)
   
   combined_data <- sqldf(sprintf(
-    "select a.*, b.AGWR as calc_AGWR, b.R_squared from analysis_data as a
+    "select a.*, b.AGWR as calc_AGWR, b.R_squared
+    from analysis_data as a
     left outer join event_stats as b
     on a.GroupID = b.GroupID
-    where R_squared > '%f'
+    AND a.Date = b.Date
+    where b.R_squared > '%f'
     ", r_lim)
   )
   
