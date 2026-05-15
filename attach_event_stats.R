@@ -7,7 +7,7 @@ attach_event_stats <- function(analysis_data, r_lim =0){
   combined_data <- sqldf(sprintf(
     "select a.*, b.AGWR as calc_AGWR, b.R_squared from analysis_data as a
     left outer join event_stats as b
-    on a.GroupID = b.event_num
+    on a.GroupID = b.GroupID
     where R_squared > '%f'
     ", r_lim)
   )
