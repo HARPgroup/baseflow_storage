@@ -22,10 +22,10 @@ csv1 <- read.csv(csv1_path)
 
 
 # load MK trimming function
-source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/ben_trimming/will_mk_trim.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/will_mk_trim.R")
 
 #load bf_event_stats
-source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ih_function_cleanup/bf_event_stats.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/bf_event_stats.R")
 
 #1. Trim the Data with trim_event_mk
 csv1_trimmed <- csv1 %>%
