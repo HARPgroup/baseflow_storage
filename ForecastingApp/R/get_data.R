@@ -5,11 +5,16 @@ gage_raw_daily <- function(gage_id, analysis_points, ds){
   pts <- analysis_points()
   start_date <- min(pts$Date, na.rm = TRUE)
   gage_obj <- tryCatch({
-    test <- hydrotools::WaterGageBase$new(
+    gage <- hydrotools::WaterGageBase$new(
       ds_in = ds,
       gage_id = gage_id(),
       start_date = as.character(start_date)
-    )},
+    )
+    #Add drainage area
+    gage$load_sf_da()
+    gage
+    
+    },
     error = function(e) {
       showNotification(paste("USGS daily flow download failed:", e$message), type = "error", duration = NULL)
       return(NULL)
@@ -26,8 +31,12 @@ gage_raw_daily <- function(gage_id, analysis_points, ds){
       Flow = as.numeric(.data[[gage_obj$flow_col]])
     ) %>%
     dplyr::arrange(Date)
-  
-  return(dv)
+  return(
+    list(
+      data_obj = gage_obj,
+      data = dv
+    )
+  )
 }
 
 
