@@ -28,13 +28,24 @@ droughtModuleUI <- function(id) {
         br(),
         h4("Event-Level AGWRC vs Characteristic Flow"),
         
-        dateRangeInput(
-          inputId = ns("reg_date_range"),
-          label   = "Filter events by date range (event overlap with window):",
-          start   = Sys.Date() - 365,
-          end     = Sys.Date(),
-          format  = "yyyy-mm-dd",
-          separator = " to "
+        fluidRow(
+          column(6, 
+                 dateRangeInput(
+                   inputId = ns("reg_date_range"),
+                   label   = "Filter events by date range (event overlap with window):",
+                   start   = Sys.Date() - 365,
+                   end     = Sys.Date(),
+                   format  = "yyyy-mm-dd",
+                   separator = " to "
+                 )
+          ),
+          column(6,
+                 numericInput(
+                   inputId = ns("regression_flow_max"),
+                   label = "Use all flows below this value (cfs):",
+                   value = NA
+                 )
+          )
         ),
         
         plotlyOutput(ns("agwrc_regression_plot")),

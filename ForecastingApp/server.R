@@ -14,11 +14,6 @@ server <- function(input, output, session) {
     gage_obj(gage)
   })
 
-  selected_source <- reactive({
-    # normalize to lower-case internally
-    if (identical(input$data_source, "Model")) "model" else "gage"
-  })
-
   droughtModuleServer(
     id          = "drought",
     gage_obj     = gage_obj

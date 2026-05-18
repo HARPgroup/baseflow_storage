@@ -3,13 +3,7 @@ droughtModuleServer <- function(id, gage_obj) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
-    # Core Data Initialize ####
-    # 0. Core data for this site
-    #    - analyzed events/points: from omsite via bf_get_analysis(kind = model|gage)
-    #    - raw daily flow for plots:
-    #        * model: model daily flows CSV from GitHub (needs update to return obj and df)
-    #        * gage:  USGS via WaterGageBase
-    
+    # 0. Core Data Initialize ####
     ## Read in Trimmed Stats data ####
     #Read in the trimmed stats from the workflow
     analysis_points <- reactive({
@@ -216,23 +210,6 @@ droughtModuleServer <- function(id, gage_obj) {
         max   = max_d
       )
     }, ignoreInit = FALSE)
-    ## Filter ####
-    reg_events_filtered <- reactive({
-      evt <- events_summary()
-      req(nrow(evt) > 0)
-      
-      dr <- input$reg_date_range
-      if (is.null(dr) || any(is.na(dr))) return(evt)
-      
-      start_win <- as.Date(dr[1])
-      end_win   <- as.Date(dr[2])
-      
-      evt %>%
-        dplyr::filter(
-          end_date   >= start_win,
-          start_date <= end_win
-        )
-    })
     
     # 3. Historical plot (recent window) ####
     selected_event <- reactive({
@@ -355,6 +332,31 @@ droughtModuleServer <- function(id, gage_obj) {
       workflowLM_m(out_m)
       workflowLM_b(out_b)
     })
+    
+    ## Filter for regression inputs ####
+    reg_events_filtered <- reactive({
+      evt <- events_summary()
+      req(nrow(evt) > 0)
+      
+      dr <- input$reg_date_range
+      if (is.null(dr) || any(is.na(dr))) return(evt)
+      
+      start_win <- as.Date(dr[1])
+      end_win   <- as.Date(dr[2])
+      
+      evt <- evt %>%
+        dplyr::filter(
+          end_date   >= start_win,
+          start_date <= end_win
+        )
+      
+      if(!is.na(input$regression_flow_max)){
+        evt <- evt[evt$median_flow < input$regression_flow_max,]
+      }
+      
+      return(evt)
+    })
+    
     ## User Regression and Data Frame ####
     #WORK DONE HERE
     #Caclulate the regression between Flow and AGWRC based on user included date
@@ -385,6 +387,10 @@ droughtModuleServer <- function(id, gage_obj) {
       #If available, store workflow regression results as well:
       pred_df_workflow <- NULL
       if(!is.null(workflowLM_m()) & !is.null(workflowLM_b())){
+        flow_seq <- seq(min(events_summary()$median_flow, na.rm = TRUE),
+                        max(events_summary()$median_flow, na.rm = TRUE),
+                        length.out = 100)
+        
         pred_df_workflow <- data.frame(
           median_flow = flow_seq,
           event_AGWRC = (workflowLM_m() * log(flow_seq) + workflowLM_b())
@@ -404,10 +410,9 @@ droughtModuleServer <- function(id, gage_obj) {
     output$agwrc_regression_plot <- renderPlotly({
       req(user_regression())
       
-      evt <- reg_events_filtered()
       p <- plotly::plot_ly() |>
         plotly::add_markers(
-          data = evt,
+          data = events_summary(),
           x    = ~median_flow,
           y    = ~event_AGWRC,
           name = "Events",
@@ -447,11 +452,7 @@ droughtModuleServer <- function(id, gage_obj) {
     output$regression_summary <- renderPrint({
       evt <- reg_events_filtered()
       req(nrow(evt) > 1)
-      
-      evt <- evt %>% dplyr::filter(!is.na(event_AGWRC), !is.na(median_flow))
-      req(nrow(evt) > 1)
-      model <- stats::lm(event_AGWRC ~ log(median_flow), data = evt)
-      summary(model)
+      summary(user_regression()$model)
     })
     
     # 6. Event inspection modal ####
