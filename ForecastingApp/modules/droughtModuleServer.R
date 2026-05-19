@@ -308,14 +308,12 @@ droughtModuleServer <- function(id, gage_obj) {
     
     # 5. AGWRC vs Flow regression (NOW FILTERED) ####
     ## Workflow data ####
-    workflowLM_m <- reactiveVal(NULL)
-    workflowLM_b <- reactiveVal(NULL)
+    workflowLM <- reactiveVal(NULL)
     #If a gage object was returned, check to see if the AGWRC-1.0 simple_lm
     #workflow has been run for this gage. If so, an m and b coefficient should
     #already be stored in database
     observeEvent(gage_obj(),{
-      out_m <- NULL
-      out_b <- NULL
+      out <- NULL
       if(inherits(gage_obj(),"waterGageBase")){
         
         gage_feature <- gage_obj()$load_wshd_feat()
@@ -325,12 +323,19 @@ droughtModuleServer <- function(id, gage_obj) {
         regression_b <- regression_scenario$get_prop("regression_b")$propvalue
         
         if(!is.na(regression_b) & !is.na(regression_m)){
-          out_m <- regression_m
-          out_b <- regression_b
+          regression_m_pvalue <- regression_scenario$get_prop("regression_m_pvalue")$propvalue
+          regression_b_pvalue <- regression_scenario$get_prop("regression_b_pvalue")$propvalue
+          regression_Rsq <- regression_scenario$get_prop("regression_Rsq")$propvalue
+          out <- list(
+            m = regression_m,
+            b = regression_b,
+            m_pvalue = regression_m_pvalue,
+            b_pvalue = regression_b_pvalue,
+            Rsq = regression_Rsq
+          )
         }
       }
-      workflowLM_m(out_m)
-      workflowLM_b(out_b)
+      workflowLM(out)
     })
     
     ## Filter for regression inputs ####
@@ -386,14 +391,14 @@ droughtModuleServer <- function(id, gage_obj) {
       
       #If available, store workflow regression results as well:
       pred_df_workflow <- NULL
-      if(!is.null(workflowLM_m()) & !is.null(workflowLM_b())){
+      if(!is.null(workflowLM())){
         flow_seq <- seq(min(events_summary()$median_flow, na.rm = TRUE),
                         max(events_summary()$median_flow, na.rm = TRUE),
                         length.out = 100)
         
         pred_df_workflow <- data.frame(
           median_flow = flow_seq,
-          event_AGWRC = (workflowLM_m() * log(flow_seq) + workflowLM_b())
+          event_AGWRC = (workflowLM()$m * log(flow_seq) + workflowLM()$b)
         )
       }
       
@@ -449,11 +454,25 @@ droughtModuleServer <- function(id, gage_obj) {
         )
     })
     ## User Regression Summary ####
-    output$regression_summary <- renderPrint({
+    output$lm_user_summary <- renderPrint({
       evt <- reg_events_filtered()
       req(nrow(evt) > 1)
       summary(user_regression()$model)
     })
+    
+    output$lm_WSPA_summary <- renderPrint({
+      req(workflowLM())
+      
+      cat(
+          "Slope (m) = ",workflowLM()$m,"\n",
+          "Intercept (b) = ",workflowLM()$b,"\n",
+          "Slope p-value = ",signif(workflowLM()$m_pvalue,4),"\n",
+          "Intercept b-pvalue = ",signif(workflowLM()$b_pvalue,4),"\n",
+          "R Squared = ",round(workflowLM()$Rsq,4)
+      )
+      
+    })
+    
     
     # 6. Event inspection modal ####
     selected_group <- reactiveVal(NULL)
@@ -527,6 +546,41 @@ droughtModuleServer <- function(id, gage_obj) {
           yaxis = list(title = "AGWR", rangemode = "tozero")
         )
     })
+    # 70. Forceast Inputs UI ####
+    output$agwrc_inputs <- renderUI({
+      if(input$agwrc_calculation == "constant"){
+        out <- tagList(
+          numericInput(
+            ns("agwrc_single"),
+            label = "AGWRC (single daily ratio)",
+            value = 0.97,
+            min = 0.0,
+            max = 1.2,
+            step = 0.001
+          ),
+          fluidRow(
+            column(6,
+                   p("User Regression Predicted AGWRC:"),
+                   p("WSPA Regression Predicted AGWRC:")
+            ),
+            column(6,
+                   verbatimTextOutput(ns("agwrc_user_lm")),
+                   verbatimTextOutput(ns("agwrc_wspa_lm"))
+            )
+          )
+        )
+      }else if(input$agwrc_calculation == "variable"){
+        out <- tagList(
+          radioButtons(
+            ns("agwrc_regression"),
+            label = "Which Regression should be used to determine variable AGWRC?",
+            choiceNames = c("User", "WSPA"),
+            choiceValues = c("user","wspa")
+          )
+        )
+      }
+    })
+    
     
     # 7a. Auto-default AGWRC ####
     observeEvent(list(input$forecast_start, events_summary()), {
@@ -549,6 +603,32 @@ droughtModuleServer <- function(id, gage_obj) {
       updateNumericInput(session, "agwrc_single", value = round(initial_agwrc, 3))
     }, ignoreInit = TRUE)
     
+    ## Constant AGWRC Recommendations ####
+    #Calculate a recommended AGWRC from today's flow using user regression
+    output$agwrc_user_lm <- renderText({
+      req(user_regression())
+      df <- full_storage_df()
+      Q0 <- df$Flow[df$Date == input$forecast_start]
+      if(!is.na(Q0)){
+        out <- coef(user_regression()$model)[2] * log(Q0) + coef(user_regression()$model)[1]
+      }else{
+        out <- NULL
+      }
+      return(out)
+    })
+    #Calculate a recommended AGWRC from today's flow using WSPA regression
+    output$agwrc_wspa_lm <- renderText({
+      req(workflowLM())
+      df <- full_storage_df()
+      Q0 <- df$Flow[df$Date == input$forecast_start]
+      if(!is.na(Q0)){
+        out <- workflowLM()$m * log(Q0) + workflowLM()$b
+      }else{
+        out <- NULL
+      }
+      return(out)
+    })
+    
     
     # 7b. Forecast logic (single AGWRC for now) + AGWS display ####
     #Update the date input with the max date found in the raw data
@@ -568,8 +648,7 @@ droughtModuleServer <- function(id, gage_obj) {
       df <- full_storage_df()
       req(nrow(df) > 0)
       start_date <- as.Date(input$forecast_start)
-      agwrc      <- input$agwrc_single
-      req(!is.na(start_date), !is.na(agwrc))
+      req(!is.na(start_date))
       #QC checks: Flow must exist on the start date and the input AGWRC must be
       #valid
       Q0 <- df$Flow[df$Date == start_date]
@@ -577,9 +656,11 @@ droughtModuleServer <- function(id, gage_obj) {
         showNotification("Selected forecast start date has no flow record.", type = "error")
         return(NULL)
       }
-      if (agwrc >= 1 || agwrc <= 0) {
-        showNotification("Selected AGWRC must be between 0 and 1.", type = "error")
-        return(NULL)
+      if(!is.null(input$agwrc_single)){
+        if (is.na(input$agwrc_single) || input$agwrc_single >= 1 || input$agwrc_single <= 0) {
+          showNotification("Selected AGWRC must be between 0 and 1.", type = "error")
+          return(NULL)
+        }
       }
       
       metric <- input$forecast_metric %||% "flow"
@@ -603,6 +684,7 @@ droughtModuleServer <- function(id, gage_obj) {
         }
         S0 <- df$Storage_in[df$Date == start_date]
         #### Projected Storage ####
+        agwrc      <- input$agwrc_single
         proj_storage_in <- S0 * (agwrc ^ (1:max(forecast_horizons)))
         # Recalculate flow
         proj_flow_in <- (1 - agwrc) * proj_storage_in
@@ -611,11 +693,45 @@ droughtModuleServer <- function(id, gage_obj) {
         #### Flow Projection ####
         #Initial Flow
         Q0 <- as.numeric(Q0[1])
-        #Projection
-        proj_flow <- Q0 * (agwrc ^ (1:max(forecast_horizons)))
-        proj_flow_in <- proj_flow * sp_conv
-        #If flow is the metric, we estimate storage via Q / (1 - AGWRC)
-        proj_storage_in <- proj_flow_in / (1 - agwrc)
+        if(input$agwrc_calculation == "constant"){
+          ##### Constant ####
+          agwrc <- input$agwrc_single
+          #Projection
+          proj_flow <- Q0 * (agwrc ^ (1:max(forecast_horizons)))
+          proj_flow_in <- proj_flow * sp_conv
+          #If flow is the metric, we estimate storage via Q / (1 - AGWRC)
+          proj_storage_in <- proj_flow_in / (1 - agwrc)
+          
+        }else if(input$agwrc_calculation == "variable"){
+          ##### Variable ####
+          proj_flow <- numeric(max(forecast_horizons))
+          proj_flow_in <- numeric(max(forecast_horizons))
+          proj_storage_in <- numeric(max(forecast_horizons))
+          agwrc <- numeric(max(forecast_horizons))
+          
+          if(input$agwrc_regression == "user"){
+            m <- coef(user_regression()$model)[2]
+            b <- coef(user_regression()$model)[1]
+          }else if(input$agwrc_regression == "wspa"){
+            m <- workflowLM()$m
+            b <- workflowLM()$b
+          }
+          #Inital value
+          agwrc[1] <- m * log(Q0) + b
+          proj_flow[1] <- Q0 * agwrc[1]
+          proj_flow_in[1] <- proj_flow[1] * sp_conv
+          proj_storage_in[1] <- proj_flow_in[1] / (1 - agwrc[1])
+          #Iterate using variable agwr calculated from regression
+          for(i in 2:max(forecast_horizons)){
+            agwrc[i] <- m * log(proj_flow[i - 1]) + b
+            #Projection
+            proj_flow[i] <- proj_flow[i - 1] * agwrc[i]
+            proj_flow_in[i] <- proj_flow[i] * sp_conv
+            #If flow is the metric, we estimate storage via Q / (1 - AGWRC)
+            proj_storage_in[i] <- proj_flow_in[i] / (1 - agwrc[i])
+          }
+        }
+        
       }
       #Assemble an output
       out <- tibble::tibble(
@@ -671,8 +787,6 @@ droughtModuleServer <- function(id, gage_obj) {
       req(nrow(df) > 0, fr)
       
       start_date <- as.Date(input$forecast_start)
-      agwrc      <- input$agwrc_single
-      req(!is.na(start_date), !is.na(agwrc))
       
       hist_window <- 90
       
