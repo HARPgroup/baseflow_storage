@@ -209,10 +209,15 @@ fit_agwrc_regression <- function(event_df) {
     mutate(logQ = log(median_flow))
   
   model <- lm(event_AGWRC ~ logQ, data = reg_df)
+  model_summary <- summary(model)
   
   data.frame(
     m = unname(coef(model)[["logQ"]]),
-    b = unname(coef(model)[["(Intercept)"]])
+    b = unname(coef(model)[["(Intercept)"]]),
+    Rsq = model_summary$r.squared,
+    m_pvalue = model_summary$coefficients[2,4],
+    b_pvalue = model_summary$coefficients[1,4]
+    
   )
 }
 
