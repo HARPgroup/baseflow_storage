@@ -303,7 +303,7 @@ droughtModuleServer <- function(id, gage_obj) {
         selection = "single",
         options = list(pageLength = 10),
         rownames = FALSE
-      )
+      ) |> DT::formatRound(6,4)
     })
     
     # 5. AGWRC vs Flow regression (NOW FILTERED) ####
