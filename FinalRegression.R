@@ -211,14 +211,7 @@ fit_agwrc_regression <- function(event_df) {
   model <- lm(event_AGWRC ~ logQ, data = reg_df)
   model_summary <- summary(model)
   
-  data.frame(
-    m = unname(coef(model)[["logQ"]]),
-    b = unname(coef(model)[["(Intercept)"]]),
-    Rsq = model_summary$r.squared,
-    m_pvalue = model_summary$coefficients[2,4],
-    b_pvalue = model_summary$coefficients[1,4]
-    
-  )
+  return(model)
 }
 
 #
@@ -249,12 +242,16 @@ run_one_site_regression <- function(
     regression_flow_col = regression_flow_col
   )
   
-  coeffs <- fit_agwrc_regression(event_df)
+  model <- fit_agwrc_regression(event_df)
+  model_summary <- summary(model)
   
   data.frame(
     site_no = as.character(gage_id),
     flow_metric = regression_flow_col,
-    m = coeffs$m,
-    b = coeffs$b
+    m = coef(model)[2]$m,
+    b = coef(model)[1]$b,
+    m_pvalue = model_summary$coefficients[2,4],
+    b_pvalue = model_summary$coefficients[1,4],
+    Rsq = model_summary$r.squared
   )
 }
