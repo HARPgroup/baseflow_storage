@@ -314,7 +314,7 @@ droughtModuleServer <- function(id, gage_obj) {
     #already be stored in database
     observeEvent(gage_obj(),{
       out <- NULL
-      if(inherits(gage_obj(),"waterGageBase")){
+      if(inherits(gage_obj(),"waterGageDaily")){
         show_modal_spinner(text = "Retrieving baseflow data from DEQ servers...")
         gage_feature <- gage_obj()$load_wshd_feat()
         AGWRC_model <- gage_feature$get_prop(propcode = "AGWRC-1.0")
