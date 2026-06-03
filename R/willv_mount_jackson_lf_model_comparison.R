@@ -40,6 +40,9 @@ plot <- joined_events |>
   geom_line()+
   geom_point(aes(y = usgs_10p, col = "USGS 10%"))+
   scale_y_log10()+
-  theme_classic()
+  theme_classic()+
+  labs(x = "",
+       y = "Flow (CFS)",
+       title = "Model Base Flow vs. USGS Monthly 10th Percentile")
 
 ggplotly(plot)
