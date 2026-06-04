@@ -2,10 +2,10 @@
 library(tidyverse)
 library(plotly)
 
-model_events <- read_csv("bf_model_events_01633000.csv")
+#model_events <- read_csv("bf_model_events_01633000.csv")
 usgs_events <- read_csv("mount_jackson_usgs_flow.csv")
 
-#Join data and select Date, Flow_model, Flow_usgs, and GroupID columns
+# Join data and select Date, Flow_model, Flow_usgs, and GroupID columns
 joined_events <- model_events |>
   inner_join(usgs_events, by = "Date") |>
   select(Date = Date,
@@ -22,7 +22,7 @@ ggplot(joined_events, aes(Date, Flow_model, col = "Model"))+
   labs(x = element_blank(),
        y = "Q (cfs)")
 
-#Calculate 10th percentile flows by month
+# Calculate 10th percentile flows by month
 joined_events_10p <- joined_events |>
   mutate(month = month(Date)) |>
   group_by(month) |>
@@ -34,7 +34,7 @@ joined_events <- joined_events |>
   left_join(joined_events_10p, by = "month", multiple = "all") |>
   filter(Flow_usgs < usgs_10p)
 
-#plot of Model BF vs USGS 10th percentile
+# plot of Model BF vs USGS 10th percentile
 plot <- joined_events |>
   ggplot(aes(Date, Flow_model, group = GroupID, color = "Model BF"))+
   geom_line()+
@@ -46,3 +46,17 @@ plot <- joined_events |>
        title = "Model Base Flow vs. USGS Monthly 10th Percentile")
 
 ggplotly(plot)
+
+############
+# Box plot #
+############
+
+joined_events_long <- joined_events |>
+  pivot_longer(cols = c(Flow_model, usgs_10p), names_to = "method", values_to = "value" )
+
+ggplot(joined_events_long, aes(x = method, y = value, fill = method))+
+  geom_boxplot()+
+ # scale_y_log10()+
+  labs(x = "",
+       y = "Flow (CFS)")+
+  theme_classic()
