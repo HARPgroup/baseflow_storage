@@ -64,7 +64,6 @@ commandArgs <- function(...){
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/usgs_post_regression.R")
 
 
-
 flow_data <- read.csv("LurayGage.csv")
 event_identification <- read.csv("LurayEvent.csv")
 baseflow_events_events <- read.csv("LurayBF.csv")
@@ -74,3 +73,21 @@ trim_stats <- read.csv("LurayTrimStats.csv")
 regression_df <- read.csv("LuraySummaryStats.csv")
 AGWRC_Q_lm <- read.csv("LurayAGWRCRegression.csv")
 
+#Create plot showing regression coefficient on y and logQ on x
+#Create new column that has the log of flow
+event_df <- event_df %>%
+  mutate(LogQ = log(median_flow))
+
+ggplot(event_df, aes(x = LogQ, y = event_AGWRC)) +
+  geom_abline(slope = -0.01573969, intercept = 1.078166, col = "red") + 
+  geom_point() + 
+  labs(x = "Log Median Flow (cfs)",
+       y = "AGWRC",
+       title = "AGWRC vs Log Median Flow for South Fork Shenandoah River near Luray, VA")
+
+ggplot(event_df, aes(x = median_flow, y = event_AGWRC)) +
+  #geom_abline(slope = -0.01573969, intercept = 1.078166, col = "red") + 
+  geom_point() + 
+  labs(x = "Median Flow (cfs)",
+       y = "AGWRC",
+       title = "AGWRC vs Median Flow for South Fork Shenandoah River near Luray, VA")
