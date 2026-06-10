@@ -1,50 +1,144 @@
-library(dataRetrieval)
-library(kableExtra)
+library(dplyr)
 
-# CFS coefficients
-coeff_CS_cfs <- run_one_site_regression("01632000", regression_flow_col = "Flow")
-coeff_MJ_cfs <- run_one_site_regression("01633000", regression_flow_col = "Flow")
-coeff_S_cfs  <- run_one_site_regression("01634000", regression_flow_col = "Flow")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/convert.flow.R")
 
-# Inches coefficients
-coeff_CS_in <- run_one_site_regression("01632000", regression_flow_col = "flow_in_day", add_inches_day = TRUE)
-coeff_MJ_in <- run_one_site_regression("01633000", regression_flow_col = "flow_in_day", add_inches_day = TRUE)
-coeff_S_in  <- run_one_site_regression("01634000", regression_flow_col = "flow_in_day", add_inches_day = TRUE)
 
-# Get drainage areas
-area_CS <- get_drainage_area_sqmi("01632000")
-area_MJ <- get_drainage_area_sqmi("01633000")
-area_S  <- get_drainage_area_sqmi("01634000")
+argst <- commandArgs(trailingOnly = T)
+if (length(argst) < 4) {
+  message("This script will take a series of trimmed baseflow events and a full time series flow data and estimate storage values calculated between baseflow events.")
+  message("Use: model_outflow_calculator.R original_model_data_time_series_daily site_name site_no output_file ")
+  q()
+}
+csv1_path <- argst[1]
+csv2_path <- argst [2]
+m <- argst[3]
+b <- argst[4]
+output_file <- argst[5]
 
-# m and b per gage
-m_CS <- -0.0003047; b_CS <- 0.9418478
-m_MJ <- -0.0088198; b_MJ <- 0.9202850
-m_S  <- -0.0175015; b_S  <- 0.8911815
+#load in baseflow events
+csv1 <- read_csv(csv1_path)
 
-# Build data
-gages <- c("01632000 (CS)", "01632000 (CS)",
-           "01633000 (MJ)", "01633000 (MJ)",
-           "01634000 (S)",  "01634000 (S)")
-q_cfs <- c(25, 81, 106, 270, 200.25, 444)
-areas <- c(area_CS, area_CS, area_MJ, area_MJ, area_S, area_S)
-ms    <- c(m_CS, m_CS, m_MJ, m_MJ, m_S, m_S)
-bs    <- c(b_CS, b_CS, b_MJ, b_MJ, b_S, b_S)
 
-# Calculate columns
-q_in  <- mapply(convert.flow, q_cfs, areas)
-c_cfs <- ms * log(q_cfs) + bs
-c_in  <- ms * log(q_in)  + bs
-s_in  <- q_in / (1 - c_in)
+#load in full time series
+csv2 <- read_csv(csv2_path) %>%
+  rename(Date = obs_date, Flow = obs_flow)
 
-# Build table
-df <- data.frame(
-  Gage  = gages,
-  Q_cfs = q_cfs,
-  Q_in  = round(q_in,  4),
-  C_cfs = round(c_cfs, 4),
-  C_in  = round(c_in,  4),
-  S_in  = round(s_in,  4),
-  C_lkp = NA
+#make sure dates line up
+
+csv1$Date <- as.Date(csv1$Date)
+
+csv2$Date <- as.Date(csv2$Date)
+
+#merge on date
+df_full <- csv2 %>%
+  left_join(csv1, by = "Date")
+
+#clean up df
+
+df_clean <- df_full %>%
+  mutate(
+    Flow = Flow.x,
+    ) %>%
+  select(-ends_with(".x"), -ends_with(".y"))
+
+#convert flows
+df_clean <- df_clean %>% 
+  mutate(
+    flow_in = convert.flow(Flow, dra)
+  )
+
+#add m and b
+
+m = m
+b = b
+
+# m = -0.0157647428890143	
+# b = 1.05289351038922
+
+df_clean <- df_clean %>%
+  rename(da_sqmi = dra)
+
+da_sqmi <- df_clean$da_sqmi[1]
+
+
+
+#rebuilding lookup table:
+
+
+Qts <- seq(min(df_clean$flow_in, na.rm=TRUE),
+           max(df_clean$flow_in, na.rm=TRUE),
+           by = 0.001)
+
+
+site_factors <- function(da_sqmi, flow_vec = Qts, vec_for_reg = NULL, m, b){
+  Qin <- convert.flow(flow_vec, da_sqmi)
+  
+  if (is.null(vec_for_reg)) {
+    vec_for_reg <- Qin
+  }
+  
+  C <- b + (m * log(vec_for_reg))
+  
+    C <- pmin(pmax(C, 0.001), 0.999)
+  
+  assign("Qin", Qin, envir = .GlobalEnv)
+  assign("C",   C,   envir = .GlobalEnv)
+}
+
+
+site_factors(da_sqmi, flow_vec = Qts, m = m, b = b)
+
+S <- Qin / (1 - C)
+
+Svar <- data.frame(
+  Qts = Qts,
+  C = C,
+  Qin = Qin,
+  S = S
 )
 
-kable(df, format = "latex")
+
+Svar$dS <- c(Svar$S[-1] / Svar$S[-length(Svar$S)], NA)
+
+Svar <- subset(Svar, dS > 1 & S > 0) 
+            
+#Estimating Storage
+
+df_clean$AGWS_est <- approx(
+  Svar$Qts,
+  Svar$S,
+  xout = df_clean$flow_in,
+  rule = 2
+)$y
+
+#Fill missing Storage
+
+df_clean$AGWS_final <- ifelse(
+  is.na(df_clean$AGWS),
+  df_clean$AGWS_est,
+  df_clean$AGWS
+)
+
+#Save as .csv files
+write.csv(df_clean, file = output_file,
+          row.names = FALSE
+)
+
+#checks and example plots
+# sum(is.na(df_clean$AGWS_final))
+# 
+# 
+# plot(df_clean$Date, df_clean$AGWS_final,
+#      type = "l", col = "blue",
+#      xlab = "Date", ylab = "Storage (AGWS)")
+# 
+# points(df_clean$Date, df_clean$AGWS, col = "red")
+# 
+# legend("topright",
+#        legend = c("AGWS Best Estimate", "Observed Baseflow Storage"),
+#        col = c("blue", "red"),
+#        lty = c(1, NA),
+#        pch = c(NA, 1))
+
+
+
