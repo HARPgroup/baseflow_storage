@@ -2,11 +2,17 @@
 library(tidyverse)
 library(plotly)
 
+<<<<<<< HEAD
 ## siteBF.csv
 baseflow_events <- read_csv("bf_events_01634000.csv") |>
   select(Date, Flow, Month, GroupID)
 ## siteEvent.csv
 usgs_events <- read_csv("strasburg_usgs_flow.csv") |>
+=======
+baseflow_events <- read_csv("bf_events_01632000.csv") |>
+  select(Date, Flow, Month, GroupID)
+usgs_events <- read_csv("cootes_store_usgs_flow.csv") |>
+>>>>>>> 29db14b6452b0c7716c0ae4820990f27fd57baae
   select(Date, Flow)
 
 # Calculate Xth percentile flows by month
@@ -28,6 +34,7 @@ baseflow_events_joined <- baseflow_events |>
 ############
 
 # % points represent percentiles derived from overall flow, boxes represent baseflow events
+<<<<<<< HEAD
 # ggplot(baseflow_events_joined, aes(x = as.factor(Month), y = Flow))+
 #   geom_boxplot()+
 #   geom_point(aes(y = usgs_05p, color = "5% Flow"))+
@@ -38,11 +45,27 @@ baseflow_events_joined <- baseflow_events |>
 #        y = "Flow (CFS)",
 #        title = "Base Flow by Month (Lynnwood)")+
 #   theme_classic()
+=======
+ggplot(baseflow_events_joined, aes(x = as.factor(Month), y = Flow))+
+  geom_boxplot()+
+  geom_point(aes(y = usgs_05p, color = "5% Flow"))+
+  geom_point(aes(y = usgs_10p, color = "10% Flow"))+
+  geom_point(aes(y = usgs_25p, color = "25% Flow"))+
+  scale_y_log10()+
+  labs(x = "",
+       y = "Flow (CFS)",
+       title = "Base Flow by Month (Lynnwood)")+
+  theme_classic()
+>>>>>>> 29db14b6452b0c7716c0ae4820990f27fd57baae
 
 # Group usgs data by month and year
 bf_median <- baseflow_events |>
   group_by(GroupID) |>
+<<<<<<< HEAD
   summarize(median_flow = min(Flow),  #### NOTE CHANGE TO MIN
+=======
+  summarize(median_flow = median(Flow),
+>>>>>>> 29db14b6452b0c7716c0ae4820990f27fd57baae
             month = month(Date))
 
 ##########################
@@ -50,7 +73,11 @@ bf_median <- baseflow_events |>
 ##########################
 
 # Plot of Event Median flows vs historical baselines
+<<<<<<< HEAD
 plot2 <- ggplot() +
+=======
+ggplot() +
+>>>>>>> 29db14b6452b0c7716c0ae4820990f27fd57baae
   #baseline ribbon
   geom_ribbon(data = usgs_lf_percentiles,
               aes(x = month, ymin = usgs_05p, ymax = usgs_25p),
@@ -76,7 +103,11 @@ plot2 <- ggplot() +
   scale_fill_manual(name = "", values = c("Specific Baseflow Events" = "blue")) +
   #general formatting
   labs(
+<<<<<<< HEAD
     title = "Specific Baseflow Events (min) vs. Historical Monthly Lowflow Percentiles (Strasburg)",
+=======
+    title = "Specific Baseflow Events vs. Historical Monthly Lowflow Percentiles (Cootes Store)",
+>>>>>>> 29db14b6452b0c7716c0ae4820990f27fd57baae
     x = "Month",
     y = "Baseflow (cfs)"
   ) +
