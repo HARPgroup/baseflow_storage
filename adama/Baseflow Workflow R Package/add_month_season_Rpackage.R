@@ -7,9 +7,9 @@
 #'Add numerical month column in df based on Date column, then add char season
 #'column when month number matches individual season parameters
 #'
-#'@param df A df input with a column named "Date" in format "YYYY-mm-dd" as Date obj
-#'@return Output columns for num month and char season for length of "Date" column
-#'@author ?
+#'@param df df input with column named "Date" in format "YYYY-mm-dd" as Date obj
+#'@return Vectors of num month and char season for length of "Date" column
+#'@author
 #'@example
 #'#get data from N F Shenandoah River via Strasburg, VA - USGS 01634000
 #'library(hydrotools)
@@ -20,11 +20,11 @@
 #'@importFrom dplyr mutate case_when
 #'@export
 add_month_season <- function(
-    #A df input with a column named "Date" in format "YYYY-mm-dd" as Date obj
+    #df input with column named "Date" in format "YYYY-mm-dd" as Date obj
     df) {
     #dplyr package
     require(dplyr)
-    #mutate df, adding Month and Season column
+    #Mutate df, adding Month and Season column
     df %>% mutate(
     #New column: Month = num "%m" from Date column
     Month = format(Date, "%m"),

@@ -8,10 +8,9 @@
 #'Calculates change in active groundwater regression by dividing each AGWR 
 #'value by the previous AGWR value in the series 
 #'
-#'@param x An input num vector with chronological AGWR values
-#'@return An output num vector with change in AGWR in all positions except 1 and 2
-#'@author ?
-#'@refrences ?
+#'@param x Num vector with chronological AGWR values
+#'@return Num vector with change in AGWR in all positions except 1 and 2
+#'@author 
 #'@example
 #'#get data from N F Shenandoah River via Strasburg, VA - USGS 01634000
 #'library(hydrotools)
@@ -20,9 +19,9 @@
 #'StrasGage$gage_data$deltaAGWR <- calc_delta_AGWR(StrasGage$gage_data$AGWR)
 #'@export
 calc_delta_AGWR <- function(
-    #An input vector with chronological AGWR values
+    #Num vector with chronological AGWR values
     x) {
-    #First position of vector calculations records NA value
+    #First element of vector calculations records NA value
     c(NA, 
     #All x vector values except the first position  
     x[-1] 

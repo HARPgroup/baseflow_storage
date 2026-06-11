@@ -7,9 +7,9 @@
 #'Fills all false values with a consecutive length less than acceptable gap with 
 #'true values if sequence of false values are between true values
 #'
-#'@param flag_vec A logical vector input calculated from AGWR, deltaAGWR and a deltaAGWR threshold
-#'@param max_gap A numerical value for acceptable gap of falses, default is 5
-#'@return A logical vector defining recession days 
+#'@param flag_vec Logical vector input calculated from AGWR, deltaAGWR and a deltaAGWR threshold
+#'@param max_gap Num value for acceptable gap of falses, default is 5
+#'@return Logical vector defining recession days 
 #'@author 
 #'@example
 #'#Sample AGWR and deltaAGWR values, with threshold for change in deltaAGWR and max_gap
@@ -25,9 +25,9 @@
 #'@importFrom dplyr mutate case_when
 #'@export
 gap_fill <- function(
-  #A logical vector input calculated from AGWR, deltaAGWR and a deltaAGWR threshold  
+  #Logical vector input calculated from AGWR, deltaAGWR and a deltaAGWR threshold  
   flag_vec, 
-  #A numerical value for acceptable gap of falses, default is 5
+  #Num value for acceptable gap of falses, default is 5
   max_gap = 5) {
   #NA values in flag_vec are defined as FALSE values
   flag_vec[is.na(flag_vec)] <- FALSE
@@ -40,21 +40,13 @@ gap_fill <- function(
   values <- rle_out$values
   #Runs loop for all values except first and last position
   for (i in seq(2, length(values) - 1)) {
-  #If the current index is False, its length <= max_gap, 
+  #If current index is False, its length <= max_gap, 
   #and the surrounding values are True, run next line  
     if (!values[i] && lengths[i] <= max_gap && values[i - 1] && values[i + 1]) {
   #Value of current index becomes True
       values[i] <- TRUE
     }
   }
-
-# UNSURE 
-  # for(i in seq(2, length(values) - 1)) {
-  #   # Compare flow at i to overall mean flow
-  #   if (flow_vec[i] >= 1.15 * mean(flow_vec, na.rm = TRUE)) {
-  #     values[i] <- FALSE
-  #   }
-  # }
   
   #Reconstructs rle_out obj to update for new True events
   inverse.rle(list(lengths = lengths, values = values))

@@ -7,13 +7,13 @@
 #'Runs through all recession day events and calculates if flow for a given index position 
 #'is >= the mean of flow * 1.15. If >=, recession day for index position is assigned false value.
 #'
-#'@param df Data frame with flow_col, AGWR, and delta_AGWR columns  *** || flow_csv df with flow_col, AGWR, and delta_AGWR columns
+#'@param df df with flow_col, AGWR, and delta_AGWR columns  *** || flow_csv df with flow_col, AGWR, and delta_AGWR columns
 #'@param flow_col flow_col with Flow values from df  *** || flow_col values from flow_csv df
 #'@param AGWR_col AGWR_col is assigned AGWR column from df || AGWR_col is assigned AGWR column from flow_csv df
 #'@param delta_col delta_col is assigned delta_AGWR column from df || delta_col is assigned delta_AGWR column from flow_csv df
-#'@param delta_thresh A numerical threshold value for change in delta_AGWR
-#'@param max_gap A numerical value for acceptable gap of false values, default is 3
-#'@return A logical vector re-defining recession days column
+#'@param delta_thresh Num threshold value for change in delta_AGWR
+#'@param max_gap Num value for acceptable gap of false values, default is 3
+#'@return Logical vector re-defining recession days column
 #'@author 
 #'@example
 #'#Sample data for flow_col, AGWR, and delta_AGWR
@@ -35,9 +35,9 @@ flag_stable_baseflow <- function(
   AGWR_col = "AGWR",
   #delta_col is assigned delta_AGWR column from df                               
   delta_col = "delta_AGWR",
-  #A numerical threshold value for change in delta_AGWR                               
+  #Num threshold value for change in delta_AGWR                               
   delta_thresh = 0.03,
-  #A numerical value for acceptable gap of falses, default is 3                               
+  #Num value for acceptable gap of falses, default is 3                               
   max_gap = 3) {
   
   #Assigns AGWR_col and delta_col to new obj
@@ -48,8 +48,8 @@ flag_stable_baseflow <- function(
   is_stable <- abs(delta - 1.0) < delta_thresh & AGWR < 1.0
   #Runs gap_fill function to find missed recession days
   df$RecessionDay <- gap_fill( is_stable, max_gap)
-  #Runs for loop for all indices of length of df$RecessionDay
   
+  #Runs for loop for all indices of length of df$RecessionDay
   for(i in 1:length(df$RecessionDay)) {
   #Compare flow at index position to overall mean flow
     if (flow_col[i] >= 1.15 * mean(flow_col, na.rm = TRUE)) {
