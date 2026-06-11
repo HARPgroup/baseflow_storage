@@ -78,7 +78,11 @@ read_ows_data <- function(gage_id,
   
   cache_key <- paste(hit_template, gage_id, kind, sep = "|")
   if (use_cache && exists(cache_key, envir = .bf_cache, inherits = FALSE)) {
-    return(get(cache_key, envir = .bf_cache, inherits = FALSE))
+    return(
+      list(
+    df = get(cache_key, envir = .bf_cache, inherits = FALSE)),
+    cache_key = cache_key
+    )
   }
   
   df <- read.csv(hit_url)
