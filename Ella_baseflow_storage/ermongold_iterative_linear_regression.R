@@ -1,6 +1,6 @@
-### This script performs iterative linear regression for every 50 cfs ###
-### increase in the flow values. This allows for comparison of R-squared ###
-### values as flow increases and more data is accounted for ###
+### This script performs iterative linear regression for a specified cfs ###
+### increase in the flow values. The output is a dataframe with R-squared ###
+### values and the number of data points in each "chunk" analyzed ###
 
 library(tidyverse)
 
