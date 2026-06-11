@@ -5,12 +5,8 @@
 library(tidyverse)
 
 # load in the csv file for a gage of interest
-#### need to replace "gage" with name of gage from workflow ###
-gage_usgs_events <- read_csv("https://deq1.bse.vt.edu//usgs//agws//baseflow_summary_df_02055000.csv")
-
-# add a new column for log flow
-reg_df <- gage_usgs_events %>%
-  mutate(logQ = log(median_flow))
+#### need to replace gage number in url for intended gage###
+gage_usgs_events <- read_csv("https://deq1.bse.vt.edu//usgs//agws//baseflow_summary_df_01629500.csv")
 
 # add a new column for log flow
 reg_df <- gage_usgs_events %>%
@@ -28,7 +24,7 @@ highest_flow <- tail(reg_df$median_flow, 1)
 reg_df_list <- list()
 
 # define the intended range size (flow) for iterations
-range_size <- 167.4 ### define range ####
+range_size <- 583 ### define range ####
 
 # define the start and end of the iteration ranges for the loop
 range_start <- lowest_flow
