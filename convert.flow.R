@@ -1,5 +1,5 @@
 # Function to convert flow from cfs to inches using UsGS gage area
-convert.flow <- function(flow_col, area_sqmi){
+cfs2inday <- function(flow_col, area_sqmi){
   cfs <- flow_col
   
   # Create conversion factor
