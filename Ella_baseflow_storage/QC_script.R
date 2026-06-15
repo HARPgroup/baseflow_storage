@@ -1,0 +1,176 @@
+### This script contains a list of QC functions to potentially be added to ###
+### the baseflow workflow ###
+
+library(lmtest)
+library(tidyverse)
+
+# read in the data and use the same name as bf workflow output
+event_df <- read_csv("https://deq1.bse.vt.edu//usgs//agws//baseflow_summary_df_02055000.csv")
+
+### This function determines the total number of events ###
+
+bf_events_n <- function(event_df){
+  paste0("This gage has ", n_distinct(event_df$GroupID), " recorded events")
+}
+bf_events_n(event_df)
+
+### This function determines the monthly total number of events ### 
+
+bf_monthly_events_n <- function(event_df){
+  event_df |>
+    mutate(
+      month = month(as.Date(start_date, format = "%y-%m-%d"))
+    ) |>
+    group_by(month) |>
+    summarise(event_cnt = n_distinct(GroupID))
+}
+bf_monthly_events_n(event_df)
+
+### This function determines the gage length ###
+
+gage_length <- function(event_df){
+  paste0(
+    "This gage has ", 
+    length(event_df$median_flow),
+    " observations"
+  )
+}
+gage_length(event_df)
+
+### This function quantifies heteroscedasticity ###
+
+# create a new column for the log median flow 
+event_df <- event_df |>
+  mutate(logQ = log(median_flow))
+
+# create a linear model
+model <- lm(event_AGWRC ~ logQ, data = event_df)
+
+# create a function that runs the Breusch-Pagan test and the White test
+# the ouput is a message that gives p-value and interpretation
+# flag values that have p-value < 0.1
+heteroscedasticity <- function(model) {
+  # run the Breusch-Pagan test 
+  bp_test <- bptest(model)
+  
+  # write message with interpretation
+  bp_msg <- paste0(
+    "Breusch-Pagan test p-value = ",
+    round(bp_test$p.value, 4),
+    if(bp_test$p.value < 0.1) {
+      ". Heteroscedasticity is likely causing some uncertainty in the model."
+    }
+    else{
+      ". Heteroscedasticity is likely not a concern."
+    }
+  )
+  
+  # run the White test
+  white_test <- bptest(model, ~fitted(model) + I(fitted(model)^2))
+  
+  # write message with interpretation
+  white_msg <- paste0(
+    "White test p-value = ",
+    round(white_test$p.value, 4),
+    if(white_test$p.value < 0.1){
+      ". Heteroscedasticity is likely causing some uncertainty in the model."
+    } else {
+      ". Heteroscedasticity is likely not a concern."
+    }
+  )
+  
+  # output both messages in the console
+  cat(bp_msg, "\n\n")
+  cat(white_msg, "\n")
+}
+heteroscedasticity(model)
+
+### This function calculates the slope ###
+#### Initialize ####
+library(nhdplusTools)
+
+get_basin_area <- function(gage_obj){
+  #Outlet coordinates
+  brlat <- sf::st_coordinates(gage_obj$gage_data_sf["geometry"])[,2]
+  brlon <- sf::st_coordinates(gage_obj$gage_data_sf["geometry"])[,1]
+  out_point_br = sf::st_sfc(sf::st_point(c(brlon, brlat)), crs = 4326)
+  nhd_out_br <- get_nhdplus(out_point_br)
+  return(nhd_out_br$slope)
+}
+get_basin_area(gage_obj)
+
+### These two functions flags outliers ###
+
+# IQR uses boundaries to detect unusually high or low values in the data
+# Cook's distance detects influential observations that affect the model fit
+
+# create a new column for the log median flow 
+event_df <- event_df |>
+  mutate(logQ = log(median_flow))
+
+flag_outliers_IQR <- function(event_df) {
+  
+  # calculate Q1, Q3, and IQR
+  Q1 = quantile(event_df$logQ, 0.25, na.rm = TRUE)
+  Q3 = quantile(event_df$logQ, 0.75, na.rm = TRUE)
+  IQR = Q3 - Q1
+  
+  lower = Q1 - 1.5 * IQR
+  upper = Q3 + 1.5 * IQR
+  
+  # return the number of values flagged as outliers
+  n_flagged_msg <- paste0("IQR-based detection determines ",
+         sum(event_df$logQ < lower | 
+        event_df$logQ > upper,
+      na.rm = TRUE),
+      " log median flow value(s) as outlier(s)"
+  )
+  
+  # create a string of flagged flow values
+  flagged_values <- event_df$logQ[
+    event_df$logQ < lower |
+      event_df$logQ > upper
+  ]
+  
+  # create a second message to convey flagged values if applicable
+  if (length(flagged_values) > 0) {
+    flagged_val_msg <- paste0("The value(s) flagged as outlier(s) are: ",
+                              paste(flagged_values, collapse = ", ")
+                              )
+  } else {
+    flagged_val_msg <- ""
+  }
+  
+  # output both messages in the console
+  cat(n_flagged_msg, "\n\n")
+  cat(flagged_val_msg, "\n")
+}
+flag_outliers_IQR(event_df)
+
+# create a function that determines influential observations with Cook's 
+# distance
+flag_cooks <- function(model, event_df) {
+  
+  # define the variables
+  cooks_d <- cooks.distance(model)
+  n <- length(cooks_d)
+  threshold <- 4 / n
+  
+  # determine flagged values
+  flagged_cooks <- which(cooks_d > threshold)
+  
+  # output messages depending on values being flagged
+  if (length(flagged_cooks) > 0) {
+  flagged_cooks_msg <- paste0(
+    "The values flagged by Cook's distance as being influential on the model relationship between log flow and AGWRC are: ",
+         paste(event_df$logQ[flagged_cooks], collapse = ", ")
+  )
+} else {
+    flagged_cooks_msg <- "No values were flagged as being influential on the model relationship between log flow and AGWRC"
+}
+  
+  # output message in the console
+  cat(flagged_cooks_msg, "\n\n")
+}
+flag_cooks(model, event_df)
+
