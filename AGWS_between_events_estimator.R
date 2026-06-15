@@ -9,6 +9,13 @@ if (length(argst) < 4) {
   message("Use: model_outflow_calculator.R original_model_data_time_series_daily site_name site_no output_file ")
   q()
 }
+
+#example
+csv1_path <- "https://deq1.bse.vt.edu:444/usgs/agws/baseflow_trimmed_stats_01632000.csv"
+csv2_path <- "https://deq1.bse.vt.edu:444/usgs/agws/01632000-flow.csv"
+m <- -0.0003047
+b <- 0.9418478
+
 csv1_path <- argst[1]
 csv2_path <- argst [2]
 m <- argst[3]
@@ -16,12 +23,13 @@ b <- argst[4]
 output_file <- argst[5]
 
 #load in baseflow events
-csv1 <- read_csv(csv1_path)
+csv1 <- read.csv(csv1_path)
 
 
 #load in full time series
-csv2 <- read_csv(csv2_path) %>%
-  rename(Date = obs_date, Flow = obs_flow)
+csv2 <- read.csv(csv2_path) %>%
+  rename(Date = obs_date, Flow = obs_flow) |> 
+  filter(!is.na(Flow))
 
 #make sure dates line up
 
@@ -52,9 +60,6 @@ df_clean <- df_clean %>%
 m = m
 b = b
 
-# m = -0.0157647428890143	
-# b = 1.05289351038922
-
 df_clean <- df_clean %>%
   rename(da_sqmi = dra)
 
@@ -63,14 +68,10 @@ da_sqmi <- df_clean$da_sqmi[1]
 
 
 #rebuilding lookup table:
-
-
-Qts <- seq(min(df_clean$flow_in, na.rm=TRUE),
-           max(df_clean$flow_in, na.rm=TRUE),
-           by = 0.001)
-
-
-site_factors <- function(da_sqmi, flow_vec = Qts, vec_for_reg = NULL, m, b){
+Qcfs <- seq(min(df_clean$Flow, na.rm=TRUE),
+            max(df_clean$Flow, na.rm=TRUE),
+            by = 0.1)
+site_factors <- function(da_sqmi, flow_vec = Qcfs, vec_for_reg = NULL, m, b){
   Qin <- convert.flow(flow_vec, da_sqmi)
   
   if (is.null(vec_for_reg)) {
@@ -79,44 +80,38 @@ site_factors <- function(da_sqmi, flow_vec = Qts, vec_for_reg = NULL, m, b){
   
   C <- b + (m * log(vec_for_reg))
   
-    C <- pmin(pmax(C, 0.001), 0.999)
+  C <- pmin(pmax(C, 0.001), 0.999)
   
-  assign("Qin", Qin, envir = .GlobalEnv)
-  assign("C",   C,   envir = .GlobalEnv)
+  return(data.frame(flow_vec, Qin, C))
 }
 
 
-site_factors(da_sqmi, flow_vec = Qts, m = m, b = b)
+lookupdata <- site_factors(da_sqmi, flow_vec = Qcfs, vec_for_reg = Qcfs, m = m, b = b)
 
-S <- Qin / (1 - C)
+lookupdata$S <- lookupdata$Qin / (1 - lookupdata$C)
 
-Svar <- data.frame(
-  Qts = Qts,
-  C = C,
-  Qin = Qin,
-  S = S
-)
+lookupdata$dS <- c(lookupdata$S[-1] / lookupdata$S[-length(lookupdata$S)], NA)
 
+Svar <- lookupdata[lookupdata$dS > 1 & lookupdata$S > 0,]
 
-Svar$dS <- c(Svar$S[-1] / Svar$S[-length(Svar$S)], NA)
-
-Svar <- subset(Svar, dS > 1 & S > 0) 
-            
 #Estimating Storage
-
 df_clean$AGWS_est <- approx(
-  Svar$Qts,
+  Svar$Qin,
   Svar$S,
   xout = df_clean$flow_in,
   rule = 2
 )$y
-
-#Fill missing Storage
+            
+df_clean <- df_clean %>%
+  mutate(
+    Flow_in = flow_in,
+    AGWS = if_else(!is.na(AGWRC), Flow_in / (1 - AGWRC), NA_real_)
+  )
 
 df_clean$AGWS_final <- ifelse(
-  is.na(df_clean$AGWS),
-  df_clean$AGWS_est,
-  df_clean$AGWS
+  !is.na(df_clean$AGWS),
+  df_clean$AGWS,          
+  df_clean$AGWS_est       
 )
 
 #Save as .csv files
@@ -125,20 +120,16 @@ write.csv(df_clean, file = output_file,
 )
 
 #checks and example plots
-# sum(is.na(df_clean$AGWS_final))
-# 
-# 
-# plot(df_clean$Date, df_clean$AGWS_final,
-#      type = "l", col = "blue",
-#      xlab = "Date", ylab = "Storage (AGWS)")
-# 
-# points(df_clean$Date, df_clean$AGWS, col = "red")
-# 
-# legend("topright",
-#        legend = c("AGWS Best Estimate", "Observed Baseflow Storage"),
-#        col = c("blue", "red"),
-#        lty = c(1, NA),
-#        pch = c(NA, 1))
+sum(is.na(df_clean$AGWS_final)) # should be 0
 
+
+plot_ly(df_clean, x = ~Date) %>%
+  add_lines(y = ~AGWS_final, name = "AGWS Best Estimate", line = list(color = "blue")) %>%
+  add_markers(y = ~AGWS, name = "Observed Baseflow Storage", marker = list(color = "red")) %>%
+  layout(
+    xaxis = list(title = "Date"),
+    yaxis = list(title = "Storage (AGWS)"),
+    legend = list(x = 1, xanchor = "right", y = 1)
+  )
 
 
