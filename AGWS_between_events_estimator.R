@@ -9,6 +9,7 @@ if (length(argst) < 4) {
   message("Use: model_outflow_calculator.R original_model_data_time_series_daily site_name site_no output_file ")
   q()
 }
+<<<<<<< HEAD
 
 #example
 csv1_path <- "https://deq1.bse.vt.edu:444/usgs/agws/baseflow_trimmed_stats_01632000.csv"
@@ -16,6 +17,12 @@ csv2_path <- "https://deq1.bse.vt.edu:444/usgs/agws/01632000-flow.csv"
 m <- -0.0003047
 b <- 0.9418478
 
+=======
+# csv1_path <- "https://deq1.bse.vt.edu:444/usgs/agws/baseflow_trimmed_stats_01634000.csv"
+# csv2_path <- "https://deq1.bse.vt.edu:444/usgs/agws/01634000-flow.csv"
+# m <- -0.0145270564970664
+# b <- 1.04829247996453
+>>>>>>> e4ac7ac16939d02e95eae5e36197fd1731a40651
 csv1_path <- argst[1]
 csv2_path <- argst [2]
 m <- argst[3]
@@ -71,7 +78,11 @@ da_sqmi <- df_clean$da_sqmi[1]
 Qcfs <- seq(min(df_clean$Flow, na.rm=TRUE),
             max(df_clean$Flow, na.rm=TRUE),
             by = 0.1)
+<<<<<<< HEAD
 site_factors <- function(da_sqmi, flow_vec = Qcfs, vec_for_reg = NULL, m, b){
+=======
+site_factors <- function(da_sqmi, flow_vec = Qts, vec_for_reg = NULL, m, b){
+>>>>>>> e4ac7ac16939d02e95eae5e36197fd1731a40651
   Qin <- convert.flow(flow_vec, da_sqmi)
   
   if (is.null(vec_for_reg)) {
@@ -89,11 +100,21 @@ site_factors <- function(da_sqmi, flow_vec = Qcfs, vec_for_reg = NULL, m, b){
 lookupdata <- site_factors(da_sqmi, flow_vec = Qcfs, vec_for_reg = Qcfs, m = m, b = b)
 
 lookupdata$S <- lookupdata$Qin / (1 - lookupdata$C)
+<<<<<<< HEAD
 
+lookupdata$dS <- c(lookupdata$S[-1] / lookupdata$S[-length(lookupdata$S)], NA)
+=======
+>>>>>>> e4ac7ac16939d02e95eae5e36197fd1731a40651
+
+Svar <- lookupdata[lookupdata$dS > 1 & lookupdata$S > 0,]
+
+<<<<<<< HEAD
+=======
 lookupdata$dS <- c(lookupdata$S[-1] / lookupdata$S[-length(lookupdata$S)], NA)
 
 Svar <- lookupdata[lookupdata$dS > 1 & lookupdata$S > 0,]
 
+>>>>>>> e4ac7ac16939d02e95eae5e36197fd1731a40651
 #Estimating Storage
 df_clean$AGWS_est <- approx(
   Svar$Qin,
@@ -102,6 +123,7 @@ df_clean$AGWS_est <- approx(
   rule = 2
 )$y
             
+<<<<<<< HEAD
 df_clean <- df_clean %>%
   mutate(
     Flow_in = flow_in,
@@ -113,6 +135,8 @@ df_clean$AGWS_final <- ifelse(
   df_clean$AGWS,          
   df_clean$AGWS_est       
 )
+=======
+>>>>>>> e4ac7ac16939d02e95eae5e36197fd1731a40651
 
 #Save as .csv files
 write.csv(df_clean, file = output_file,
