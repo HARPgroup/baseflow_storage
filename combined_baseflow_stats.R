@@ -1,12 +1,10 @@
 library(dplyr)
 #reads in the two csv
 baseflow_trimmed_stats <- read_csv("C:\\HARP Folder\\baseflow_storage\\baseflow_trimmed_stats_01634000.csv")
-baseflow_trimmed_stats <- baseflow_trimmed_stats
-
 baseflow_summary_stats <-read_csv ("C:\\HARP Folder\\baseflow_storage\\baseflow_summary_df_01634000.csv")
-baseflow_summary_stats <- baseflow_summary_stats
 
-# selects GroupID and median_flow columns from baseflow_summary_stats
+
+# selects GroupID, event_AGWRC, and median_flow columns from baseflow_summary_stats
 trimmed_baseflow_summary_stats <- baseflow_summary_stats %>% 
   select(GroupID, median_flow, event_AGWRC)
 
