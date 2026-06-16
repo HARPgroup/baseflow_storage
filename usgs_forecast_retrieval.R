@@ -5,36 +5,41 @@
 library(chromote)
 library(arrow)
 
-# This might have to change depending on whos running it
+### This might have to change depending on whos running it
 download_folder <- "C:\\HARP\\baseflow_storage\\USGS Forecast"  
 
-b <- ChromoteSession$new()
+session <- ChromoteSession$new()
 
 # Set the download settings
-b$Browser$setDownloadBehavior(
+session$Browser$setDownloadBehavior(
   behavior = "allow", 
   downloadPath = download_folder
 )
 
 # Opens website
-b$Page$navigate("https://water.usgs.gov/vizlab/streamflow-drought-forecasts/?extent=Virginia#6.7/38.018/-79.459")
+session$Page$navigate("https://water.usgs.gov/vizlab/streamflow-drought-forecasts/?extent=Virginia#6.7/38.018/-79.459")
 Sys.sleep(3) 
 
 # Bypass 'Get Started' button
-b$Runtime$evaluate(expression = "document.querySelector('#access-button').click()")
+session$Runtime$evaluate(expression = "document.querySelector('#access-button').click()")
 Sys.sleep(3) 
 
 # Downloads USGS Forecast PARQUET file
-b$Runtime$evaluate(expression = "document.querySelector('#download-forecasts > span').click()")
+session$Runtime$evaluate(expression = "document.querySelector('#download-forecasts > span').click()")
 
 # Allows download to finish before closing
 Sys.sleep(5) 
-b$close()
+session$close()
 
-### -----------------Read in and filter to our sites---------------------- ###
+### Sort files to get most recent file
+files <- list.files(path = "C:\\HARP\\baseflow_storage\\USGS Forecast", pattern = "\\.parquet$", full.names = TRUE)
+most_recent_file <- files[which.max(file.info(files)$mtime)]
 
-gages <- c("01628500", "01629500", "01631000", "01636500", "02055000", "02024000", "02034000")
+# Write csv
+csv_name <- paste0("USGS_rc_", Sys.Date() - 1, ".csv")
 
-usgs_fc <- read_parquet("C:\\HARP\\baseflow_storage\\USGS Forecast\\USGS_streamflow_drought_forecasts_2026-06-10.parquet") |> 
-  filter(StaID == gages)
+read_parquet(most_recent_file) |> 
+  write_csv_arrow(csv_name)
+
+# push csv to github
 

@@ -1,7 +1,7 @@
 #Lynnwood
 gageID <- "01628500"
 
-#Step 01_obtain_flow 
+#Step 01_obtain_flow
 commandArgs <- function(...){
   c(gageID, "lynnGage.csv")
 }
@@ -38,7 +38,6 @@ commandArgs <- function(...){
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/bf_trimming_analysis.R")
 
-
 #Step 06_regression_df
 commandArgs <- function(...){
   c("lynnTrimStats.csv", "01634000", "lynnSummaryStats.csv")
@@ -50,6 +49,12 @@ commandArgs <- function(...){
   c("lynnSummaryStats.csv", "01634000", "lynnAGWRCRegression.csv")
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/baseflow_regression.R")
+
+#Step 08_qc
+commandArgs <- function(...){
+  c(gage_obj, "lynnSummaryStats.csv", "lynnQC.csv")
+}
+source("code will go here")
 
 #Step import -> 01_regression_coeff
 commandArgs <- function(...){
