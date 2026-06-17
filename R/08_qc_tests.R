@@ -6,7 +6,7 @@
 # }
 
 library(lmtest)
-library(tidyverse)
+suppressPackageStartupMessages(library(tidyverse))
 library(nhdplusTools)
 
 args <- commandArgs(trailingOnly = T)
@@ -40,19 +40,19 @@ daily_df <- read_csv(input_01_file, col_types = cols())
 
 bf_events_n <- function(event_df){
   result <- paste0("This gage has ", n_distinct(event_df$GroupID), " recorded events.")
-  
+
   cat(result, "\n\n")
 }
 bf_events_n(event_df)
 
-### This function determines the monthly total number of events ### 
+### This function determines the monthly total number of events ###
 
 bf_monthly_events_n <- function(event_df, gage_ID){
   monthly_event_count <- event_df |>
     mutate(month = month(as.Date(start_date, format = "%y-%m-%d"))) |>
     group_by(month) |>
     summarise(event_cnt = n_distinct(GroupID))
-  
+
   cat(paste0("Monthly event totals saved to 'step08_", gageID, ".csv'"))
   return(monthly_event_count)
 }
@@ -62,18 +62,18 @@ bf_monthly_events_n(event_df)
 
 gage_length <- function(daily_df){
   result <- paste0(
-    "This gage has ", 
+    "This gage has ",
     length(daily_df$Flow),
     " observations."
   )
-  
+
   cat(result, "\n\n")
 }
 gage_length(daily_df)
 
 ### This function quantifies heteroscedasticity ###
 
-# create a new column for the log median flow 
+# create a new column for the log median flow
 event_df <- event_df |>
   mutate(logQ = log(median_flow))
 
@@ -84,9 +84,9 @@ model <- lm(event_AGWRC ~ logQ, data = event_df)
 # the ouput is a message that gives p-value and interpretation
 # flag values that have p-value < 0.1
 heteroscedasticity <- function(model) {
-  # run the Breusch-Pagan test 
+  # run the Breusch-Pagan test
   bp_test <- bptest(model)
-  
+
   # write message with interpretation
   bp_msg <- paste0(
     "Breusch-Pagan test p-value = ",
@@ -98,10 +98,10 @@ heteroscedasticity <- function(model) {
       ". Heteroscedasticity is likely not a concern."
     }
   )
-  
+
   # run the White test
   white_test <- bptest(model, ~fitted(model) + I(fitted(model)^2))
-  
+
   # write message with interpretation
   white_msg <- paste0(
     "White test p-value = ",
@@ -112,27 +112,27 @@ heteroscedasticity <- function(model) {
       ". Heteroscedasticity is likely not a concern."
     }
   )
-  
+
   # output both messages in the console
   cat(bp_msg, "\n\n")
   cat(white_msg, "\n\n")
-  
+
 }
 heteroscedasticity(model)
 
 ### This function calculates the slope ###
 
 get_basin_slope <- function(gage_obj){
-  
+
   site <- get_nldi_feature(list(featureSource = "nwissite",
                                 featureID = paste0("USGS-", gageID)))
   gage_comid <- site$comid
-  
+
   watershed_slope <- get_catchment_characteristics(
-    varname = "TOT_BASIN_SLOPE", 
+    varname = "TOT_BASIN_SLOPE",
     ids = gage_comid
   )
-  
+
   result <- (paste0("The slope is ", watershed_slope[,3], "%"))
   cat(result, "\n\n")
 }
@@ -143,7 +143,7 @@ suppressWarnings(get_basin_slope(gage_obj))
 # IQR uses boundaries to detect unusually high or low values in the data
 # Cook's distance detects influential observations that affect the model fit
 
-# create a new column for the log median flow 
+# create a new column for the log median flow
 event_df <- event_df |>
   mutate(logQ = log(median_flow))
 
@@ -156,7 +156,7 @@ flag_outliers_IQR <- function(event_df) {
   upper = Q3 + 1.5 * IQR
   # return the number of values flagged as outliers
   n_flagged_msg <- paste0("IQR-based detection determines ",
-                          sum(event_df$logQ < lower | 
+                          sum(event_df$logQ < lower |
                                 event_df$logQ > upper,
                               na.rm = TRUE),
                           " log median flow value(s) as outlier(s)"
@@ -179,12 +179,12 @@ flag_outliers_IQR <- function(event_df) {
   cat(flagged_val_msg, "\n")
   # create a new column in event_df that lists T/F for outliers
   event_df <- event_df %>%
-    mutate(IQR_flagged_outlier = logQ < lower | 
+    mutate(IQR_flagged_outlier = logQ < lower |
              logQ > upper)
 }
 event_df <- flag_outliers_IQR(event_df)
 
-# create a function that determines influential observations with Cook's 
+# create a function that determines influential observations with Cook's
 # distance
 flag_cooks <- function(model, event_df) {
   # define the variables
