@@ -10,17 +10,18 @@ library(tidyverse)
 library(nhdplusTools)
 
 args <- commandArgs(trailingOnly = T)
-if (length(args) < 3){
+if (length(args) < 4){
   message("Use Rscript 08_qc.R gage_obj input_file output_file")
   q()
 }
 
-#suppressPackageStartupMessages(library(###)) # Do this for all libraries
 # get arguments
 gage_obj <- paste0(args[1])
-input_file <- paste0(args[2])
-input_file <- str_replace_all(input_file, '\"', '')
-output_file <- paste0(args[3])
+input_06_file <- paste0(args[2])
+input_06_file <- str_replace_all(input_06_file, '\"', '')
+input_01_file <- paste0(args[3])
+input_01_file <- str_replace_all(input_01_file, '\"', '')
+output_file <- paste0(args[4])
 
 message(paste0("DEBUG with: args <- c('",paste(args,collapse="', '")),"')")
 
@@ -31,37 +32,42 @@ message(paste("Reading", input_file))
 ### the baseflow workflow ###
 
 # read in the data and use the same name as bf workflow output
-event_df <- read_csv(input_file)
+event_df <- read_csv(input_06_file)
+daily_df <- read_csv(input_01_file)
 
 ### This function determines the total number of events ###
 
 bf_events_n <- function(event_df){
-  paste0("This gage has ", n_distinct(event_df$GroupID), " recorded events")
+  result <- paste0("This gage has ", n_distinct(event_df$GroupID), " recorded events")
+  
+  cat(result, "\n")
 }
 bf_events_n(event_df)
 
 ### This function determines the monthly total number of events ### 
 
 bf_monthly_events_n <- function(event_df){
-  event_df |>
-    mutate(
-      month = month(as.Date(start_date, format = "%y-%m-%d"))
-    ) |>
+  event_df <- event_df |>
+    mutate(month = month(as.Date(start_date, format = "%y-%m-%d"))) |>
     group_by(month) |>
     summarise(event_cnt = n_distinct(GroupID))
+  
+  return(event_df)
 }
 bf_monthly_events_n(event_df)
 
 ### This function determines the gage length ###
 
-gage_length <- function(event_df){
-  paste0(
+gage_length <- function(daily_df){
+  result <- paste0(
     "This gage has ", 
-    length(event_df$median_flow),
+    length(daily_df$Flow),
     " observations"
   )
+  
+  cat(result, "\n")
 }
-gage_length(event_df)
+gage_length(daily_df)
 
 ### This function quantifies heteroscedasticity ###
 
@@ -108,6 +114,7 @@ heteroscedasticity <- function(model) {
   # output both messages in the console
   cat(bp_msg, "\n\n")
   cat(white_msg, "\n")
+  
 }
 heteroscedasticity(model)
 
@@ -124,9 +131,10 @@ get_basin_slope <- function(gage_obj){
     ids = gage_comid
   )
   
-  return(print(paste0("The slope is ", watershed_slope[,3], "%")))
+  result <- (paste0("The slope is ", watershed_slope[,3], "%"))
+  cat(result, "\n")
 }
-get_basin_slope(gage_obj)
+suppressWarnings(get_basin_slope(gage_obj))
 
 ### These two functions flags outliers ###
 
