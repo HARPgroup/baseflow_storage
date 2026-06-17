@@ -59,7 +59,7 @@ bf_monthly_events_n <- function(event_df, gage_ID, output_file){
   cat(paste0("Monthly event totals saved to 'step08_", gageID, ".csv'"), "\n\n")
 
 }
-bf_monthly_events_n(event_df)
+bf_monthly_events_n(event_df, gageID, output_file)
 
 ### This function determines the gage length ###
 
