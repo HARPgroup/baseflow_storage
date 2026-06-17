@@ -1,17 +1,16 @@
 #### Initialize ####
 library(nhdplusTools)
 
+get_basin_slope <- function(gage_obj){
 
-get_basin_area <- function(gage_obj){
+site <- get_nldi_feature(list(featureSource = "nwissite",
+             featureID = paste0("USGS-", gageID)))
+gage_comid <- site$comid
 
-  #Outlet coordinates
-  brlat <- sf::st_coordinates(gage_obj$gage_data_sf["geometry"])[,2]
-  brlon <- sf::st_coordinates(gage_obj$gage_data_sf["geometry"])[,1]
-  out_point_br = sf::st_sfc(sf::st_point(c(brlon, brlat)), crs = 4326)
-  nhd_out_br <- get_nhdplus(out_point_br)
-  return(nhd_out_br$slope)
+watershed_slope <- get_catchment_characteristics(
+  varname = "TOT_BASIN_SLOPE",
+  ids = gage_comid
+)
+
+return(print(paste0("The slope is ", watershed_slope[,3], "%")))
 }
-
-# get basin area
-
-
