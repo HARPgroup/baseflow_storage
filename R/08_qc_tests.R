@@ -47,14 +47,17 @@ bf_events_n(event_df)
 
 ### This function determines the monthly total number of events ###
 
-bf_monthly_events_n <- function(event_df, gage_ID){
+bf_monthly_events_n <- function(event_df, gage_ID, output_file){
   monthly_event_count <- event_df |>
     mutate(month = month(as.Date(start_date, format = "%y-%m-%d"))) |>
     group_by(month) |>
-    summarise(event_cnt = n_distinct(GroupID))
+    summarise(event_cnt = n_distinct(GroupID)) |>
+
+  # Write csv
+    write.csv(output_file, row.names = FALSE)
 
   cat(paste0("Monthly event totals saved to 'step08_", gageID, ".csv'"), "\n\n")
-  return(monthly_event_count)
+
 }
 bf_monthly_events_n(event_df)
 
@@ -213,5 +216,3 @@ flag_cooks <- function(model, event_df) {
 }
 event_df <- flag_cooks(model, event_df)
 
-# Write csv
-write.csv(monthly_event_count, output_file, row.names = FALSE)
