@@ -34,5 +34,6 @@ write.csv(iterative_lm_df, end_path_1, row.names = FALSE)
 
 # write csv for top 5 R-squared values and for which iterations those values
 # occurred 
+top5 <- iterative_lm(event_df = event_df)
 write.csv(top5, end_path_2, row.names = FALSE)
 
