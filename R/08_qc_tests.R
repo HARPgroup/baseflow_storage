@@ -53,7 +53,7 @@ bf_monthly_events_n <- function(event_df, gage_ID){
     group_by(month) |>
     summarise(event_cnt = n_distinct(GroupID))
   
-  cat(paste0("Monthly event totals saved to 'step08_", gageID, ".csv'")
+  cat(paste0("Monthly event totals saved to 'step08_", gageID, ".csv'"))
   return(monthly_event_count)
 }
 bf_monthly_events_n(event_df)
