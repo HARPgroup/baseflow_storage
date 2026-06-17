@@ -17,10 +17,10 @@ if (length(args) < 3){
 
 suppressPackageStartupMessages(library(###)) # Do this for all libraries
 # get arguments
-gage_obj <- args[1]
-input_file <- as.character(args[2])
+gage_obj <- paste0(args[1])
+input_file <- paste0(args[2])
 input_file <- str_replace_all(input_file, '\"', '')
-output_file <- as.character(args[3])
+output_file <- paste0(args[3])
 
 message(paste0("DEBUG with: args <- c('",paste(args,collapse="', '")),"')")
 
