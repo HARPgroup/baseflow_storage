@@ -17,6 +17,7 @@ suppressPackageStartupMessages(library(stringr))
 suppressPackageStartupMessages(library(hydrotools))
 
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/Ella_bf_workflow/Ella_baseflow_storage/iterative_lm_function.R")
+source("https://github.com/HARPgroup/baseflow_storage/blob/Ella_bf_workflow/Ella_baseflow_storage/top5_iterative_lm_function.R")
 
 # get arguments
 input_file <- paste0(args[1])
