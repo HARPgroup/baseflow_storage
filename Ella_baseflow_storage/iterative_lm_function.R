@@ -55,10 +55,15 @@ iterative_lm <- function(event_df) {
   # filter(r_squared > total_r_squared)
   # print(higher_r_squared)
   
-  # get the iterations that yielded the top 5 highest R-squared values
-  sorted_r_square <- iterative_lm_df %>%
-    arrange(desc(r_squared))
-  top5 <- sorted_r_square[1:5, ]
-  
   return(iterative_lm_df)
+}
+
+### This function returns the iterative linear regression values that have ###
+### the top 5 highest R-squared value ###
+
+top5_sorted <- function(iterative_lm_df) {
+  # sort from highest to lowest R_squared value
+  top5 <- iterative_lm_df %>%
+    arrange(desc(r_squared))
+  top5 <- top5[1:5, ]
 }

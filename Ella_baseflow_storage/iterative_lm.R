@@ -17,7 +17,6 @@ suppressPackageStartupMessages(library(stringr))
 suppressPackageStartupMessages(library(hydrotools))
 
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/Ella_bf_workflow/Ella_baseflow_storage/iterative_lm_function.R")
-source("https://github.com/HARPgroup/baseflow_storage/blob/Ella_bf_workflow/Ella_baseflow_storage/top5_iterative_lm_function.R")
 
 # get arguments
 input_file <- paste0(args[1])
@@ -33,7 +32,7 @@ iterative_lm_df <- iterative_lm(event_df = event_df)
 # write csv for final dataframe
 write.csv(iterative_lm_df, end_path_1, row.names = FALSE)
 
-# run top5 functions
+# run top5 function
 top5_r_squared <- top5_sorted(iterative_lm_df = iterative_lm_df)
 
 # write csv for top 5 R-squared values and for which iterations those values
