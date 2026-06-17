@@ -61,5 +61,6 @@ iterative_lm <- function(event_df) {
   top5 <- sorted_r_square[1:5, ]
   
   return(iterative_lm_df)
+  return(top5)
   
 }
