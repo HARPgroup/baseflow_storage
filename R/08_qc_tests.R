@@ -45,7 +45,7 @@ bf_events_n(event_df)
 bf_monthly_events_n <- function(event_df){
   event_df |>
     mutate(
-      month = month(as.Date(Date, format = "%y-%m-%d"))
+      month = month(as.Date(start_date, format = "%y-%m-%d"))
     ) |>
     group_by(month) |>
     summarise(event_cnt = n_distinct(GroupID))
