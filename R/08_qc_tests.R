@@ -10,8 +10,8 @@ library(tidyverse)
 library(nhdplusTools)
 
 args <- commandArgs(trailingOnly = T)
-if (length(args) < 4){
-  message("Use Rscript 08_qc.R gage_obj input_file output_file")
+if (length(args) < 5){
+  message("Use Rscript 08_qc.R gage_obj input_06_file input_01_file output_file gageID")
   q()
 }
 
