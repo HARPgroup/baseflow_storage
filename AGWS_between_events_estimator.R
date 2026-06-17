@@ -1,8 +1,8 @@
 library(dplyr)
-library(plotly)
+#library(plotly)
 
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/convert.flow.R")
-
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_bf_workflow/build_lookup.R")
 
 argst <- commandArgs(trailingOnly = T)
 if (length(argst) < 4) {
@@ -13,10 +13,10 @@ if (length(argst) < 4) {
 
 
 #example
-csv1_path <- "https://deq1.bse.vt.edu:444/usgs/agws/baseflow_trimmed_stats_01632000.csv"
-csv2_path <- "https://deq1.bse.vt.edu:444/usgs/agws/01632000-flow.csv"
-m <- -0.0003047
-b <- 0.9418478
+# csv1_path <- "https://deq1.bse.vt.edu:444/usgs/agws/baseflow_trimmed_stats_01632000.csv"
+# csv2_path <- "https://deq1.bse.vt.edu:444/usgs/agws/01632000-flow.csv"
+# m <- -0.0003047
+# b <- 0.9418478
 
 
 # csv1_path <- "https://deq1.bse.vt.edu:444/usgs/agws/baseflow_trimmed_stats_01634000.csv"
@@ -75,44 +75,21 @@ da_sqmi <- df_clean$da_sqmi[1]
 
 
 
-#rebuilding lookup table:
-Qcfs <- seq(min(df_clean$Flow, na.rm=TRUE),
-            max(df_clean$Flow, na.rm=TRUE),
-            by = 0.1)
+### Lookup Table Method:
+#Build Lookup
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_bf_workflow/site_factors.R")
 
+result    <- build_lookup(df_clean, da_sqmi, m = m, b = b)
+lookupdata <- result$lookup
+Svar       <- result$Svar
 
-site_factors <- function(da_sqmi, flow_vec = Qcfs, vec_for_reg = NULL, m, b) {
-    
-    Qin <- convert.flow(flow_vec, da_sqmi)
-    
-    if (is.null(vec_for_reg)) {
-      vec_for_reg <- Qin
-    }
-    
-    C <- b + (m * log(vec_for_reg))
-    C <- pmin(pmax(C, 0.001), 0.999)
-    
-    return(data.frame(flow_vec, Qin, C))
-  }
-
-
-lookupdata <- site_factors(da_sqmi, flow_vec = Qcfs, vec_for_reg = Qcfs, m = m, b = b)
-
-lookupdata$S <- lookupdata$Qin / (1 - lookupdata$C)
-
-
-lookupdata$dS <- c(lookupdata$S[-1] / lookupdata$S[-length(lookupdata$S)], NA)
-
-
-
-Svar <- lookupdata[lookupdata$dS > 1 & lookupdata$S > 0,]
 
 #Estimating Storage
 df_clean$AGWS_est <- approx(
   Svar$Qin,
   Svar$S,
   xout = df_clean$flow_in,
-  rule = 2
+  rule = 1
 )$y
             
 
@@ -128,23 +105,64 @@ df_clean$AGWS_final <- ifelse(
   df_clean$AGWS_est       
 )
 
+#interpolation between lookup steps
 
-#Save as .csv files
+event_rows <- !is.na(df_clean$AGWS)
+
+df_clean$AGWS_interp <- approx(
+  x    = as.numeric(df_clean$Date[event_rows]),
+  y    = df_clean$AGWS[event_rows],
+  xout = as.numeric(df_clean$Date),
+  rule = 1
+)$y
+
+df_clean$AGWS_final_interp <- ifelse(
+  !is.na(df_clean$AGWS),
+  df_clean$AGWS,
+  df_clean$AGWS_interp
+)
+
+
+#Interpolation Between Known Events Method
+event_rows <- !is.na(df_clean$AGWS)
+
+df_clean$AGWS_interp <- approx(
+  x    = as.numeric(df_clean$Date[event_rows]),
+  y    = df_clean$AGWS[event_rows],
+  xout = as.numeric(df_clean$Date),
+  rule = 1   # rule = 1 -> NA outside the range, no extrapolation
+)$y
+
+#Make columns for both in df
+df_clean <- df_clean %>%
+  mutate(
+    AGWS_final_lookup   = ifelse(!is.na(AGWS), AGWS, AGWS_est),
+    AGWS_final_interp = ifelse(!is.na(AGWS), AGWS, AGWS_interp)
+  )
+
+#Save as .csv file with a row for each method
 write.csv(df_clean, file = output_file,
           row.names = FALSE
 )
 
 #checks and example plots
-sum(is.na(df_clean$AGWS_final)) # should be 0
-
-
-plot_ly(df_clean, x = ~Date) %>%
-  add_lines(y = ~AGWS_final, name = "AGWS Best Estimate", line = list(color = "blue")) %>%
-  add_markers(y = ~AGWS, name = "Observed Baseflow Storage", marker = list(color = "red")) %>%
-  plotly::layout(
-    xaxis = list(title = "Date"),
-    yaxis = list(title = "Storage (AGWS)"),
-    legend = list(x = 1, xanchor = "right", y = 1)
-  )
-
-
+# sum(is.na(df_clean$AGWS_final)) # should be 0
+# 
+# 
+# plot_ly(df_clean, x = ~Date) %>%
+#   add_lines(y = ~AGWS_final_lookup, name = "AGWS Best Estimate", line = list(color = "blue")) %>%
+#   add_markers(y = ~AGWS, name = "Observed Baseflow Storage", marker = list(color = "red")) %>%
+#   plotly::layout(
+#     xaxis = list(title = "Date"),
+#     yaxis = list(title = "Storage (AGWS)"),
+#     legend = list(x = 1, xanchor = "right", y = 1)
+#   )
+# 
+# plot_ly(df_clean, x = ~Date) %>%
+#   add_lines(y = ~AGWS_final_interp, name = "AGWS Best Estimate", line = list(color = "blue")) %>%
+#   add_markers(y = ~AGWS, name = "Observed Baseflow Storage", marker = list(color = "red")) %>%
+#   plotly::layout(
+#     xaxis = list(title = "Date"),
+#     yaxis = list(title = "Storage (AGWS)"),
+#     legend = list(x = 1, xanchor = "right", y = 1)
+#   )
