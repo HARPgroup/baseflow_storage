@@ -22,6 +22,7 @@ input_06_file <- str_replace_all(input_06_file, '\"', '')
 input_01_file <- paste0(args[3])
 input_01_file <- str_replace_all(input_01_file, '\"', '')
 output_file <- paste0(args[4])
+gageID <- paste0(args[5])
 
 message(paste0("DEBUG with: args <- c('",paste(args,collapse="', '")),"')")
 
@@ -38,21 +39,22 @@ daily_df <- read_csv(input_01_file, col_types = cols())
 ### This function determines the total number of events ###
 
 bf_events_n <- function(event_df){
-  result <- paste0("This gage has ", n_distinct(event_df$GroupID), " recorded events")
+  result <- paste0("This gage has ", n_distinct(event_df$GroupID), " recorded events.")
   
-  cat(result, "\n")
+  cat(result, "\n\n")
 }
 bf_events_n(event_df)
 
 ### This function determines the monthly total number of events ### 
 
-bf_monthly_events_n <- function(event_df){
-  event_df <- event_df |>
+bf_monthly_events_n <- function(event_df, gage_ID){
+  monthly_event_count <- event_df |>
     mutate(month = month(as.Date(start_date, format = "%y-%m-%d"))) |>
     group_by(month) |>
     summarise(event_cnt = n_distinct(GroupID))
   
-  return(event_df)
+  cat(paste0("Monthly event totals saved to 'step08_", gageID, ".csv'")
+  return(monthly_event_count)
 }
 bf_monthly_events_n(event_df)
 
@@ -62,10 +64,10 @@ gage_length <- function(daily_df){
   result <- paste0(
     "This gage has ", 
     length(daily_df$Flow),
-    " observations"
+    " observations."
   )
   
-  cat(result, "\n")
+  cat(result, "\n\n")
 }
 gage_length(daily_df)
 
@@ -113,7 +115,7 @@ heteroscedasticity <- function(model) {
   
   # output both messages in the console
   cat(bp_msg, "\n\n")
-  cat(white_msg, "\n")
+  cat(white_msg, "\n\n")
   
 }
 heteroscedasticity(model)
@@ -132,7 +134,7 @@ get_basin_slope <- function(gage_obj){
   )
   
   result <- (paste0("The slope is ", watershed_slope[,3], "%"))
-  cat(result, "\n")
+  cat(result, "\n\n")
 }
 suppressWarnings(get_basin_slope(gage_obj))
 
@@ -212,4 +214,4 @@ flag_cooks <- function(model, event_df) {
 event_df <- flag_cooks(model, event_df)
 
 # Write csv
-write.csv(event_df, output_file, row.names = FALSE)
+write.csv(monthly_event_count, output_file, row.names = FALSE)
