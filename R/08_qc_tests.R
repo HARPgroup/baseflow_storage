@@ -32,8 +32,8 @@ message(paste("Reading", input_file))
 ### the baseflow workflow ###
 
 # read in the data and use the same name as bf workflow output
-event_df <- read_csv(input_06_file)
-daily_df <- read_csv(input_01_file)
+event_df <- read_csv(input_06_file, col_types = cols())
+daily_df <- read_csv(input_01_file, col_types = cols())
 
 ### This function determines the total number of events ###
 
