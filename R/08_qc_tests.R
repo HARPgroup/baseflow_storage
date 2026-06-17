@@ -15,7 +15,7 @@ if (length(args) < 3){
   q()
 }
 
-suppressPackageStartupMessages(library(###)) # Do this for all libraries
+suppressPackageStartupMessages(library(...)) # Do this for all libraries
 # get arguments
 gage_obj <- paste0(args[1])
 input_file <- paste0(args[2])
