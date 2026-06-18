@@ -26,7 +26,7 @@ stepa07_args <- function(...){
   c(paste0("step6_",gageID, ".csv"), gageID, paste0("step7_",gageID, ".csv"))
 }
 stepa08_args <- function(...){
-  c(gage_obj, paste0("step7_", gageID, ".csv"), paste0("step8_",gageID, ".csv"))
+  c(gage_obj, paste0("step6_", gageID, ".csv"), paste0("step1_", gageID, ".csv"), paste0("step8_",gageID, ".csv"), gageID)
 }
 stepi01_args <- function(...){
   c(gageID, "watershed", "usgs_full_drainage", "AGWRC-1.0", 'simple_lm', paste0("step7_",gageID, ".csv"))
