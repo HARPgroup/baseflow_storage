@@ -48,3 +48,26 @@ BackwardRegressionAGWRC <- function(GageID, days = c(7,15)) {
 }  
 
 Flow <- BackwardRegressionAGWRC("02056000")
+
+ggplot(Flow$FlowResults, aes(x = proj_7day, y = observ_7day)) +
+  geom_point(color = "blue", size = 1.3) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
+  labs(title = "Projected vs. Observed Flow in Baseflow Events (7-Day Period)", y = "Observed Flow (cfs)", x = "Projected Flow (cfs)") +
+  theme_classic()
+
+# Plot 1, scatter plot of Actual vs. Predicted
+p1 <- ggplot(Flow$FlowResults, aes(x = Date)) +
+  geom_point(aes(y = observ_7day, color = "Observed"), size = 1.3) +
+  geom_point(aes(y = proj_7day, color = "Projected"), size = 1.3) +
+  labs(title = "Projected vs. Observed Flow in Baseflow Events (7-Day Period)", y = "Flow (cfs)", x = "Date", color = "Flow")+
+  theme_classic()
+
+# Plot 2, scatter plot of Residuals and baseline y = 0
+p2 <- ggplot(Flow$FlowResults, aes(Date, residuals_7day)) +
+  geom_hline(yintercept = 0, color ="black") +
+  geom_point(color = "purple", size = 1.3) +
+  labs(title = "Projected vs. Observed Residuals (7-Day Period)", x = "Date", y = "Projected vs. Observed (cfs)") +
+  theme_classic()
+
+# Plot 1 and Plot 2
+p1/p2
