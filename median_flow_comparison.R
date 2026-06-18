@@ -61,4 +61,20 @@ ggplot()+
   )
 
 
+### Find the closest line
+
+combined <- baseflow_events |>
+  left_join(usgs_daily, by = "Month") |>
+  select(Month,
+         bf_p25 = p25,
+         median_bf = median.x,
+         median_7day = median.y) |>
+  mutate(dist_to_med = abs(median_7day - median_bf),
+         dist_to_p25 = abs(median_7day - bf_p25))
+
+combined$nearest <- "25th Percentile"
+combined$nearest[combined$dist_to_med < combined$dist_to_p25] <- "Median"
+
+
+
 
