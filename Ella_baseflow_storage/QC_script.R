@@ -144,8 +144,13 @@ flag_outliers_IQR <- function(event_df) {
   # output both messages in the console
   cat(n_flagged_msg, "\n\n")
   cat(flagged_val_msg, "\n")
+  
+  # create a new column in event_df that lists T/F for outliers
+  event_df <- event_df %>%
+    mutate(IQR_flagged_outlier = logQ < lower | 
+             logQ > upper)
 }
-flag_outliers_IQR(event_df)
+event_df <- flag_outliers_IQR(event_df)
 
 # create a function that determines influential observations with Cook's 
 # distance
@@ -171,6 +176,15 @@ flag_cooks <- function(model, event_df) {
   
   # output message in the console
   cat(flagged_cooks_msg, "\n\n")
+  
+  # create a new column for cooks distance for each data point
+  event_df <- event_df %>%
+    mutate(cooks_distance = cooks_d)
+  
+  # create a new column with T/F for flagged points
+  event_df <- event_df %>%
+    mutate(cooks_flagged = cooks_d > threshold)
+  
 }
-flag_cooks(model, event_df)
+event_df <- flag_cooks(model, event_df)
 

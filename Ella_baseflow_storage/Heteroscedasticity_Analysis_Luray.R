@@ -1,12 +1,13 @@
-### This script quantifies heteroscedasticity ###
+### This script quantifies heteroscedasticity 
 
 library(tidyverse)
 
 # load in the csv file for a gage of interest
-BuenaVista_usgs_events <- read_csv("BuenaVistaSummaryStats.csv")
+# in this case, gage 01629500
+Luray_usgs_events <- read_csv("LuraySummaryStats.csv")
 
 # add a new column for log flow
-reg_df <- BuenaVista_usgs_events %>%
+reg_df <- Luray_usgs_events %>%
   mutate(logQ = log(median_flow))
 
 # run a linear model where event_AGWRC is the dependent variable
@@ -20,10 +21,9 @@ ggplot(reg_df, aes(x = logQ, y = event_AGWRC)) +
   geom_smooth(method = "lm",
               color = "red",
               se = FALSE) + 
-  theme_classic() +
   labs(x = "Log Median Flow (cfs)",
        y = "AGWRC",
-       title = "AGWRC vs Log Median Flow for the ...")
+       title = "AGWRC vs Log Median Flow for South Fork Shenandoah River near Luray, VA")
 
 # create a dataframe with fitted values and residuals for visual inspection
 heteroscedasticity_test <- data.frame(
@@ -37,7 +37,7 @@ ggplot(heteroscedasticity_test, aes(x = Fitted, y = Residuals)) +
   geom_hline(yintercept = 0, color = "red") +
   theme_classic() +
   labs(
-    title = "Fitted Values vs Residuals for ...",
+    title = "Fitted Values vs Residuals for Luray, VA",
     x = "Fitted Values",
     y = "Residuals"
   )
