@@ -5,7 +5,7 @@ server <- function(input, output, session) {
   gage_obj <- reactiveVal(NULL)
   observe({
     gage_id <- gsub("^([0-9]+) -.*","\\1",input$site_choice)
-    gage <- hydrotools::WaterGageDaily$new(
+    gage <- hydrotools::WaterGageBase$new(
       # ds_in = ds,
       gage_id = gage_id
     )
