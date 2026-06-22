@@ -690,6 +690,10 @@ droughtModuleServer <- function(id, gage_obj) {
         proj_flow_in <- (1 - agwrc) * proj_storage_in
         proj_flow <- proj_flow_in / sp_conv
       } else {
+        
+        RegressionAGWRC(df$Flow, m, b)
+        forwardForecast(Q0, forcast_horizons, agwrc, m, b)
+        
         #### Flow Projection ####
         #Initial Flow
         Q0 <- as.numeric(Q0[1])
@@ -701,14 +705,14 @@ droughtModuleServer <- function(id, gage_obj) {
           proj_flow_in <- proj_flow * sp_conv
           #If flow is the metric, we estimate storage via Q / (1 - AGWRC)
           proj_storage_in <- proj_flow_in / (1 - agwrc)
-          
+
         }else if(input$agwrc_calculation == "variable"){
           ##### Variable ####
           proj_flow <- numeric(max(forecast_horizons))
           proj_flow_in <- numeric(max(forecast_horizons))
           proj_storage_in <- numeric(max(forecast_horizons))
           agwrc <- numeric(max(forecast_horizons))
-          
+
           if(input$agwrc_regression == "user"){
             m <- coef(user_regression()$model)[2]
             b <- coef(user_regression()$model)[1]
@@ -731,7 +735,7 @@ droughtModuleServer <- function(id, gage_obj) {
             proj_storage_in[i] <- proj_flow_in[i] / (1 - agwrc[i])
           }
         }
-        
+
       }
       #Assemble an output
       out <- tibble::tibble(

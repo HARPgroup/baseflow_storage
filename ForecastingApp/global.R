@@ -28,6 +28,7 @@ source("R/calc_storage.R")
 source("R/add_storage_cols.R")
 source("R/drought_misc_utils.R")
 source("R/rest_utils.R")
+source("R/forwardForecastv2.R")
 
 source("modules/droughtModuleUI.R")
 source("modules/droughtModuleServer.R")
