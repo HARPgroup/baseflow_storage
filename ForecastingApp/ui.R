@@ -6,27 +6,15 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       h4("Select Data Source"),
-      radioButtons(
-        "data_source",
-        label   = NULL,
-        choices = c("Model", "Gage"),
-        selected = "Gage",
-        inline  = TRUE
-      ),
-      radioButtons(
-        "site_choice",
-        label   = NULL,
-        choices = c("Cootes Store", "Mount Jackson", "Strasburg"),
-        selected = "Cootes Store",
-        inline  = FALSE
-      ),
+      selectInput("site_choice","Select USGS Gage:",
+                  choices = paste(all_usgs_gages$site_no,"-",all_usgs_gages$station_nm),
+                  selected = "01631000 - S F SHENANDOAH RIVER AT FRONT ROYAL, VA"),
       tags$hr(),
       helpText(
         "This prototype can load:",
         tags$ul(
-          tags$li("Raw data (for historical flow overlays): Model flows from GitHub; Gage flows from USGS (dataRetrieval)."),
-          tags$li("Analyzed event data (for baseflow events/AGWRC): pulled from GitHub."),
-          tags$li("Switch between Model and Gage to compare behavior across sources.")
+          tags$li("Raw data (for historical flow overlays): Gage flows from USGS (dataRetrieval)."),
+          tags$li("Analyzed event data (for baseflow events/AGWRC): pulled from GitHub.")
         )
       )
     ),
