@@ -651,15 +651,18 @@ droughtModuleServer <- function(id, gage_obj) {
       
       # create a list to return date, AGWRC, and GroupID
       list(
-        Date = last_row$Date,
         AGWRC = last_row$AGWRC,
+        Date = last_row$Date,
         GroupID = last_row$GroupID
       )
       
+      # reduce the number of AGWRC decimal points to 4
+      reduced_dec <- sprintf("%.4f", last_row$AGWRC)
+      
       # paste these values vertically in the output text
       paste(
-        "Date:", last_row$Date,
-        "\nAGWRC:", last_row$AGWRC,
+        "Last known AGWRC:", reduced_dec,
+        "\nDate:", last_row$Date,
         "\nGroupID:", last_row$GroupID
       )
     })
