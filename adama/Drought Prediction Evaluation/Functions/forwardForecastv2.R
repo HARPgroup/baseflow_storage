@@ -15,7 +15,7 @@ RegressionAGWRC <- function(Flow, m, b) {
 #' @details A function to calculate a forcast days in the future based on Q0. Allows for
 #'vector inputs of days and AGWRC. Alternatively, allows for calculation of AGWRC
 #'via AGWRC = "lm_constant" or AGWRC = "lm_variable"
-#' @param Q0 numeric of length 1. initial flow on day 1
+#' @param Q0 numeric of length 1. initial flow on day 0
 #' @param days numeric vector. Days where forcast should be calculated and will
 #'   use corresponding AGWRC if provided vector. Will use a variable calculated
 #'   AGWRC if AGWRC = "lm_variable"
@@ -28,14 +28,14 @@ RegressionAGWRC <- function(Flow, m, b) {
 #'   of Q and AGWRC
 #' @param b numeric of length 1 that is the intercept of a log-linear
 #'   relationship of Q and AGWRC
-#' @return A list containing the forcast flows and AGWRCs used in the forecast
+#' @return A data frame containing the forcast flows and AGWRCs used in the forecast
 forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
 
-  # Import flow data, get Q0, m and b from gage
+  # assignments for future indexing, example 1:91 num
   n <- max(days)
   full_data <- 0:n
 
-  # Column size for length n
+  # Column size for length n+1, example 1:91 num
   AGWRCi <- numeric(n+1)
   Qi <- numeric(n+1)
 
@@ -53,23 +53,26 @@ forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
   if(is.numeric(AGWRC)){
     if(length(AGWRC) == 1){
 
-      # Assignments
+      # Assignments, AGWRCi is copy of AGWRC, Qi[1] is day 0 initial flow
       AGWRCi[] <- AGWRC
       Qi[1] <- Q0
 
-    # Calculate flow forecast for i
+    # Calculate flow forecast for i, example days 0:90 with 91 flow values
     for (i in 1:n){
       Qi[i+1] <- Q0 * AGWRC^i
       }
     }
   }
 
+  # AGWRC numeric and length > 1, run loop
   if(is.numeric(AGWRC)) {
     if(length(AGWRC) > 1){
 
+      # AGWRCI is copy of AGWRC, Qi[1] is day 0 initial flow
       AGWRCi <- AGWRC
       Qi[1] <- Q0
 
+      # Calculate flow forecast for i by i, Qi and AGWRCi change each i
       for (i in 1:n){
         Qi[i+1] <- Qi[i] * AGWRCi[i]
       }
@@ -90,6 +93,7 @@ forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
     }
   }
 
+  #Indexes to match selected non-consecutive days, example days = c(0,7,15) grabs index 1, 8, 16
   idx <- full_data %in% days
   return(data.frame(Day = full_data[idx], Forecast = Qi[idx], AGWRC = AGWRCi[idx]))
 }
