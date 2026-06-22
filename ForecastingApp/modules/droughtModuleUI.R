@@ -76,6 +76,8 @@ droughtModuleUI <- function(id) {
               label = "Projection start date (must exist in historical data):",
               value = Sys.Date()
             ),
+            uiOutput(ns("baseflow_event_info")),
+            ),
             helpText("Last known AGWRC"),
             verbatimTextOutput(
               ns("last_known_agwrc")
@@ -115,5 +117,4 @@ droughtModuleUI <- function(id) {
         )
       )
     )
-  )
 }
