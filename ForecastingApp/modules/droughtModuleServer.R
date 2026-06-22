@@ -628,8 +628,47 @@ droughtModuleServer <- function(id, gage_obj) {
       }
       return(out)
     })
+    #Calculate last known AGWRC value
+    last_known_agwrc <- reactive({
+      # run the forecast_start code first
+      req(input$forecast_start)
+      
+      # save the input date as a variable
+      selected_date <- as.Date(input$forecast_start)
+      
+      # filter the trimmed data to be on or before the input date
+      df <- trimmed_df()
+      filtered_df <- df %>% 
+        dplyr::filter(Date <= selected_date,
+                      !is.na(AGWRC)) %>%
+        dplyr::arrange(Date)
+      
+      # ensure that df has at least one row to prevent errors
+      req(nrow(filtered_df) > 0)
+     
+      # select the last row from the filtered dates
+      last_row <- dplyr::slice_tail(filtered_df, n = 1)
+      
+      # create a list to return date, AGWRC, and GroupID
+      list(
+        Date = last_row$Date,
+        AGWRC = last_row$AGWRC,
+        GroupID = last_row$GroupID
+      )
+      
+      # paste these values vertically in the output text
+      paste(
+        "Date:", last_row$Date,
+        "\nAGWRC:", last_row$AGWRC,
+        "\nGroupID:", last_row$GroupID
+      )
+    })
     
-    
+    # define the output for verbatimTextOuptut in UI
+    output$last_known_agwrc <- renderText({
+      req(last_known_agwrc())
+    })
+
     # 7b. Forecast logic (single AGWRC for now) + AGWS display ####
     #Update the date input with the max date found in the raw data
     observeEvent(raw_daily(), {

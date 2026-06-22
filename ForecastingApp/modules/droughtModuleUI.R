@@ -76,6 +76,10 @@ droughtModuleUI <- function(id) {
               label = "Projection start date (must exist in historical data):",
               value = Sys.Date()
             ),
+            helpText("Last known AGWRC"),
+            verbatimTextOutput(
+              ns("last_known_agwrc")
+            ),
             radioButtons(
               ns("agwrc_calculation"),
               label = "Will recession coefficients be constant or variable?",
