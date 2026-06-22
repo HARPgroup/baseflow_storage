@@ -30,8 +30,10 @@ forwardForecast <- function(GageID, start_date, days = 1:90, AGWRC) {
           AGWRC = AGWRC
         )
       )
-      
-    } else if(AGWRC == "lm_variable") {
+    }
+  }
+    
+  if(AGWRC == "lm_variable") {
       
       n <- length(days)
       AGWRCi <- numeric(n + 1)
@@ -50,7 +52,6 @@ forwardForecast <- function(GageID, start_date, days = 1:90, AGWRC) {
       flowForecast <- data.frame(Day = c(0, days), Flow = Qi, AGWRC = AGWRCi)
       return(flowForecast)
     }
-  }
 }
   
 # Local Testing
@@ -65,7 +66,7 @@ Q0 <- flow_csv$obs_flow[match(start_date, flow_csv$obs_date)]
 m <- reg_lm$m
 b <- reg_lm$b
 
-Test <- forwardForecast("01672500", "1990-05-08", days = 1:90, AGWRC = "lm_variable")
+Test <- forwardForecast("01672500", "1990-05-08", days = 1:90, AGWRC = 0.97)
 
 n <- length(days)
 AGWRCi <- numeric(n + 1)
