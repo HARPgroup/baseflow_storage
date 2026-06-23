@@ -604,7 +604,6 @@ droughtModuleServer <- function(id, gage_obj) {
     }, ignoreInit = TRUE)
     
     # Identify known baseflow periods 
-    # run only if selected forecast start date falls within a known event range
     current_baseflow_event <- reactive({
       req(input$forecast_start)
       
@@ -641,7 +640,7 @@ droughtModuleServer <- function(id, gage_obj) {
       
       if (is.null(ev$data)) {
       paste("Baseflow event status:",
-            "\nSelected forecast start date is not within a known baseflow event."
+            "\nselected forecast start date is not within a known baseflow event."
         )
       } else {
       # reduce the number of AGWRC decimal points to 4
@@ -651,7 +650,8 @@ droughtModuleServer <- function(id, gage_obj) {
               "GroupID:", ev$GroupID,
               "Event Dates:", ev$start_date, 
               "to", ev$end_date,
-              "Event AGWRC:", reduced_dec
+              "Event AGWRC:", reduced_dec,
+              "(use as the static default)"
             )
        }
     })
