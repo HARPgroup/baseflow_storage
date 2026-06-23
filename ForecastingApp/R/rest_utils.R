@@ -68,7 +68,7 @@ read_ows_data <- function(gage_id,
       break
     }
   }
-  
+
   if (is.null(hit_url)) {
     stop(
       "No analyzed ", kind, " file found for gage_id = ", gage_id, "\n",

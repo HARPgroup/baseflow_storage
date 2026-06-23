@@ -15,7 +15,7 @@ suppressPackageStartupMessages({
   library(httr)
   library(sqldf)
   #For getting data from R server
-  library(DEQmethods)
+#  library(DEQmethods)
   library(pins)
   #Spatial
   library(sf)
@@ -33,11 +33,11 @@ source("modules/droughtModuleUI.R")
 source("modules/droughtModuleServer.R")
 
 # use API key to register board
-deqBoard <- DEQmethods::pinsConnect("PROD")
+# deqBoard <- DEQmethods::pinsConnect("PROD")
 
 
 #### Get USGS Gage Pin ####
-all_usgs_gages <- pin_read(deqBoard, "Connor.Brogan@deq.virginia.gov/USGS-Gages")
+all_usgs_gages <- read.csv("data/usgs.csv", colClasses = c("site_no" = "character")) 
 #Convert to sf using NAD 83 projection
 all_usgs_gages <- st_as_sf(all_usgs_gages, coords = c("dec_long_va", "dec_lat_va"),
                            crs = 4269)
