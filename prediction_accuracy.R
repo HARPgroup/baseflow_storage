@@ -1,5 +1,6 @@
 library(tidyverse)
 library(dplyr)
+library(gt)
 
 ## Compile flow data - Local Test
 flow_csv <- read_csv("https://deq1.bse.vt.edu/usgs/agws/02056000-flow.csv")
@@ -50,4 +51,47 @@ prediction_accuracy <- function(baseflow_csv, flow_csv, days, filter_min) {
 }
 
 ## Function call - Local Test w/ Sample Inputs
-#Predict <- prediction_accuracy(baseflow_csv, flow_csv, days = c(7,15), filter_min = 15)
+Predict <- prediction_accuracy(baseflow_csv, flow_csv, days = c(7,15), filter_min = 15)
+FlowResults <- Predict$FlowResults
+accuracy_table <- Predict$accuracy_table
+#calculate the residuals and add as a column to the flowResults
+FlowResults <- FlowResults %>%
+  mutate(
+    Residual_7day = pred_7day - observ_7day,
+    Residual_15day = pred_15day - observ_15day)
+
+# Plot 1, scatter plot of Actual vs. Predicted
+ggplot(FlowResults, aes(x = Date)) +
+  geom_point(aes(y = observ_7day, color = "Observed"), size = 1.3) +
+  geom_point(aes(y = pred_7day, color = "Predicted"), size = 1.3) +
+  labs(title = "Predicted vs. Actual Flow in Baseflow Events (7-Day Period)", y = "Flow (cfs)", x = "Date", color = "Flow")+
+  theme_classic()
+
+# Plot 1.2, scatter plot of Actual vs. Predicted
+ggplot(FlowResults, aes(x = Date)) +
+  geom_point(aes(y = observ_15day, color = "Observed"), size = 1.3) +
+  geom_point(aes(y = pred_15day, color = "Predicted"), size = 1.3) +
+  labs(title = "Predicted vs. Actual Flow in Baseflow Events (15-Day Period)", y = "Flow (cfs)", x = "Date", color = "Flow")+
+  theme_classic()
+
+# Plot 2, scatter plot of Residuals and baseline y = 0
+ ggplot(FlowResults, aes(x = Date, Residual_7day)) +
+  geom_hline(yintercept = 0, color ="black") +
+  geom_point(color = "purple", size = 1.3) +
+  labs(title = "Predicted vs. Actual Residuals (7-Day Period)", x = "Date", y = "Predicted vs. Actual (cfs)") +
+  theme_classic()
+ 
+# Plot 2.2, scatter plot of Residuals and baseline y = 0
+ ggplot(FlowResults, aes(x = Date, Residual_15day)) +
+   geom_hline(yintercept = 0, color ="black") +
+   geom_point(color = "purple", size = 1.3) +
+   labs(title = "Predicted vs. Actual Residuals (15-Day Period)", x = "Date", y = "Predicted vs. Actual (cfs)") +
+   theme_classic()
+ 
+ accuracy_table |>
+   gt() |>
+   gtsave("accuracy_table.png")
+ 
+
+# Plot 1 and Plot 2
+p1/p2

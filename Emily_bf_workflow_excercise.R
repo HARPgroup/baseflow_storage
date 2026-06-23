@@ -4,73 +4,73 @@ unloadNamespace('hydrotools')
 #Get the master branch deployment of the package
 devtools::install_github("HARPgroup/hydro-tools")
 
-#Roanoke 
-gageID <- "02055000"
+#Maury River Near Buena Vista, VA
+gageID <- "02024000"
 
 #Step 01_obtain_flow 
 commandArgs <- function(...){
-  c(gageID, "RoanokeGage.csv")
+  c(gageID, "MauryGage.csv")
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/river/usgsdata.R")
 
 #Step 01_event_identification
 commandArgs <- function(...){
-  c("RoanokeGage.csv", "obs_date", "obs_flow", FALSE, "RoanokeEvent.csv")
+  c("MauryGage.csv", "obs_date", "obs_flow", FALSE, "MauryEvent.csv")
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/event_identification.R")
 
 #Step 02_baseflow_events
 commandArgs <- function(...){
-  c("RoanokeEvent.csv", "obs_date", "obs_flow", "Roanoke", "RoanokeBF.csv", "monitoring_location_id")
+  c("MauryEvent.csv", "obs_date", "obs_flow", "Maury", "MauryBF.csv", "monitoring_location_id")
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/baseflow_events.R")
 
 #Step 03_baseflow_stats
 commandArgs <- function(...){
-  c("RoanokeBF.csv", "for", "Roanokestats.csv")
+  c("MauryBF.csv", "for", "Maurystats.csv")
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/baseflow_stats.R")
 
 
 #Step 04_trim_events
 commandArgs <- function(...){
-  c("Roanokestats.csv", "RoanokeTrim.csv")
+  c("Maurystats.csv", "MauryTrim.csv")
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/bf_trimming.R")
 
 #Step 05_trim_stats
 commandArgs <- function(...){
-  c("RoanokeTrim.csv", "RoanokeTrimStats.csv")
+  c("MauryTrim.csv", "MauryTrimStats.csv")
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/bf_trimming_analysis.R")
 
 
 #Step 06_regression_df
 commandArgs <- function(...){
-  c("RoanokeTrimStats.csv", "02055000", "RoanokeSummaryStats.csv")
+  c("MauryTrimStats.csv", "02024000", "MaurySummaryStats.csv")
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/baseflow_regression_df.R")
 
 #Step 07_AGWRC_Q_lm
 commandArgs <- function(...){
-  c("RoanokeSummaryStats.csv", "02055000", "RoanokeAGWRCRegression.csv")
+  c("MaurySummaryStats.csv", "02024000", "MauryAGWRCRegression.csv")
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/baseflow_regression.R")
 
 #Step import -> 01_regression_coeff
 commandArgs <- function(...){
-  c("02055000", "watershed", "usgs_full_drainage", "agwrc-1.0", 'simple_lm', "RoanokeAGWRCRegression.csv")
+  c("02024000", "watershed", "usgs_full_drainage", "agwrc-1.0", 'simple_lm', "MauryAGWRCRegression.csv")
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/usgs_post_regression.R")
 
 
 
-flow_data <- read.csv("RoanokeGage.csv")
-event_identification <- read.csv("RoanokeEvent.csv")
-baseflow_events_events <- read.csv("RoanokeBF.csv")
-baseflow_stats <- read.csv("Roanokestats.csv")
-trim_events <- read.csv("RoanokeTrim.csv")
-trim_stats <- read.csv("RoanokeTrimStats.csv")
-regression_df <- read.csv("RoanokeSummaryStats.csv")
-AGWRC_Q_lm <- read.csv("RoanokeAGWRCRegression.csv")
+flow_data <- read.csv("MauryGage.csv")
+event_identification <- read.csv("MauryEvent.csv")
+baseflow_events_events <- read.csv("MauryBF.csv")
+baseflow_stats <- read.csv("Maurystats.csv")
+trim_events <- read.csv("MauryTrim.csv")
+trim_stats <- read.csv("MauryTrimStats.csv")
+regression_df <- read.csv("MaurySummaryStats.csv")
+AGWRC_Q_lm <- read.csv("MauryAGWRCRegression.csv")
 
