@@ -843,7 +843,10 @@ droughtModuleServer <- function(id, gage_obj) {
     output$forecast_table <- renderDT({
       fr <- forecast_results()
       req(fr)
-      fr <- fr[fr$horizon_days %in% forecast_horizons,]
+      df <- full_storage_df()
+      fr <- fr[fr$horizon_days %in% forecast_horizons,] |> 
+        left_join(df, by = c("forecast_date" = "Date"))
+      
       DT::datatable(
         fr %>%
           dplyr::transmute(
@@ -851,7 +854,8 @@ droughtModuleServer <- function(id, gage_obj) {
             forecast_date,
             AGWRC,
             proj_flow_cfs    = round(proj_flow_cfs, 2),
-            proj_storage_in  = round(proj_storage_in, 4)
+            proj_storage_in  = round(proj_storage_in, 4),
+            obs_flow_cfs = round(Flow, 2)
           ),
         rownames = FALSE,
         options = list(dom = "tp", pageLength = 6)
@@ -886,7 +890,7 @@ droughtModuleServer <- function(id, gage_obj) {
       hist_window <- 90
       
       #Filter data to only that relevant to this plot
-      df_hist <- df %>% dplyr::filter(Date >= start_date - hist_window & Date <= start_date)
+      df_hist <- df %>% dplyr::filter(Date >= start_date - hist_window & Date <= start_date + hist_window)
       req(nrow(df_hist) > 1)
       
       if (metric == "storage") {
@@ -910,7 +914,8 @@ droughtModuleServer <- function(id, gage_obj) {
       #Plot:
       plotly::plot_ly() |>
         plotly::add_lines(
-          data = combined %>% dplyr::filter(type == "Observed"),
+          data = combined %>% dplyr::filter(type == "Observed",
+                                            Date >= start_date - hist_window & Date <= start_date),
           x = ~Date, y = ~value,
           name = paste("Observed",type_label),
           mode = "lines"
@@ -919,7 +924,18 @@ droughtModuleServer <- function(id, gage_obj) {
           data = combined %>% dplyr::filter(type == "Projected"),
           x = ~Date, y = ~round(value,3),
           name = paste("Projected",type_label),
-          mode = "lines+markers"
+          mode = "lines+markers",
+          line = list(dash = "dash")
+        ) |>
+        #Add future observed values for past dates
+        plotly::add_lines(
+          data = combined %>% dplyr::filter(type == "Observed",
+                                            Date >= start_date & Date <= start_date + hist_window),
+          x = ~Date, y = ~value,
+          name = paste("Observed",type_label),
+          mode = "lines",
+          line = list(dash = "dash",
+                      color = "#1f77b4")
         ) |>
         plotly::layout(
           title = paste("Observed & Projected",type_label,"-", site_name()),
