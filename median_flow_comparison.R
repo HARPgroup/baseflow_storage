@@ -2,6 +2,7 @@
 library(tidyverse)
 library(zoo)
 library(data.table)
+library(dataRetrieval)
 
 # Data prep
 baseflow_events <- read_csv("bf_events_01633000.csv") |>
@@ -20,7 +21,7 @@ usgs_daily <- read_csv("mount_jackson_usgs_flow.csv") |>
                             na.rm = T)) |>
   group_by(Month) |>
   summarise(median = median(xdaymin, na.rm = T),
-            min = min(xdaymin, na.rm = T),
+            #min = min(xdaymin, na.rm = T),
             p10 = quantile(xdaymin, probs = .1, na.rm = T),
             p10_flow = quantile(Flow, probs = .1, na.rm = T))
 
@@ -35,11 +36,11 @@ ggplot()+
              size = 3, shape = 21, color = "black", stroke = 1)+
   geom_point(data = usgs_daily, aes(Month, p10_flow, fill = "p10 Monthly Flow"),
              size = 2, shape = 21, color = "black", stroke = 1)+
-  geom_point(data = usgs_daily, aes(Month, min, fill = "Min of 7 day min"),
-             size = 3, shape = 21, color = "black", stroke = 1)+
+  #geom_point(data = usgs_daily, aes(Month, min, fill = "Min of 7 day min"),
+            # size = 3, shape = 21, color = "black", stroke = 1)+
   geom_point(data = usgs_daily, aes(Month, p10, fill = "p10 of 7 day min"),
              size = 3, shape = 21, color = "black", stroke = 1)+
-  scale_fill_manual(name = "Stats", values = c("Median of 7 day min" = "blue", "Min of 7 day min" = "green",
+  scale_fill_manual(name = "Stats", values = c("Median of 7 day min" = "blue", #"Min of 7 day min" = "green",
                                                "p10 of 7 day min" = "yellow", "p10 Monthly Flow" = "black")) +
   scale_x_continuous(breaks = 1:12, labels = month.abb) +
   scale_color_manual(name = "Event Flow Percentiles",
@@ -77,6 +78,37 @@ combined$best_metric <- "Median"
 combined$best_metric[combined$p10_dist < combined$median_dist] <- "Monthly 10th percentile"
 
 
+####
 
+bf_long <- baseflow_events |>
+  select(Month,
+         bf_p25 = p25,
+         bf_p10 = p10,
+         bf_median = median) |>
+  pivot_longer(cols = bf_p25:bf_median, names_to = "type", values_to = "value")
 
+usgs_long <- usgs_daily |>
+  select(Month,
+         median,
+         p10_7day = p10,
+         p10_monthly = p10_flow) |>
+  pivot_longer(cols = median:p10_monthly, names_to = "type", values_to = "value")
 
+merged <- usgs_long |>
+  left_join(bf_long, by = "Month", relationship = "many-to-many") |>
+  mutate(vert_dist = abs(value.x - value.y)) |>
+  group_by(type.x, Month) |>
+  slice_min(vert_dist, n = 1, with_ties = FALSE) |>
+  select(Month,
+         usgs_stat = type.x,
+         usgs_value = value.x,
+         Matched_Line = type.y,
+         Line_Value = value.y,
+         Distance = vert_dist) %>%
+  arrange(Month, usgs_stat)
+
+### Do we want this as part of the workflow or a stand alone script
+all_VA_sites <- read_waterdata_monitoring_location(
+  state_name = "Virginia",
+  site_type = "Stream",
+  properties = c("monitoring_location_id", "agency_code"))
