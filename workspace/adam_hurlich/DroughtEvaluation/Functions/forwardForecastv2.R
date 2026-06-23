@@ -32,7 +32,7 @@ single_forecast <- function(Q0, AGWRC, days){
 #' @param AGWRC numeric or character. The decay coefficient to regress Q0 for
 #'   forecast. May be a single numeric to allow for a constant forecast or a
 #'   vector of numeric values to allow for a variable forecast but must be of
-#'   length days. Otherwise, may be "lm_constant" to claculate a constant value
+#'   length days. Otherwise, may be "lm_constant" to calculate a constant value
 #'   from m and b or "lm_variable" to have a variable value
 #' @param m numeric of length 1 that is the slope of a log-linear relationship
 #'   of Q and AGWRC
@@ -82,13 +82,13 @@ forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
   if(is.character(AGWRC) && AGWRC == "lm_variable") {
 
     # Initial values for AGWRC and Qi in index 1
-    AGWRCi[1] <- RegressionAGWRC(Q0, m, b)
     Qi[1] <- Q0
+    AGWRCi[1] <- RegressionAGWRC(Q0, m, b)
 
     # Iterative loop for Qi and AGWRCi
     for (i in 1:n) {
       Qi[i+1] <- Qi[i] * AGWRCi[i]
-      AGWRCi[i+1] <- RegressionAGWRC(Qi[i+1], m, b)
+      AGWRCi[i+1] <- RegressionAGWRC(Qi[i+1], m, b) ##Ensure that this is accurate -- whether or not this is accruate...
     }
   }
 
@@ -99,12 +99,12 @@ forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
 }
 
 ## Local Testing
-#GageID = "01672500"
-#reg_lm <- read.csv(paste0("https://deq1.bse.vt.edu/usgs/agws/baseflow_regression_df_", GageID, ".csv"))
-#m <- reg_lm$m
-#b <- reg_lm$b
-#Q0 <- 100
-#days = c(0,7,15,30,45,60,75,90)
-#AGWRC = rnorm(90, 0.97, 0.001)
-#
-#Test <- forwardForecast(Q0, days, AGWRC, m, b)
+GageID = "01672500"
+reg_lm <- read.csv(paste0("https://deq1.bse.vt.edu/usgs/agws/baseflow_regression_df_", GageID, ".csv"))
+m <- reg_lm$m
+b <- reg_lm$b
+Q0 <- 100
+days = c(0,7,15,30,45,60,75,90)
+AGWRC = rnorm(90, 0.97, 0.001)
+
+Test <- forwardForecast(Q0, AGWRC = "lm_variable", m = m, b = b)
