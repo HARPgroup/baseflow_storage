@@ -4,31 +4,31 @@ unloadNamespace('hydrotools')
 #Get the master branch deployment of the package
 devtools::install_github("HARPgroup/hydro-tools")
 
-#Palmyra
-gageID <- "02034000"
+#CS
+gageID <- "01632000"
 
 
 #Step 01_obtain_flow 
 commandArgs <- function(...){
-  c(gageID, "PalmyraGage.csv")
+  c(gageID, "CSGage.csv")
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/river/usgsdata.R")
 
 #Step 01_event_identification
 commandArgs <- function(...){
-  c("PalmyraGage.csv", "obs_date", "obs_flow", FALSE, "PalmyraEvent.csv")
+  c("CSGage.csv", "obs_date", "obs_flow", FALSE, "CSEvent.csv")
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/event_identification.R")
 
 #Step 02_baseflow_events
 commandArgs <- function(...){
-  c("PalmyraEvent.csv", "obs_date", "obs_flow", "Palmyra", "PalmyraBF.csv", "monitoring_location_id")
+  c("CSEvent.csv", "obs_date", "obs_flow", "CS", "CSBF.csv", "monitoring_location_id")
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/baseflow_events.R")
 
 #Step 03_baseflow_stats
 commandArgs <- function(...){
-  c("PalmyraBF.csv", "for", "Palmyrastats.csv")
+  c("CSBF.csv", "for", "CSstats.csv")
 }
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/baseflow_stats.R")
 
