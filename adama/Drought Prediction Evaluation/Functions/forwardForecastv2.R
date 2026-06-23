@@ -12,6 +12,16 @@ RegressionAGWRC <- function(Flow, m, b) {
   return(AGWRC)
 }
 
+#' @details Calculate flow prediction based on initial flow, AGWRC, and days
+#' @param Q0 numeric of length 1 for initial flow
+#' @param AGWRC numeric scalar or vector for AGWRC
+#' @param days numeric scalar or vector running calculation up to maximum value in vector
+#' @return numeric column containing forecast flows
+single_forecast <- function(Q0, AGWRC, days){
+  Qout <- Q0*AGWRC^days
+  return(Qout)
+}
+
 #' @details A function to calculate a forcast days in the future based on Q0. Allows for
 #'vector inputs of days and AGWRC. Alternatively, allows for calculation of AGWRC
 #'via AGWRC = "lm_constant" or AGWRC = "lm_variable"
@@ -28,53 +38,42 @@ RegressionAGWRC <- function(Flow, m, b) {
 #'   of Q and AGWRC
 #' @param b numeric of length 1 that is the intercept of a log-linear
 #'   relationship of Q and AGWRC
-#' @return A data frame containing the forcast flows and AGWRCs used in the forecast
+#' @return A data frame containing the days, forcast flows and AGWRCs used in the forecast
 forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
 
-  # assignments for future indexing, example 1:91 num
+  # Assignments for future indexing, example 1:91 num vector
   n <- max(days)
   full_data <- 0:n
 
-  # Column size for length n+1, example 1:91 num
+  # Column size for length n+1, example 1:91 num vector of zeros
   AGWRCi <- numeric(n+1)
   Qi <- numeric(n+1)
 
-  ## AGWRC argument must fit
-  #if(length(AGWRC) > 1 & length(AGWRC) != length(days)){
-  #  warning("AGWRC must be of length 1 or of same length as days")
-  #}
+  # AGWRC argument must fit if length > 1, must be equal to maximum values in days vector
+  if(length(AGWRC) > 1 & length(AGWRC) != max(days)){
+    warning("AGWRC must be of length 1 or of same length as maximum days")
+  }
 
-  # Check for "lm_constant" argument
+  # Check for "lm_constant" argument, run RegressionAGWRC
   if(is.character(AGWRC) && AGWRC == "lm_constant"){
     AGWRC <- RegressionAGWRC(Q0, m, b)
   }
 
-  # AGWRC numeric and length 1, run loop
   if(is.numeric(AGWRC)){
     if(length(AGWRC) == 1){
-
       # Assignments, AGWRCi is copy of AGWRC, Qi[1] is day 0 initial flow
-      AGWRCi[] <- AGWRC
-      Qi[1] <- Q0
-
-    # Calculate flow forecast for i, example days 0:90 with 91 flow values
-    for (i in 1:n){
-      Qi[i+1] <- Q0 * AGWRC^i
-      }
-    }
-  }
-
-  # AGWRC numeric and length > 1, run loop
-  if(is.numeric(AGWRC)) {
-    if(length(AGWRC) > 1){
-
+      AGWRCi <- rep(AGWRC, length(AGWRCi))
+      # Calculate flow forecast for i, example days 0:90 with 91 flow values
+      Qi <- single_forecast(Q0 = Q0, AGWRC = AGWRC, days = 0:n)
+    }else if(length(AGWRC) > 1){
+      # AGWRC numeric and length > 1, run loop
       # AGWRCI is copy of AGWRC, Qi[1] is day 0 initial flow
       AGWRCi <- AGWRC
       Qi[1] <- Q0
 
       # Calculate flow forecast for i by i, Qi and AGWRCi change each i
       for (i in 1:n){
-        Qi[i+1] <- Qi[i] * AGWRCi[i]
+        Qi[i+1] <- single_forecast(Q0 = Qi[i], AGWRC = AGWRCi[i], days = 1)
       }
     }
   }
@@ -82,8 +81,8 @@ forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
   # AGWRC = "lm_variable" argument
   if(is.character(AGWRC) && AGWRC == "lm_variable") {
 
-    # Initial values for AGWRC and Qi
-    AGWRCi[1] <- RegressionAGWRC(Q0, m, b) #InitialValues
+    # Initial values for AGWRC and Qi in index 1
+    AGWRCi[1] <- RegressionAGWRC(Q0, m, b)
     Qi[1] <- Q0
 
     # Iterative loop for Qi and AGWRCi
@@ -93,8 +92,9 @@ forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
     }
   }
 
-  #Indexes to match selected non-consecutive days, example days = c(0,7,15) grabs index 1, 8, 16
+  # Indexes to match selected non-consecutive days, example days = c(0,7,15) grabs index 1, 8, 16
   idx <- full_data %in% days
+  # df of days, forecast flows and AGWRC
   return(data.frame(Day = full_data[idx], Forecast = Qi[idx], AGWRC = AGWRCi[idx]))
 }
 
@@ -105,6 +105,6 @@ forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
 #b <- reg_lm$b
 #Q0 <- 100
 #days = c(0,7,15,30,45,60,75,90)
-#AGWRC = rnorm(max(days), 0.97, 0.001)
+#AGWRC = rnorm(90, 0.97, 0.001)
 #
 #Test <- forwardForecast(Q0, days, AGWRC, m, b)
