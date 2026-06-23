@@ -546,7 +546,7 @@ droughtModuleServer <- function(id, gage_obj) {
           yaxis = list(title = "AGWR", rangemode = "tozero")
         )
     })
-    # 70. Forceast Inputs UI ####
+    # 70. Forecast Inputs UI ####
     output$agwrc_inputs <- renderUI({
       if(input$agwrc_calculation == "constant"){
         out <- tagList(
@@ -603,6 +603,59 @@ droughtModuleServer <- function(id, gage_obj) {
       updateNumericInput(session, "agwrc_single", value = round(initial_agwrc, 3))
     }, ignoreInit = TRUE)
     
+    # Identify known baseflow periods 
+    current_baseflow_event <- reactive({
+      req(input$forecast_start)
+      
+      evt <- events_summary()
+      req(nrow(evt) > 0)
+      
+      evt <- evt %>%
+        dplyr::filter(
+          start_date <= as.Date(input$forecast_start),
+          end_date >= as.Date(input$forecast_start)
+        )
+      
+      if (nrow(evt) == 0) {
+        return(list(
+          data = NULL,
+          GroupID = NULL,
+          start_date = NULL,
+          end_date = NULL
+        ))
+      }
+      
+      list(
+        data = evt,
+        GroupID = evt$GroupID[1],
+        start_date = evt$start_date[1],
+        end_date = evt$end_date[1],
+        AGWRC = evt$event_AGWRC[1]
+      )
+    })
+    
+    # define the UI output
+    output$baseflow_event_info <- renderUI({
+        ev <- current_baseflow_event()
+      
+      if (is.null(ev$data)) {
+      paste("Baseflow event status:",
+            "\nselected forecast start date is not within a known baseflow event."
+        )
+      } else {
+      # reduce the number of AGWRC decimal points to 4
+      reduced_dec <- sprintf("%.4f", ev$AGWRC)
+      paste("Baseflow event status:",
+              "Known baseflow event",
+              "GroupID:", ev$GroupID,
+              "Event Dates:", ev$start_date, 
+              "to", ev$end_date,
+              "Event AGWRC:", reduced_dec,
+              "(use as the static default)"
+            )
+       }
+    })
+    
     ## Constant AGWRC Recommendations ####
     #Calculate a recommended AGWRC from today's flow using user regression
     output$agwrc_user_lm <- renderText({
@@ -628,8 +681,50 @@ droughtModuleServer <- function(id, gage_obj) {
       }
       return(out)
     })
+    #Calculate last known AGWRC value
+    last_known_agwrc <- reactive({
+      # run the forecast_start code first
+      req(input$forecast_start)
+      
+      # save the input date as a variable
+      selected_date <- as.Date(input$forecast_start)
+      
+      # filter the trimmed data to be on or before the input date
+      df <- trimmed_df()
+      filtered_df <- df %>% 
+        dplyr::filter(Date <= selected_date,
+                      !is.na(AGWRC)) %>%
+        dplyr::arrange(Date)
+      
+      # ensure that df has at least one row to prevent errors
+      req(nrow(filtered_df) > 0)
+     
+      # select the last row from the filtered dates
+      last_row <- dplyr::slice_tail(filtered_df, n = 1)
+      
+      # create a list to return date, AGWRC, and GroupID
+      list(
+        AGWRC = last_row$AGWRC,
+        Date = last_row$Date,
+        GroupID = last_row$GroupID
+      )
+      
+      # reduce the number of AGWRC decimal points to 4
+      reduced_dec <- sprintf("%.4f", last_row$AGWRC)
+      
+      # paste these values vertically in the output text
+      paste(
+        "Last known AGWRC:", reduced_dec,
+        "\nDate:", last_row$Date,
+        "\nGroupID:", last_row$GroupID
+      )
+    })
     
-    
+    # define the output for verbatimTextOuptut in UI
+    output$last_known_agwrc <- renderText({
+      req(last_known_agwrc())
+    })
+
     # 7b. Forecast logic (single AGWRC for now) + AGWS display ####
     #Update the date input with the max date found in the raw data
     observeEvent(raw_daily(), {
