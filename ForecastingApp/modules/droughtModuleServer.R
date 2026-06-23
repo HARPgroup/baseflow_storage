@@ -690,10 +690,6 @@ droughtModuleServer <- function(id, gage_obj) {
         proj_flow_in <- (1 - agwrc) * proj_storage_in
         proj_flow <- proj_flow_in / sp_conv
       } else {
-        
-        RegressionAGWRC(df$Flow, m, b)
-        forwardForecast(Q0, forcast_horizons, agwrc, m, b)
-        
         #### Flow Projection ####
         #Initial Flow
         Q0 <- as.numeric(Q0[1])
