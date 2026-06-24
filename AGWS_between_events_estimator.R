@@ -5,7 +5,7 @@ source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_bf_workflow/build_lookup.R")
 
 argst <- commandArgs(trailingOnly = T)
-if (length(argst) < 4) {
+if (length(argst) < 6) {
   message("This script will take a series of trimmed baseflow events and a full time series flow data and estimate storage values calculated between baseflow events.")
   message("Use: model_outflow_calculator.R original_model_data_time_series_daily site_name site_no output_file ")
   q()
@@ -15,14 +15,16 @@ if (length(argst) < 4) {
 #example
 csv1_path <- "https://deq1.bse.vt.edu:444/usgs/agws/baseflow_trimmed_stats_01632000.csv"
 csv2_path <- "https://deq1.bse.vt.edu:444/usgs/agws/01632000-flow.csv"
+csv3_path <- "https://deq1.bse.vt.edu:444/usgs/agws/baseflow_summary_df_01632000.csv"
 m <- -0.0003047
 b <- 0.9418478
 
 csv1_path <- argst[1]
 csv2_path <- argst [2]
-m <- argst[3]
-b <- argst[4]
-output_file <- argst[5]
+csv3_path <- argst [3]
+m <- argst[4]
+b <- argst[5]
+output_file <- argst[6]
 
 #load in baseflow events
 csv1 <- read.csv(csv1_path)
@@ -32,6 +34,9 @@ csv1 <- read.csv(csv1_path)
 csv2 <- read.csv(csv2_path) %>%
   rename(Date = obs_date, Flow = obs_flow) |> 
   filter(!is.na(Flow))
+
+#load in median flows
+csv3 <- read.csv(csv3_path)
 
 #make sure dates line up
 
@@ -50,6 +55,11 @@ df_clean <- df_full %>%
     ) %>%
   select(-ends_with(".x"), -ends_with(".y"))
 
+
+#merge on GroupID
+df_clean <- df_clean %>% 
+  left_join(csv3, by = "GroupID")
+
 #convert flows
 df_clean <- df_clean %>% 
   mutate(
@@ -66,10 +76,20 @@ df_clean <- df_clean %>%
 
 da_sqmi <- df_clean$da_sqmi[1]
 
+#convert median flow to inches
+df_clean <- df_clean %>%
+  mutate(median_flow_in = convert.flow(median_flow, da_sqmi))
+
 
 ### Lookup Table Method:
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/ben_bf_workflow/site_factors.R")
-result    <- build_lookup(df_clean, da_sqmi, m = m, b = b)
+
+df_for_lookup <- df_clean %>%
+  filter(!is.na(event_AGWRC)) %>%
+  distinct(GroupID, .keep_all = TRUE) %>%
+  select(Flow = median_flow, AGWRC = event_AGWRC, GroupID, da_sqmi)
+
+result     <- build_lookup(df_for_lookup, da_sqmi, m = m, b = b)
 lookupdata <- result$lookup
 Svar       <- result$Svar
 
@@ -77,7 +97,7 @@ df_clean$AGWS_est <- approx(
   Svar$Qin,
   Svar$S,
   xout = df_clean$flow_in,
-  rule = 1
+  rule = 2
 )$y
 
 df_clean <- df_clean %>%
@@ -100,6 +120,13 @@ df_clean <- df_clean %>%
   mutate(
     AGWS_final_lookup = ifelse(!is.na(AGWS), AGWS, AGWS_est),
     AGWS_final_interp = ifelse(!is.na(AGWS), AGWS, AGWS_interp)
+  )
+
+#compare errors
+df_clean <- df_clean %>%
+  mutate(
+    lookup_error = ifelse(!is.na(AGWS), AGWS_est - AGWS, NA_real_),
+    interp_error = ifelse(!is.na(AGWS), AGWS_interp - AGWS, NA_real_)
   )
 
 write.csv(df_clean, file = output_file, row.names = FALSE)
