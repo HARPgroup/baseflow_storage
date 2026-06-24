@@ -2,7 +2,7 @@
 # summary data and run QC checks at various points.
 #For local testing:
 # commandArgs <- function(...){
-#   c(gage_obj, "lynnSummaryStats.csv", "lynnQC.csv", gageID)
+#   c(gage_obj, "lynnSummaryStats.csv", "lynnGage.csv", "lynnQC.csv", gageID)
 # }
 
 library(lmtest)
@@ -29,7 +29,7 @@ message(paste0("DEBUG with: args <- c('",paste(args,collapse="', '")),"')")
 message(paste("Reading", input_file))
 
 
-### This script contains a list of QC functions to potentially be added to ###
+### This script contains a list of QC functions to be added to ###
 ### the baseflow workflow ###
 
 # read in the data and use the same name as bf workflow output
@@ -37,14 +37,14 @@ event_df <- read_csv(input_06_file, col_types = cols())
 daily_df <- read_csv(input_01_file, col_types = cols())
 
 # get event counts (monthly and gage total)
-source("R/event_counts.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/R/event_counts.R")
 monthly_events <- bf_monthly_events_n(event_df, gageID)
 
-source("R/gage_length.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/R/gage_length.R")
 gage_length <- gage_length(daily_df)
 
 # get basin slope
-source("R/basin_slope.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/R/basin_slope.R")
 slope <- suppressWarnings(get_basin_slope(gage_obj))
 
 info <- data.frame(
@@ -62,7 +62,7 @@ event_df <- event_df |>
 model <- lm(event_AGWRC ~ logQ, data = event_df)
 
 # run function
-source("R/heteroscedasticity.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/R/heteroscedasticity.R")
 hetero_df <- heteroscedasticity(model)
 
 ### These two functions flags outliers ###
@@ -73,13 +73,13 @@ hetero_df <- heteroscedasticity(model)
 event_df <- event_df |>
   mutate(logQ = log(median_flow))
 
-source("R/flag_outliers_IQR.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/R/flag_outliers_IQR.R")
 event_df <- flag_outliers_IQR(event_df)
 
 # create a function that determines influential observations with Cook's
 # distance
 
-source("R/flag_cooks.R")
+source("https://github.com/HARPgroup/baseflow_storage/blob/willv_bf_workflow/R/flag_cooks.R")
 event_df <- flag_cooks(model, event_df)
 
 # Write csvs
