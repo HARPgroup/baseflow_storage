@@ -60,6 +60,7 @@ for (d in days) {
   # Accuracy table with x columns for all day ranges predicted
   accuracy_table[[paste0("FlowStats_", d, "day")]] <- c(FlowResults[[paste0("MAE_", d, "day")]][1], FlowResults[[paste0("RMSE_", d, "day")]][1], FlowResults[[paste0("MAPE_", d, "day")]][1], FlowResults[[paste0("Bias_", d, "day")]][1],  FlowResults[[paste0("r.squared_", d, "day")]][1])
 }
+###############################################################################
 # Plot 1, scatter plot of Residuals and baseline y = 0
   ggplot(FlowResults, aes(Date, residuals_7day)) +
     geom_hline(yintercept = 0, color = "black") +
