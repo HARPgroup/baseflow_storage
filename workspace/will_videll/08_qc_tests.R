@@ -88,12 +88,15 @@ event_df <- flag_cooks(model, event_df)
 write.csv(monthly_events,
           paste0("step08_", gageID, "_eventCount.csv"),
           row.names = FALSE)
+#Heteroscedsticity
 write.csv(hetero_df,
           paste0("step08_", gageID, "_hetero.csv"),
           row.names = FALSE)
+#Gage length and slope
 write.csv(info,
           paste0("step08_", gageID, "_info.csv"),
           row.names = FALSE)
+#Flags
 write.csv(event_df,
           paste0("step08_", gageID, "_flagged.csv"),
           row.names = FALSE)

@@ -2,16 +2,17 @@
 library(tidyverse)
 library(zoo)
 library(data.table)
+library(dataRetrieval)
 
 # Data prep
-baseflow_events <- read_csv("bf_events_01634000.csv") |>
+baseflow_events <- read_csv("bf_events_01633000.csv") |>
   select(Date, Flow, Month, GroupID) |>
   group_by(Month) |>
   summarise(p10 = quantile(Flow, probs = .1),
             p25 = quantile(Flow, probs = .25),
             median = median(Flow))
 
-usgs_daily <- read_csv("strasburg_usgs_flow.csv") |>
+usgs_daily <- read_csv("mount_jackson_usgs_flow.csv") |>
   select(Date, Flow) |>
   mutate(Month = month(Date),
          xdaymin = frollmin(Flow,
@@ -20,7 +21,7 @@ usgs_daily <- read_csv("strasburg_usgs_flow.csv") |>
                             na.rm = T)) |>
   group_by(Month) |>
   summarise(median = median(xdaymin, na.rm = T),
-            min = min(xdaymin, na.rm = T),
+            #min = min(xdaymin, na.rm = T),
             p10 = quantile(xdaymin, probs = .1, na.rm = T),
             p10_flow = quantile(Flow, probs = .1, na.rm = T))
 
@@ -35,11 +36,11 @@ ggplot()+
              size = 3, shape = 21, color = "black", stroke = 1)+
   geom_point(data = usgs_daily, aes(Month, p10_flow, fill = "p10 Monthly Flow"),
              size = 2, shape = 21, color = "black", stroke = 1)+
-  geom_point(data = usgs_daily, aes(Month, min, fill = "Min of 7 day min"),
-             size = 3, shape = 21, color = "black", stroke = 1)+
+  #geom_point(data = usgs_daily, aes(Month, min, fill = "Min of 7 day min"),
+            # size = 3, shape = 21, color = "black", stroke = 1)+
   geom_point(data = usgs_daily, aes(Month, p10, fill = "p10 of 7 day min"),
              size = 3, shape = 21, color = "black", stroke = 1)+
-  scale_fill_manual(name = "Stats", values = c("Median of 7 day min" = "blue", "Min of 7 day min" = "green",
+  scale_fill_manual(name = "Stats", values = c("Median of 7 day min" = "blue", #"Min of 7 day min" = "green",
                                                "p10 of 7 day min" = "yellow", "p10 Monthly Flow" = "black")) +
   scale_x_continuous(breaks = 1:12, labels = month.abb) +
   scale_color_manual(name = "Event Flow Percentiles",
@@ -61,20 +62,56 @@ ggplot()+
   )
 
 
-### Find the closest line
+### Find the closest line (method 1, not ideal)
 
-combined <- baseflow_events |>
-  left_join(usgs_daily, by = "Month") |>
+# combined <- baseflow_events |>
+#   left_join(usgs_daily, by = "Month") |>
+#   select(Month,
+#          bf_p25 = p25,
+#          p10_month = p10_flow,
+#          median_7day = median.y) |>
+#   mutate(p10_dist = abs(bf_p25 - p10_month),
+#          median_dist = abs(median_7day - bf_p25),
+#          difference = abs(p10_dist - median_dist))
+#
+# combined$best_metric <- "Median"
+# combined$best_metric[combined$p10_dist < combined$median_dist] <- "Monthly 10th percentile"
+
+
+####
+
+bf_long <- baseflow_events |>
   select(Month,
          bf_p25 = p25,
-         median_bf = median.x,
-         median_7day = median.y) |>
-  mutate(dist_to_med = abs(median_7day - median_bf),
-         dist_to_p25 = abs(median_7day - bf_p25))
+         bf_p10 = p10,
+         bf_median = median) |>
+  pivot_longer(cols = bf_p25:bf_median, names_to = "type", values_to = "value")
 
-combined$nearest <- "25th Percentile"
-combined$nearest[combined$dist_to_med < combined$dist_to_p25] <- "Median"
+usgs_long <- usgs_daily |>
+  select(Month,
+         median,
+         p10_7day = p10,
+         p10_monthly = p10_flow) |>
+  pivot_longer(cols = median:p10_monthly, names_to = "type", values_to = "value")
 
+merged3 <- bf_long |>
+  filter(type == "bf_p10") |>
+  left_join(usgs_long, by = "Month", relationship = "many-to-many") |>
+  mutate(vert_dist = abs(value.x - value.y),
+         Abs_pct_err = (abs(value.x - value.y) / value.x) * 100) |>
+  group_by(type.x, Month) |>
+  slice_min(vert_dist, n = 1, with_ties = FALSE) |>
+  select(Month,
+         bf_stat = type.x,
+         bf_value = value.x,
+         Matched_Point = type.y,
+         Point_Value = value.y,
+         Distance = vert_dist,
+         Abs_pct_err) %>%
+  arrange(Month, bf_stat)
 
-
-
+### Do we want this as part of the workflow or a stand alone script
+#all_VA_sites <- read_waterdata_monitoring_location(
+#  state_name = "Virginia",
+#  site_type = "Stream",
+#  properties = c("monitoring_location_id", "agency_code"))
