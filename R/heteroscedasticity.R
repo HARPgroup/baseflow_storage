@@ -36,7 +36,7 @@ heteroscedasticity <- function(model) {
   cat(white_msg, "\n\n")
   
   #Create data frame
-  hetero_df <- date.frame(
+  hetero_df <- data.frame(
     white_test_p = round(white_test$p.value, 4),
     breusch_pagan_p = round(bp_test$p.value, 4)
   )
