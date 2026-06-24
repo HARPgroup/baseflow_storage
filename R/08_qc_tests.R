@@ -2,7 +2,7 @@
 # summary data and run QC checks at various points.
 #For local testing:
 # commandArgs <- function(...){
-#   c(gage_obj, "lynnSummaryStats.csv", "lynnQC.csv")
+#   c(gage_obj, "lynnSummaryStats.csv", "lynnQC.csv", gageID)
 # }
 
 library(lmtest)
@@ -36,30 +36,8 @@ message(paste("Reading", input_file))
 event_df <- read_csv(input_06_file, col_types = cols())
 daily_df <- read_csv(input_01_file, col_types = cols())
 
-### This function determines the total number of events ###
-
-bf_events_n <- function(event_df){
-  result <- paste0("This gage has ", n_distinct(event_df$GroupID), " recorded events.")
-
-  cat(result, "\n\n")
-}
-bf_events_n(event_df)
-
-### This function determines the monthly total number of events ###
-
-bf_monthly_events_n <- function(event_df, gage_ID, output_file){
-  monthly_event_count <- event_df |>
-    mutate(month = month(as.Date(start_date, format = "%y-%m-%d"))) |>
-    group_by(month) |>
-    summarise(event_cnt = n_distinct(GroupID)) |>
-
-  # Write csv
-    write.csv(output_file, row.names = FALSE)
-
-  cat(paste0("Monthly event totals saved to 'step08_", gageID, ".csv'"), "\n\n")
-
-}
-bf_monthly_events_n(event_df, gageID, output_file)
+source("R/event_counts.R")
+monthly_events <- bf_monthly_events_n(event_df, gageID)
 
 ### This function determines the gage length ###
 
@@ -83,45 +61,8 @@ event_df <- event_df |>
 # create a linear model
 model <- lm(event_AGWRC ~ logQ, data = event_df)
 
-# create a function that runs the Breusch-Pagan test and the White test
-# the ouput is a message that gives p-value and interpretation
-# flag values that have p-value < 0.1
-heteroscedasticity <- function(model) {
-  # run the Breusch-Pagan test
-  bp_test <- bptest(model)
-
-  # write message with interpretation
-  bp_msg <- paste0(
-    "Breusch-Pagan test p-value = ",
-    round(bp_test$p.value, 4),
-    if(bp_test$p.value < 0.1) {
-      ". Heteroscedasticity is likely causing some uncertainty in the model."
-    }
-    else{
-      ". Heteroscedasticity is likely not a concern."
-    }
-  )
-
-  # run the White test
-  white_test <- bptest(model, ~fitted(model) + I(fitted(model)^2))
-
-  # write message with interpretation
-  white_msg <- paste0(
-    "White test p-value = ",
-    round(white_test$p.value, 4),
-    if(white_test$p.value < 0.1){
-      ". Heteroscedasticity is likely causing some uncertainty in the model."
-    } else {
-      ". Heteroscedasticity is likely not a concern."
-    }
-  )
-
-  # output both messages in the console
-  cat(bp_msg, "\n\n")
-  cat(white_msg, "\n\n")
-
-}
-heteroscedasticity(model)
+source("R/heteroscedasticity.R")
+hetero_df <- heteroscedasticity(model)
 
 ### This function calculates the slope ###
 
@@ -216,3 +157,11 @@ flag_cooks <- function(model, event_df) {
 }
 event_df <- flag_cooks(model, event_df)
 
+
+
+# Write csvs
+
+#Monthly event total
+write.csv(monthly_events,
+          paste0("step08_", gageID, "_eventCount.csv"),
+          row.names = FALSE)
