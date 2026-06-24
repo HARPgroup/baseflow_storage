@@ -13,11 +13,11 @@ if (length(argst) < 6) {
 
 
 #example
-csv1_path <- "https://deq1.bse.vt.edu:444/usgs/agws/baseflow_trimmed_stats_01632000.csv"
-csv2_path <- "https://deq1.bse.vt.edu:444/usgs/agws/01632000-flow.csv"
-csv3_path <- "https://deq1.bse.vt.edu:444/usgs/agws/baseflow_summary_df_01632000.csv"
-m <- -0.0003047
-b <- 0.9418478
+# csv1_path <- "https://deq1.bse.vt.edu:444/usgs/agws/baseflow_trimmed_stats_01632000.csv"
+# csv2_path <- "https://deq1.bse.vt.edu:444/usgs/agws/01632000-flow.csv"
+# csv3_path <- "https://deq1.bse.vt.edu:444/usgs/agws/baseflow_summary_df_01632000.csv"
+# m <- -0.0003047
+# b <- 0.9418478
 
 csv1_path <- argst[1]
 csv2_path <- argst [2]
@@ -122,11 +122,10 @@ df_clean <- df_clean %>%
     AGWS_final_interp = ifelse(!is.na(AGWS), AGWS, AGWS_interp)
   )
 
-#compare errors
+#compare errors note interp cannot have error because we don't interp where a baseflow event is
 df_clean <- df_clean %>%
   mutate(
-    lookup_error = ifelse(!is.na(AGWS), AGWS_est - AGWS, NA_real_),
-    interp_error = ifelse(!is.na(AGWS), AGWS_interp - AGWS, NA_real_)
+    lookup_error = ifelse(!is.na(AGWS), AGWS_est - AGWS, NA_real_)
   )
 
 write.csv(df_clean, file = output_file, row.names = FALSE)
