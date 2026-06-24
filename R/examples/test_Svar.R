@@ -21,6 +21,7 @@ Svar <- data.frame(
   Qcon = Qcon,
   Scon = Scon
 )
+
 dS <- Svar[2:nrow(Svar),]$S/Svar[1:(nrow(Svar)-1),]$S
 Svar <- Svar[dS > 1,]
 
