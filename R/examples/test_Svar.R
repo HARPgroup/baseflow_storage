@@ -116,7 +116,10 @@ step_scq <- function (numts, Sinit, method, in2cfs, b=0.0, m=1.0, C=0.99) {
   return(model_out)
 }
 
-step_scq(numts=10, Sinit=0.5, method="lookup", in2cfs=revconvert, C=Svar)
+test = step_scq(numts=100, Sinit=0.5, method="lookup", in2cfs=revconvert, C=Svar)
+# check mass balance (omit day 1 out since it is lagged)
+(max(test$S) - min(test$S) + test$Qinch[1]); sum(test$Qinch)
+
 step_scq(numts=10, Sinit=0.5, method="constant", in2cfs=revconvert, C=0.960)
 step_scq(numts=10, Sinit=0.5, method="solver",b=1.004269, m=-0.008820, in2cfs=revconvert, C=0.960)
 
