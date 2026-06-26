@@ -37,14 +37,14 @@ event_df <- read_csv(input_06_file, col_types = cols())
 daily_df <- read_csv(input_01_file, col_types = cols())
 
 # get event counts (monthly and gage total)
-source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/R/event_counts.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/workspace/will_videll/event_counts.R")
 monthly_events <- bf_monthly_events_n(event_df, gageID)
 
-source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/R/gage_length.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/workspace/will_videll/gage_length.R")
 gage_length <- gage_length(daily_df)
 
 # get basin slope
-source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/R/basin_slope.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/workspace/will_videll/basin_slope.R")
 slope <- suppressWarnings(get_basin_slope(gage_obj))
 
 info <- data.frame(
@@ -62,7 +62,7 @@ event_df <- event_df |>
 model <- lm(event_AGWRC ~ logQ, data = event_df)
 
 # run function
-source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/R/heteroscedasticity.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/workspace/will_videll/heteroscedasticity.R")
 hetero_df <- heteroscedasticity(model)
 
 ### These two functions flags outliers ###
@@ -73,13 +73,13 @@ hetero_df <- heteroscedasticity(model)
 event_df <- event_df |>
   mutate(logQ = log(median_flow))
 
-source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/R/flag_outliers_IQR.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/workspace/will_videll/flag_outliers_IQR.R")
 event_df <- flag_outliers_IQR(event_df)
 
 # create a function that determines influential observations with Cook's
 # distance
 
-source("https://github.com/HARPgroup/baseflow_storage/blob/willv_bf_workflow/R/flag_cooks.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/workspace/will_videll/flag_cooks.R")
 event_df <- flag_cooks(model, event_df)
 
 # Write csvs
