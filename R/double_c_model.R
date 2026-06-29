@@ -1,4 +1,7 @@
-source()
+library("agws")
+
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/R/AGWdouble.R")
+source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/R/step_scq.R")
 ### Run the New Model
 agwhilo = AGWdouble$new(
   agws1=5, agwsmax1 = 5, 
