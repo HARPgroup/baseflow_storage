@@ -1,3 +1,9 @@
+agwo_hspf <- function(S, C, dthr) {
+  kgwV = 1.0 - C^(dthr/24.0)
+  agwo = kgwV * S
+  return(agwo)
+}
+
 AGWdouble <- R6::R6Class(
   public = list(
     tmethod="all",
