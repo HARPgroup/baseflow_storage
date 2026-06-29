@@ -1,3 +1,10 @@
+basepath="/var/www/R"
+source("/var/www/R/config.R")
+### INSTRUCTIONS ###
+# To run this example, all code must be run to set up
+# then
+
+#### Set Up Lookup for Soil #### 
 # set up the lookup table using values from
 # the test_Svar.R example, grabbing select rows
 # like so: Svar[c(1,25,50,100,150,200,250),]
@@ -262,76 +269,31 @@ step_scq <- function (numts, Sinit, method, in2cfs, b=0.0, m=1.0, C=0.99) {
   }
   return(model_out)
 }
-# simple identical containers
-agw2 = AGWdouble$new(
-  agws1=1.0,agws2=1.0, 
-  agwsmax1 = 1.5, agwsmax2 = 1.5,
-  c1=0.99, c2=0.99
-)
-agwz = AGWdouble$new(
-  agws1=2.0, agwsmax1 = 2.5, 
-  agws2=2.5, agwsmax2 = 2.5,
-  c1=0.98, c2=0.99
-)
 
 
+### Run Both Types of Models
+
+#### Run the old model with a simple 1 compartment
 test1 = step_scq(numts=100, Sinit=0.5, method="lookup", in2cfs=revconvert, C=Svar)
-test2 = step_scq(numts=3, Sinit=0.5, method=agw2, in2cfs=revconvert)
-testz = step_scq(numts=100, Sinit=0.5, method=agwz, in2cfs=revconvert)
 
-
-agwhilo = AGWdouble$new(
-  agws1=2.5, agwsmax1 = 2.5, 
-  agws2=1, agwsmax2 = 1,
-  c1=0.99, c2=0.95
-)
-testhilo = step_scq(numts=100, Sinit=0.5, method=agwhilo, in2cfs=revconvert)
-agwhilo$plot("cfq", warmup=5)
-agwhilo$plot("storage", warmup=5)
-
-agwhilo = AGWdouble$new(
-  agws1=2.5, agwsmax1 = 2.5, 
-  agws2=1, agwsmax2 = 1,
-  c1=0.95, c2=0.99
-)
-testhilo = step_scq(numts=300, Sinit=0.5, method=agwhilo, in2cfs=revconvert)
-agwhilo$plot("cfq", warmup=5)
-agwhilo$plot("storage", warmup=5)
-
-
-agwhilo = AGWdouble$new(
-  agws1=5, agwsmax1 = 5, 
-  agws2=5, agwsmax2 = 5,
-  c1=0.99, c2=0.95
-)
-agwhilo$tmethod = "transmissivity"
-testhilo = step_scq(numts=300, Sinit=0.5, method=agwhilo, in2cfs=revconvert)
-agwhilo$plot("cfq", warmup=5)
-agwhilo$plot("storage", warmup=5)
-
-agwhilo = AGWdouble$new(
-  agws1=5, agwsmax1 = 5, 
-  agws2=5, agwsmax2 = 5,
-  c1=0.95, c2=0.99
-)
-agwhilo$tmethod = "transmissivity"
-testhilo = step_scq(numts=300, Sinit=0.5, method=agwhilo, in2cfs=revconvert)
-agwhilo$plot("cfq", warmup=5)
-agwhilo$plot("storage", warmup=5)
-
+### Run the New Model
 agwhilo = AGWdouble$new(
   agws1=5, agwsmax1 = 5, 
   agws2=1.0, agwsmax2 = 1.0,
-  c1=0.95, c2=0.99
+  c1=0.95, c2=0.98
 )
-agwhilo$tmethod = "all" # uses 1.0 - c2 as max inflow to bottom layer
+agwhilo$tmethod = "tmax" # uses 1.0 - c2 as max inflow to bottom layer
 testhilo = step_scq(numts=300, Sinit=0.5, method=agwhilo, in2cfs=revconvert)
 agwhilo$plot("cfq", warmup=5)
 agwhilo$plot("storage", warmup=5)
 quantile(agwhilo$log$agwo, na.rm=TRUE)
 quantile(agwhilo$log$agwin2, na.rm=TRUE)
 quantile(agwhilo$log$ce, na.rm=TRUE)
+
+#### Note: this varying method of percolation into agws2 does not appear to function
 # show difference between all and tmax methods of layer 2 inflow
+# this equations DO show a diff when run manually but the logs and plots do not
+# when run from the object
 agwhilo$solve_double_C(2.5, 0.5, 0.95, 0.99, 5, 2.5, agwin1=0.0, tmethod="tmax", dthr=24)$agwin2
 agwhilo$solve_double_C(2.5, 0.5, 0.95, 0.99, 5, 2.5, agwin1=0.0, tmethod="all", dthr=24)$agwin2
 
