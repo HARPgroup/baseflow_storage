@@ -14,9 +14,9 @@ library("devtools")
 #Make sure it hasn't been called, but if it has we can unload it
 unloadNamespace('agws')
 #Get the master branch deployment of the package
-devtools::install_github("HARPgroup/agws")
+devtools::install_github("HARPgroup/baseflow_storage")
 # alternate, install a development branch for testing:
-devtools::install_github("HARPgroup/agws", ref = "packageinitialize", force=TRUE)
+devtools::install_github("HARPgroup/baseflow_storage", ref = "packageinitialize", force=TRUE)
 
 #EXAMPLE FUNCTION DOCUMENTATION
 ??convert.flow
