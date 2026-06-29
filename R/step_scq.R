@@ -1,5 +1,9 @@
 
 
+solve_agwrc_lookup <- function(S, Ctable){
+  return(Ctable[Ctable$S >= S,][1,]$C)
+}
+
 step_scq <- function (numts, Sinit, method, in2cfs, b=0.0, m=1.0, C=0.99) {
   # note if method = "lookup", C should be a dataframe with columns Q and C
   S = Sinit
@@ -33,8 +37,4 @@ step_scq <- function (numts, Sinit, method, in2cfs, b=0.0, m=1.0, C=0.99) {
     model_out <- rbind(model_out, data.frame(S=S, Q=Q, Qinch=Qinch, C=Cs))
   }
   return(model_out)
-}
-
-solve_agwrc_lookup <- function(S, Ctable){
-  return(Ctable[Ctable$S >= S,][1,]$C)
 }
