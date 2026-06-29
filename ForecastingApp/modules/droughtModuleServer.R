@@ -547,11 +547,11 @@ droughtModuleServer <- function(id, gage_obj) {
       req(workflowLM())
       
       cat(
-          "Slope (m) = ",workflowLM()$m,"\n",
-          "Intercept (b) = ",workflowLM()$b,"\n",
-          "Slope p-value = ",signif(workflowLM()$m_pvalue,4),"\n",
-          "Intercept b-pvalue = ",signif(workflowLM()$b_pvalue,4),"\n",
-          "R Squared = ",round(workflowLM()$Rsq,4)
+        "Slope (m) = ",workflowLM()$m,"\n",
+        "Intercept (b) = ",workflowLM()$b,"\n",
+        "Slope p-value = ",signif(workflowLM()$m_pvalue,4),"\n",
+        "Intercept b-pvalue = ",signif(workflowLM()$b_pvalue,4),"\n",
+        "R Squared = ",round(workflowLM()$Rsq,4)
       )
       
     })
@@ -719,30 +719,30 @@ droughtModuleServer <- function(id, gage_obj) {
     
     # define the UI output
     output$baseflow_event_info <- renderUI({
-        ev <- current_baseflow_event()
-      
+      ev <- current_baseflow_event()
+      out <- NULL
       if (is.null(ev$data)) {
-      paste("Baseflow event status:",
-            "\nselected forecast start date is not within a known baseflow event."
+        out <- p(strong("Baseflow event status:"),
+                 br(),"Selected forecast start date is not within a known baseflow event."
         )
       } else {
-      # reduce the number of AGWRC decimal points to 4
-      reduced_dec <- sprintf("%.4f", ev$AGWRC)
-      paste("Baseflow event status:",
-              "Known baseflow event",
-              "GroupID:", ev$GroupID,
-              "Event Dates:", ev$start_date, 
-              "to", ev$end_date,
-              "Event AGWRC:", reduced_dec,
-              "(use as the static default)"
-            )
-       }
+        # reduce the number of AGWRC decimal points to 4
+        reduced_dec <- sprintf("%.4f", ev$AGWRC)
+        out <- p(strong("Baseflow event status:"),
+                 br(),em("Known baseflow event"),
+                 br(),em("GroupID:"), ev$GroupID,
+                 br(),em("Event Dates:"), ev$start_date, 
+                 "to", ev$end_date,
+                 br(),em("Event AGWRC:"), reduced_dec
+        )
+      }
+      return(out)
     })
     
     ## Constant AGWRC Recommendations ####
     #Calculate a recommended AGWRC from today's flow using user regression
     output$agwrc_user_lm <- renderText({
-      req(user_regression())
+      req(user_regression(), full_storage_df())
       df <- full_storage_df()
       Q0 <- df$Flow[df$Date == input$forecast_start]
       if(length(Q0) > 0 && !is.null(Q0) && !is.na(Q0)){
@@ -781,7 +781,7 @@ droughtModuleServer <- function(id, gage_obj) {
       
       # ensure that df has at least one row to prevent errors
       req(nrow(filtered_df) > 0)
-     
+      
       # select the last row from the filtered dates
       last_row <- dplyr::slice_tail(filtered_df, n = 1)
       
@@ -807,7 +807,7 @@ droughtModuleServer <- function(id, gage_obj) {
     output$last_known_agwrc <- renderText({
       req(last_known_agwrc())
     })
-
+    
     # 7b. Forecast logic (single AGWRC for now) + AGWS display ####
     #Update the date input with the max date found in the raw data
     observeEvent(raw_daily(), {
@@ -826,7 +826,8 @@ droughtModuleServer <- function(id, gage_obj) {
       df <- full_storage_df()
       req(nrow(df) > 0)
       start_date <- as.Date(input$forecast_start)
-      req(!is.na(start_date))
+      agwrc <- input$agwrc_single
+      req(!is.na(start_date), !is.na(agwrc))
       #QC checks: Flow must exist on the start date and the input AGWRC must be
       #valid
       Q0 <- df$Flow[df$Date == start_date]
@@ -883,11 +884,11 @@ droughtModuleServer <- function(id, gage_obj) {
           
         }else if(input$agwrc_calculation == "variable"){
           ##### Variable ####
+          req(input$agwrc_regression)
           proj_flow <- numeric(max(forecast_horizons))
           proj_flow_in <- numeric(max(forecast_horizons))
           proj_storage_in <- numeric(max(forecast_horizons))
           agwrc <- numeric(max(forecast_horizons))
-          
           if(input$agwrc_regression == "user"){
             m <- coef(user_regression()$model)[2]
             b <- coef(user_regression()$model)[1]
