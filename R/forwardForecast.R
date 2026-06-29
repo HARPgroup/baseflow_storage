@@ -1,3 +1,5 @@
+#'@title RegressionAGWRC
+#'@name RegressionAGWRC
 #' @details Calculate AGWRC based on a log linear relationship of flow, m,
 #' and b
 #' @param Flow numeric of length 1. Flow to calculate AGWRC from in log-linear
@@ -7,21 +9,27 @@
 #' @param b numeric of length 1 that is the intercept of a log-linear
 #'   relationship of Q and AGWRC
 #' @return A list containing the forcast flows and AGWRCs used in the forecast
+#'@export
 RegressionAGWRC <- function(Flow, m, b) {
   AGWRC <- m * log(Flow) + b
   return(AGWRC)
 }
 
+#'@title single_forecast
+#'@name single_forecast
 #' @details Calculate flow prediction based on initial flow, AGWRC, and days
 #' @param Q0 numeric of length 1 for initial flow
 #' @param AGWRC numeric scalar or vector for AGWRC
 #' @param days numeric scalar or vector running calculation up to maximum value in vector
 #' @return numeric column containing forecast flows
+#' @export
 single_forecast <- function(Q0, AGWRC, days){
   Qout <- Q0*AGWRC^days
   return(Qout)
 }
 
+#'@title forwardForecast
+#'@name forwardForecast
 #' @details A function to calculate a forcast days in the future based on Q0. Allows for
 #'vector inputs of days and AGWRC. Alternatively, allows for calculation of AGWRC
 #'via AGWRC = "lm_constant" or AGWRC = "lm_variable"
@@ -39,6 +47,7 @@ single_forecast <- function(Q0, AGWRC, days){
 #' @param b numeric of length 1 that is the intercept of a log-linear
 #'   relationship of Q and AGWRC
 #' @return A data frame containing the days, forcast flows and AGWRCs used in the forecast
+#' @export
 forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
 
   # Assignments for future indexing, example 1:91 num vector
