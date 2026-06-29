@@ -314,7 +314,7 @@ droughtModuleServer <- function(id, gage_obj) {
     #already be stored in database
     observeEvent(gage_obj(),{
       out <- NULL
-      if(inherits(gage_obj(),"waterGageDaily")){
+      if(inherits(gage_obj(),"WaterGageDaily")){
         show_modal_spinner(text = "Retrieving baseflow data from DEQ servers...")
         gage_feature <- gage_obj()$load_wshd_feat()
         AGWRC_model <- gage_feature$get_prop(propcode = "AGWRC-1.0")
@@ -334,6 +334,7 @@ droughtModuleServer <- function(id, gage_obj) {
             Rsq = regression_Rsq
           )
         }
+        remove_modal_spinner()
       }
       workflowLM(out)
     })
@@ -413,7 +414,7 @@ droughtModuleServer <- function(id, gage_obj) {
     })
     ## Regression Plot ####
     output$agwrc_regression_plot <- renderPlotly({
-      req(user_regression())
+      req(user_regression(), full_storage_df())
       
       p <- plotly::plot_ly() |>
         plotly::add_markers(
@@ -662,7 +663,7 @@ droughtModuleServer <- function(id, gage_obj) {
       req(user_regression())
       df <- full_storage_df()
       Q0 <- df$Flow[df$Date == input$forecast_start]
-      if(length(Q0) > 0 && !is.null(Q0) && is.na(Q0)){
+      if(length(Q0) > 0 && !is.null(Q0) && !is.na(Q0)){
         out <- coef(user_regression()$model)[2] * log(Q0) + coef(user_regression()$model)[1]
       }else{
         out <- NULL
@@ -674,7 +675,7 @@ droughtModuleServer <- function(id, gage_obj) {
       req(workflowLM())
       df <- full_storage_df()
       Q0 <- df$Flow[df$Date == input$forecast_start]
-      if(length(Q0) > 0 && !is.null(Q0) && is.na(Q0)){
+      if(length(Q0) > 0 && !is.null(Q0) && !is.na(Q0)){
         out <- workflowLM()$m * log(Q0) + workflowLM()$b
       }else{
         out <- NULL
@@ -789,6 +790,7 @@ droughtModuleServer <- function(id, gage_obj) {
         #Initial Flow
         Q0 <- as.numeric(Q0[1])
         if(input$agwrc_calculation == "constant"){
+          req(input$agwrc_single)
           ##### Constant ####
           agwrc <- input$agwrc_single
           #Projection
