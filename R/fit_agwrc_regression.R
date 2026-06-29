@@ -24,7 +24,7 @@ fit_agwrc_regression <- function(event_df) {
   reg_df <- event_df |>
     dplyr::mutate(logQ = log(median_flow))
 
-  model <- lm(event_AGWRC ~ logQ, data = reg_df)
+  model <- stats::lm(event_AGWRC ~ logQ, data = reg_df)
   model_summary <- summary(model)
 
   return(model)

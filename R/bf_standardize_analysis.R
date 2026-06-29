@@ -9,6 +9,7 @@
 #'@param df df from locationTrimStats.csv requiring GroupID, Date, Flow, AGWR, delta_AGWR, kept, met_alpha columns
 #'@param gage_id char usgs gage number from commandArgs in function call
 #'@return df with columns: Date, GroupID, Flow, AGWR, delta_AGWR, AGWRC, kept, met_alpha
+#'@importFrom rlang .data
 #'@export
 bf_standardize_analysis_df <- function(df, gage_id) {
   df$site_no <- as.character(gage_id)
@@ -25,7 +26,7 @@ bf_standardize_analysis_df <- function(df, gage_id) {
   }
 
   if (!("AGWRC" %in% names(df)) && "trimmed_AGWRC" %in% names(df)) {
-    df <- dplyr::rename(df, AGWRC = trimmed_AGWRC)
+    df <- dplyr::rename(df, AGWRC = .data$trimmed_AGWRC)
   }
 
   if (!("AGWRC" %in% names(df))) {
@@ -34,14 +35,14 @@ bf_standardize_analysis_df <- function(df, gage_id) {
 
   out <- df |>
     mutate(
-      Date = as.Date(Date),
-      GroupID = as.integer(GroupID),
-      Flow = as.numeric(Flow),
-      AGWR = as.numeric(AGWR),
-      delta_AGWR = as.numeric(delta_AGWR),
-      AGWRC = as.numeric(AGWRC),
-      kept = as.logical(kept),
-      met_alpha = as.logical(met_alpha)
+      Date = as.Date(.data$Date),
+      GroupID = as.integer(.data$GroupID),
+      Flow = as.numeric(.data$Flow),
+      AGWR = as.numeric(.data$AGWR),
+      delta_AGWR = as.numeric(.data$delta_AGWR),
+      AGWRC = as.numeric(.data$AGWRC),
+      kept = as.logical(.data$kept),
+      met_alpha = as.logical(.data$met_alpha)
     )
   return(out)
 }
