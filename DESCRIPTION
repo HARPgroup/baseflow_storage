@@ -7,12 +7,14 @@ Description: This package identifies baseflow events from a flow hydrograph and 
 License: GPL
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 8.0.0
 Imports:
   Kendall,
-  dplyr,
   hydrotools,
+  dplyr,
   sqldf,
   stats,
   utils,
-  rlang
+  rlang,
+Remotes:
+  github::HARPgroup/hydro-tools
