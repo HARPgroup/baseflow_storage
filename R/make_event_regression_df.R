@@ -9,6 +9,8 @@
 #'@param points_df df with columns, Date, GroupID, Flow, AGWR, delta_AGWR, AGWRC, kept, met_alpha
 #'@param regression_flow_col char string designating column name for regression_flow_col, default "Flow"
 #'@return df with GroupID, start_date, end_date, n_days, median_flow, event_AGWRC
+#'@importFrom rlang .data
+#'@importFrom stats median
 #'@export
 make_event_regression_df <- function(points_df, regression_flow_col = "Flow") {
 
@@ -21,31 +23,31 @@ make_event_regression_df <- function(points_df, regression_flow_col = "Flow") {
 
   out <- points_df |>
     dplyr::mutate(
-      Date = as.Date(Date),
+      Date = as.Date(.data$Date),
       regression_flow = as.numeric(.data[[regression_flow_col]])
     ) |>
     dplyr::filter(
-      kept == TRUE,
-      met_alpha == TRUE,
-      !is.na(GroupID),
-      !is.na(regression_flow),
-      !is.na(AGWRC),
-      regression_flow > 0
+      .data$kept == TRUE,
+      .data$met_alpha == TRUE,
+      !is.na(.data$GroupID),
+      !is.na(.data$regression_flow),
+      !is.na(.data$AGWRC),
+      .data$regression_flow > 0
     ) |>
-    dplyr::group_by(GroupID) |>
+    dplyr::group_by(.data$GroupID) |>
     dplyr::summarise(
-      start_date = min(Date, na.rm = TRUE),
-      end_date = max(Date, na.rm = TRUE),
+      start_date = min(.data$Date, na.rm = TRUE),
+      end_date = max(.data$Date, na.rm = TRUE),
       n_days = dplyr::n(),
-      median_flow = median(regression_flow, na.rm = TRUE),
-      event_AGWRC = dplyr::first(AGWRC),
+      median_flow = stats::median(.data$regression_flow, na.rm = TRUE),
+      event_AGWRC = dplyr::first(.data$AGWRC),
       .groups = "drop"
     ) |>
     dplyr::filter(
-      !is.na(median_flow),
-      !is.na(event_AGWRC),
-      median_flow > 0
+      !is.na(.data$median_flow),
+      !is.na(.data$event_AGWRC),
+      .data$median_flow > 0
     ) |>
-    dplyr::arrange(start_date)
+    dplyr::arrange(.data$start_date)
   return(out)
 }

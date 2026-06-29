@@ -2,7 +2,7 @@ Qts <- 0:600
 C <- 1.004269 + -0.008820 * log(Qts)
 Qin <- convert.flow(Qts, 508)
 S <- Qin / (1.0 - C);#A S(t-1) = S(t) + Q(t)
-revconvert = 1.0 / convert.flow(1, 508) # bring from in/day back to cfs 
+revconvert = 1.0 / convert.flow(1, 508) # bring from in/day back to cfs
 agwrc_loglin <- function(x, m, b) { y = m * log(x) + b; return(y) }
 agwo_hspf <- function(S, C, dthr) {
   kgwV = 1.0 - C^(dthr/24.0)
@@ -28,17 +28,17 @@ solve_agwrc_lookup <- function(S, Ctable){
 }
 
 solve_agwrc_log <- function(S, m, b) {
-  
+
   g <- function(C) {
     message(paste(m, C, b, S))
     C - (m * log(S * (1 - C)) + b)
   }
-  
+
   res <- tryCatch(
-    uniroot(g, lower = 0.001, upper = 0.999)$root,
+    stats::uniroot(g, lower = 0.001, upper = 0.999)$root,
     error = function(e) NA_real_
   )
-  
+
   return(res)
 }
 
@@ -93,14 +93,14 @@ AGWdouble <- R6::R6Class(
       ce = 1.0 - (agwo / (agws1 + agws2))
       return(
         list(
-          agwo=agwo, agws1=agws1, agws2=agws2, agwo2=agwo2, 
+          agwo=agwo, agws1=agws1, agws2=agws2, agwo2=agwo2,
           agwo1=agwo1, agwin1=agwin1, agwin2=agwin2, ce=ce
         )
       )
     },
     eval = function() {
       outlist = self$solve_double_C(
-        agws1=self$agws1, agws2=self$agws2, c1=self$c1, c2=self$c2, agwsmax1=self$agwsmax1, 
+        agws1=self$agws1, agws2=self$agws2, c1=self$c1, c2=self$c2, agwsmax1=self$agwsmax1,
         agwsmax2=self$agwsmax2, agwin1=self$agwin1, dthr=self$dthr
       )
       self$agwo = outlist$agwo
