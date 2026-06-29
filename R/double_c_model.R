@@ -51,6 +51,7 @@ AGWdouble <- R6::R6Class(
       self$c2=c2
       self$agwsmax1=agwsmax1
       self$agwsmax2=agwsmax2
+      self$tmethod=tmethod
       self$agws = self$agws1 + self$agws2
       log = data.frame(
         timestamp = integer(),
@@ -280,7 +281,7 @@ test1 = step_scq(numts=100, Sinit=0.5, method="lookup", in2cfs=revconvert, C=Sva
 agwhilo = AGWdouble$new(
   agws1=5, agwsmax1 = 5, 
   agws2=1.0, agwsmax2 = 1.0,
-  c1=0.95, c2=0.98
+  c1=0.95, c2=0.98, tmethod = "tmax"
 )
 agwhilo$tmethod = "tmax" # uses 1.0 - c2 as max inflow to bottom layer
 testhilo = step_scq(numts=300, Sinit=0.5, method=agwhilo, in2cfs=revconvert)
