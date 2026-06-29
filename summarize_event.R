@@ -5,8 +5,8 @@
 summarize_event <- function(analysis_data,
                             event_number = 0,
                             dAGWR_range = 0.03){
-  
-  source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/calc_event_stats.R")
+  # source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/bf_event_stats.R")
+  # source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/calc_event_stats.R")
   
   require(sqldf)
   
@@ -30,26 +30,31 @@ summarize_event <- function(analysis_data,
   # COndition to produce rsquared and agwr for all events
   if(eventnum == 0){
     # Create empty dataframe
-    event_df <- data.frame(Event = numeric(), calc.AGWR = numeric(), R.squared = numeric(), stringsAsFactors = FALSE)
+    event_data <- data.frame(site_no = character(), Date = character(),
+                             Flow = numeric(), AGWR  = numeric(),
+                             delta_AGWR = numeric(), Year = integer(),
+                             Month = integer(), Day = integer(),
+                             season = character(), GroupID = integer(),
+                             calc_AGWRC = numeric(), R_squared = numeric(),
+                             stringsAsFactors = FALSE)
     
     for(i in (1:max(data$GroupID))){
       
       new_row <- calc_event_stats(data, event_num = i, dAGWRmax, dAGWRmin)
       
-      event_df <- rbind(event_df, new_row)
+      event_data <- rbind(event_data, new_row)
       
     }
     
-    return(event_df)
-    
   } else {
     
-  event_df <- calc_event_stats(data, event_number, dAGWRmax, dAGWRmin)
+    event_data <- calc_event_stats(data, event_number, dAGWRmax, dAGWRmin)
   
-  names(event_df)[names(event_df)=="event_num"] <- "i"
+    names(event_data)[names(event_data)=="GroupID"] <- "i"
     
-    return(event_df)
     
   }
+  
+  return(event_data)
   
 }

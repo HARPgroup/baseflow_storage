@@ -1,6 +1,8 @@
 calc_event_stats <- function (data, event_num, dAGWRmax, dAGWRmin){
 require(sqldf)
   
+# source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/bf_event_stats.R")
+  
 sqldf_query <- paste0(
   "select * from data 
     where GroupID = ", event_num, " and
@@ -11,16 +13,10 @@ sqldf_query <- paste0(
 
 event_data <- sqldf(sqldf_query)
 
-# Create lm of event selected dates
-logFlow_lm <-lm(log(event_data$Flow) ~ event_data$Date)
-event_sum <- summary(logFlow_lm)
+values <- bf_event_stats(event_data)
 
-# Assign AWGR and R-squared
-AGWR <- exp(event_sum$coefficients[[2,1]])
-R_squared <- event_sum$r.squared
+new_df <- data.frame(event_data, calc_AGWRC = values$AGWRC, R_squared = values$R_squared)
 
-new_row <- data.frame(event_num, AGWR, R_squared)
-
-return(new_row)
+return(new_df)
 
 }
