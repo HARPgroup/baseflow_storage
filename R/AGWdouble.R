@@ -210,8 +210,3 @@ AGWdouble <- R6::R6Class(
   )
 )
 
-
-### Run Both Types of Models
-
-#### Run the old model with a simple 1 compartment
-test1 = step_scq(numts=100, Sinit=0.5, method="lookup", in2cfs=revconvert, C=Svar)
