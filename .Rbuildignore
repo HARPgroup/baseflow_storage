@@ -1,2 +1,5 @@
 ^agws\.Rproj$
 ^\.Rproj\.user$
+^\.github$
+^\.positai$
+^\.claude$

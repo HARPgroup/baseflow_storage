@@ -48,6 +48,16 @@ droughtModuleUI <- function(id) {
           )
         ),
         
+        h4("Population Statistics for Event AGWRC"),
+        p("Summary statistics for event-level AGWRC values after applying the filters above."),
+        DTOutput(ns("agwrc_population_stats")),
+        br(),
+        
+        h4("Population Statistics for Event Median Flow"),
+        p("Summary statistics for median event flows after applying the filters above."),
+        DTOutput(ns("median_flow_population_stats")),
+        br(),
+        
         plotlyOutput(ns("agwrc_regression_plot")),
         br(),
         fluidRow(

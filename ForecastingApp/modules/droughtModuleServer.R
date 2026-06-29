@@ -363,6 +363,88 @@ droughtModuleServer <- function(id, gage_obj) {
       return(evt)
     })
     
+    output$agwrc_population_stats <- renderDT({
+      evt <- reg_events_filtered()
+      req(nrow(evt) > 0)
+      
+      QC <- validate_required_cols(
+        evt,
+        c("event_AGWRC"),
+        context = "events_summary() for AGWRC population stats"
+      )
+      req(QC)
+      
+      agwrc_vals <- evt$event_AGWRC
+      agwrc_vals <- agwrc_vals[!is.na(agwrc_vals)]
+      
+      req(length(agwrc_vals) > 0)
+      
+      stats_df <- tibble::tibble(
+        n_events = length(agwrc_vals),
+        min      = min(agwrc_vals, na.rm = TRUE),
+        p05      = unname(stats::quantile(agwrc_vals, 0.05, na.rm = TRUE)),
+        p10      = unname(stats::quantile(agwrc_vals, 0.10, na.rm = TRUE)),
+        p25      = unname(stats::quantile(agwrc_vals, 0.25, na.rm = TRUE)),
+        median   = stats::median(agwrc_vals, na.rm = TRUE),
+        mean     = mean(agwrc_vals, na.rm = TRUE),
+        p75      = unname(stats::quantile(agwrc_vals, 0.75, na.rm = TRUE)),
+        p90      = unname(stats::quantile(agwrc_vals, 0.90, na.rm = TRUE)),
+        p95      = unname(stats::quantile(agwrc_vals, 0.95, na.rm = TRUE)),
+        max      = max(agwrc_vals, na.rm = TRUE)
+      )
+      
+      DT::datatable(
+        stats_df,
+        rownames = FALSE,
+        options = list(dom = "t", scrollX = TRUE)
+      ) |>
+        DT::formatRound(
+          columns = c("min", "p05", "p10", "p25", "median", "mean", "p75", "p90", "p95", "max"),
+          digits = 4
+        )
+    })
+    
+    output$median_flow_population_stats <- renderDT({
+      evt <- reg_events_filtered()
+      req(nrow(evt) > 0)
+      
+      QC <- validate_required_cols(
+        evt,
+        c("median_flow"),
+        context = "events_summary() for median flow population stats"
+      )
+      req(QC)
+      
+      flow_vals <- evt$median_flow
+      flow_vals <- flow_vals[!is.na(flow_vals)]
+      
+      req(length(flow_vals) > 0)
+      
+      stats_df <- tibble::tibble(
+        n_events = length(flow_vals),
+        min      = min(flow_vals, na.rm = TRUE),
+        p05      = unname(stats::quantile(flow_vals, 0.05, na.rm = TRUE)),
+        p10      = unname(stats::quantile(flow_vals, 0.10, na.rm = TRUE)),
+        p25      = unname(stats::quantile(flow_vals, 0.25, na.rm = TRUE)),
+        median   = stats::median(flow_vals, na.rm = TRUE),
+        mean     = mean(flow_vals, na.rm = TRUE),
+        p75      = unname(stats::quantile(flow_vals, 0.75, na.rm = TRUE)),
+        p90      = unname(stats::quantile(flow_vals, 0.90, na.rm = TRUE)),
+        p95      = unname(stats::quantile(flow_vals, 0.95, na.rm = TRUE)),
+        max      = max(flow_vals, na.rm = TRUE)
+      )
+      
+      DT::datatable(
+        stats_df,
+        rownames = FALSE,
+        options = list(dom = "t", scrollX = TRUE)
+      ) |>
+        DT::formatRound(
+          columns = c("min", "p05", "p10", "p25", "median", "mean", "p75", "p90", "p95", "max"),
+          digits = 2
+        )
+    })
+    
     ## User Regression and Data Frame ####
     #WORK DONE HERE
     #Caclulate the regression between Flow and AGWRC based on user included date
