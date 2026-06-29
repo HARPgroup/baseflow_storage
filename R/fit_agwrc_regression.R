@@ -7,6 +7,7 @@
 #'Runs linear regression of logFlow and eventAGWRC
 #'@param event_df df with GroupID, start_date, end_date, n_days, median_flow, event_AGWRC
 #'@return model variable with m, b, m-value, p-value, and R.squared
+#'@importFrom rlang .data
 #'@export
 fit_agwrc_regression <- function(event_df) {
 
@@ -22,7 +23,7 @@ fit_agwrc_regression <- function(event_df) {
   }
 
   reg_df <- event_df |>
-    dplyr::mutate(logQ = log(median_flow))
+    dplyr::mutate(logQ = log(.data$median_flow))
 
   model <- stats::lm(event_AGWRC ~ logQ, data = reg_df)
   model_summary <- summary(model)
