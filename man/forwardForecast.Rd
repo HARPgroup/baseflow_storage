@@ -26,7 +26,8 @@ of Q and AGWRC}
 relationship of Q and AGWRC}
 }
 \value{
-A data frame containing the days, forcast flows and AGWRCs used in the forecast
+A data frame containing the days, forecast flows and AGWRCs used in
+the forecast
 }
 \description{
 forwardForecast
@@ -35,4 +36,16 @@ forwardForecast
 A function to calculate a forcast days in the future based on Q0. Allows for
 vector inputs of days and AGWRC. Alternatively, allows for calculation of AGWRC
 via AGWRC = "lm_constant" or AGWRC = "lm_variable"
+}
+\examples{
+GageID <- "01672500"
+reg_lm <- read.csv(
+  paste0("https://deq1.bse.vt.edu/usgs/agws/baseflow_regression_df_",
+  GageID, ".csv")
+)
+forwardForecast(Q0 = 100, days = 1:90, AGWRC = 0.97)
+forwardForecast(Q0 = 100, days = 1:90, AGWRC = rnorm(90, 0.97, 0.001))
+forwardForecast(Q0 = 100, days = 1:90, AGWRC = "lm_constant", m = reg_lm$m, b = reg_lm$b)
+forwardForecast(Q0 = 100, days = 1:90, AGWRC = "lm_variable", m = reg_lm$m, b = reg_lm$b)
+
 }

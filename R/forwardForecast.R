@@ -1,7 +1,7 @@
 #'@title RegressionAGWRC
 #'@name RegressionAGWRC
 #' @details Calculate AGWRC based on a log linear relationship of flow, m,
-#' and b
+#' and b e.g. AGWRC = m * log(Flow) + b
 #' @param Flow numeric of length 1. Flow to calculate AGWRC from in log-linear
 #'   relationship
 #' @param m numeric of length 1 that is the slope of a log-linear relationship
@@ -18,10 +18,13 @@ RegressionAGWRC <- function(Flow, m, b) {
 #'@title single_forecast
 #'@name single_forecast
 #' @details Calculate flow prediction based on initial flow, AGWRC, and days
+#'   using the exponential decay function of Q = Q0 * (AGWRC^days)
 #' @param Q0 numeric of length 1 for initial flow
-#' @param AGWRC numeric scalar or vector for AGWRC
+#' @param AGWRC numeric of length 1 for AGWRC
 #' @param days numeric scalar or vector running calculation up to maximum value in vector
-#' @return numeric column containing forecast flows
+#' @return numeric vector containing forecasted flows
+#' @examples
+#' single_forecast(Q0 = 100, AGWRC = 0.97, days = 0:10)
 #' @export
 single_forecast <- function(Q0, AGWRC, days){
   Qout <- Q0*AGWRC^days
@@ -46,7 +49,19 @@ single_forecast <- function(Q0, AGWRC, days){
 #'   of Q and AGWRC
 #' @param b numeric of length 1 that is the intercept of a log-linear
 #'   relationship of Q and AGWRC
-#' @return A data frame containing the days, forcast flows and AGWRCs used in the forecast
+#' @return A data frame containing the days, forecast flows and AGWRCs used in
+#'   the forecast
+#' @examples
+#' GageID <- "01672500"
+#' reg_lm <- read.csv(
+#'   paste0("https://deq1.bse.vt.edu/usgs/agws/baseflow_regression_df_",
+#'   GageID, ".csv")
+#' )
+#' forwardForecast(Q0 = 100, days = 1:90, AGWRC = 0.97)
+#' forwardForecast(Q0 = 100, days = 1:90, AGWRC = rnorm(90, 0.97, 0.001))
+#' forwardForecast(Q0 = 100, days = 1:90, AGWRC = "lm_constant", m = reg_lm$m, b = reg_lm$b)
+#' forwardForecast(Q0 = 100, days = 1:90, AGWRC = "lm_variable", m = reg_lm$m, b = reg_lm$b)
+#'
 #' @export
 forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
 
@@ -107,13 +122,3 @@ forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
   return(data.frame(Day = full_data[idx], Forecast = Qi[idx], AGWRC = AGWRCi[idx]))
 }
 
-# Local Testing
-#GageID = "01672500"
-#reg_lm <- read.csv(paste0("https://deq1.bse.vt.edu/usgs/agws/baseflow_regression_df_", GageID, ".csv"))
-#m <- reg_lm$m
-#b <- reg_lm$b
-#Q0 <- 100
-#days = c(0:90)
-#AGWRC = rnorm(90, 0.97, 0.001)
-#
-#Test <- forwardForecast(Q0, days, AGWRC = "lm_variable", m, b)

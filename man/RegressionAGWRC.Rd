@@ -24,5 +24,5 @@ RegressionAGWRC
 }
 \details{
 Calculate AGWRC based on a log linear relationship of flow, m,
-and b
+and b e.g. AGWRC = m * log(Flow) + b
 }
