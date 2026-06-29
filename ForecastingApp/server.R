@@ -2,23 +2,20 @@
 server <- function(input, output, session) {
   
   # map the site choice to a gage_id (used for gage raw data + both analyses)
-  selected_gage <- reactive({
-    switch(input$site_choice,
-           "Cootes Store"   = "01632000",
-           "Mount Jackson"  = "01633000",
-           "Strasburg"      = "01634000"
+  gage_obj <- reactiveVal(NULL)
+  observe({
+    gage_id <- gsub("^([0-9]+) -.*","\\1",input$site_choice)
+    gage <- hydrotools::WaterGageDaily$new(
+      # ds_in = ds,
+      gage_id = gage_id
     )
+    #Add drainage area
+    gage$load_sf_da()
+    gage_obj(gage)
   })
-  
-  selected_source <- reactive({
-    # normalize to lower-case internally
-    if (identical(input$data_source, "Model")) "model" else "gage"
-  })
-  
+
   droughtModuleServer(
     id          = "drought",
-    gage_id     = selected_gage,
-    data_source = selected_source,
-    site_choice = reactive(input$site_choice)
+    gage_obj     = gage_obj
   )
 }
