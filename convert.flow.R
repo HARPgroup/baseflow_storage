@@ -10,5 +10,3 @@ convert.flow <- function(flow_col, area_sqmi){
   
   return(flow_in)
 }
-
-
