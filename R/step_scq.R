@@ -25,7 +25,7 @@ step_scq <- function (numts, Sinit, method, in2cfs, b=0.0, m=1.0, C=0.99) {
       if (method == 'solver') {
         # use solver
         # Cs = solve_agwrc_log(S=S, m, b)
-        Cs = C
+
       } else if (method == 'lookup') {
         Cs = solve_agwrc_lookup(S, C)
       } else {
