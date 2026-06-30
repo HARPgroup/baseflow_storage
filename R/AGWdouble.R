@@ -1,3 +1,15 @@
+#'@title agwo_hspf
+#'@name agwo_hspf
+#' @description Calculate active groundwater outflow using HSPF methodologies
+#' @details Calculate active groundwater outflow using HSPF formula of AGWO = S
+#'   * (1 - C^timestep). This is an alternate of \code{agws::single_forecast()}
+#'   designed to help test against HSPF output
+#' @param S numeric of length 1 representing AGWS - active ground water storage
+#'   in inches
+#' @param C numeric of length 1 representing the AGWRC - Active groundwater
+#'   recession coefficient
+#' @param dthr numeric of length 1 representing the model timestep in hours
+#' @return A numeric of length 1 that is this timestep's AGWO
 agwo_hspf <- function(S, C, dthr) {
   kgwV = 1.0 - C^(dthr/24.0)
   agwo = kgwV * S
@@ -23,7 +35,7 @@ AGWdouble <- R6::R6Class(
     log = NA,
     dthr = 24.0,
     initialize = function(
-        agws1=0.0, agws2=0.0, c1=0.99, c2=0.99, 
+        agws1=0.0, agws2=0.0, c1=0.99, c2=0.99,
         agwsmax1=1.0, agwsmax2=1.0, tmethod="all"
       ) {
       self$agws1 = agws1
@@ -63,7 +75,7 @@ AGWdouble <- R6::R6Class(
       # now computer transfers from top layer to bottom
       agwin2 = 0.0
       # how much free space in agws2?
-      free2 = (agwsmax2 - agws2) 
+      free2 = (agwsmax2 - agws2)
       # this method assumes lower layer can take all that upper gives
       if (tmethod == "all") {
         tmax2 = free2
@@ -82,7 +94,7 @@ AGWdouble <- R6::R6Class(
       }
       # since we consider agwo as that which goes from GW to the stream
       # we subtract the transfer to the bottom GW layer
-      agwo1 = agwo1 - agwin2 
+      agwo1 = agwo1 - agwin2
       # record total outflow from GW to stream
       agwo = agwo1 + agwo2
       # calculate an effective C to compare to other methods
@@ -93,14 +105,14 @@ AGWdouble <- R6::R6Class(
       agws2 = agws2 + agwin2 - agwo2
       return(
         list(
-          agwo=agwo, agws1=agws1, agws2=agws2, agwo2=agwo2, 
+          agwo=agwo, agws1=agws1, agws2=agws2, agwo2=agwo2,
           agwo1=agwo1, agwin1=agwin1, agwin2=agwin2, ce=ce
         )
       )
     },
     eval = function() {
       outlist = self$solve_double_C(
-        agws1=self$agws1, agws2=self$agws2, c1=self$c1, c2=self$c2, agwsmax1=self$agwsmax1, 
+        agws1=self$agws1, agws2=self$agws2, c1=self$c1, c2=self$c2, agwsmax1=self$agwsmax1,
         agwsmax2=self$agwsmax2, agwin1=self$agwin1, dthr=self$dthr, tmethod=self$tmethod
       )
       self$agws1 = outlist$agws1
@@ -127,7 +139,7 @@ AGWdouble <- R6::R6Class(
       )
       if (format != "dataframe") {
         output = kableExtra::kable(
-          output, 
+          output,
           format=format
         )
       }
