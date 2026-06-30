@@ -38,3 +38,5 @@ step_scq <- function (numts, Sinit, method, in2cfs, b=0.0, m=1.0, C=0.99) {
   }
   return(model_out)
 }
+
+revconvert = 1.0 / convert.flow(1, 508) # bring from in/day back to cfs 

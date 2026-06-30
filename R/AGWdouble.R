@@ -178,6 +178,17 @@ AGWdouble <- R6::R6Class(
           ylim=ylim
         )
       }
+      if (type == "cft") {
+        if (is.logical(ylim)) {
+          ylim=c(min(0.9, min(wts$ce)), 1.0)
+        }
+        plot(
+          wts$ce,
+          xlab='Timestep',
+          ylab='Effective Recession Coefficient(AGWRC)',
+          ylim=ylim
+        )
+      }
       if (type == "qfs") {
         if (is.logical(ylim)) {
           ylim=c(0, max(wts$agwo))

@@ -8,9 +8,14 @@ agwhilo = AGWdouble$new(
   agws2=1.0, agwsmax2 = 1.0,
   c1=0.95, c2=0.98, tmethod = "tmax"
 )
-testhilo = step_scq(numts=300, Sinit=0.5, method=agwhilo, in2cfs=revconvert)
-agwhilo$plot("cfq", warmup=5)
-agwhilo$plot("storage", warmup=5)
+# note in2cfs is only used when looking at Qcfs
+# in2cfs = 1.0 / convert.flow(1, 508) # 508 = area sqmi
+in2cfs = 1.0
+testhilo = step_scq(numts=150, Sinit=0.5, method=agwhilo, in2cfs=in2cfs)
+agwhilo$plot("cfq", warmup=5) # C = f(Q)
+agwhilo$plot("cfs", warmup=5) # C = f(S)
+agwhilo$plot("storage", warmup=5) # S = f(t)
+agwhilo$plot("cft", warmup=5) # effective C = f(t)
 quantile(agwhilo$log$agwo, na.rm=TRUE)
 quantile(agwhilo$log$agwin2, na.rm=TRUE)
 quantile(agwhilo$log$ce, na.rm=TRUE)

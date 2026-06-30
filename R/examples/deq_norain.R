@@ -2,9 +2,9 @@
 basedir = "http://deq1.bse.vt.edu:81/usgs/agws/"
 omgage <- hydrotools::WaterGageDaily$new(gage_id = "01634000")
 
+omgage$get_gage_data_old(start_date = '1900-01-01', end_date='2026-06-28', approval_status = 'all')
 
 omgage$low_flows
-omgage$get_gage_data_old(start_date = '1900-01-01', end_date='2026-06-28', approval_status = 'all')
 omgage$baseflow_forecast()
 
 # inspect
