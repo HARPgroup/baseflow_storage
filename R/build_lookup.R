@@ -1,12 +1,12 @@
 #'@title site_factors
 #'@name site_factors
-#' @details A function that prepares a df to be turned into a lookup table
+#' @details A function...
 #' @param da_sqmi numeric
 #' @param flow_vec numeric
 #' @param vec_for_reg numeric
 #' @param m numeric
 #' @param b numeric
-#' @return a df of converted flow that is ready to have a lookup table made from its c, s, and q values
+#' @return A data frame...
 #' @export
 site_factors <- function(da_sqmi, flow_vec, vec_for_reg = NULL, m, b){
   #convert flow fron cfs to watershed inches per day
@@ -27,20 +27,17 @@ site_factors <- function(da_sqmi, flow_vec, vec_for_reg = NULL, m, b){
 
 #'@title build_lookup
 #'@name build_lookup
-#' @details A function that creates a lookup table based on c, s, and q values from baseflow events at a gage
+#' @details A function...
 #' @param df_clean data frame
 #' @param da_sqmi numeric
 #' @param m numeric
 #' @param b numeric
 #' @param n_steps numeric
 #' @param vec_for_reg numeric
-#' @return A data frame that is a lookup table based on c, s, and q values from baseflow events at a gage used to find q, c, or s values from periods that are not baseflow
+#' @return A data frame...
 #' @export
-build_lookup <- function(df_clean, da_sqmi, m, b, n_steps = 25, vec_for_reg = NULL) {
-
+build_lookup <- function(obs_flow, da_sqmi, m, b, n_steps = 25, vec_for_reg = NULL) {
   #only baseflow periods
-  obs_flow <- df_clean$Flow[!is.na(df_clean$AGWRC)]
-
   min_flow <- min(obs_flow, na.rm = TRUE)
   max_flow <- max(obs_flow, na.rm = TRUE)
 
