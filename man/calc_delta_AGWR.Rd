@@ -19,9 +19,11 @@ Wrapper of calc_AGWR to comply with legacy code
 Calls calc_AGWRC(x)
 }
 \examples{
+\dontrun{
 #get data from N F Shenandoah River via Strasburg, VA - USGS 01634000
 library(hydrotools)
 StrasGage <- hydrotools::WaterGageDaily$new(gage_id = "01634000")
 StrasGage$gage_data$AGWR <- calc_AGWR(StrasGage$gage_data$value)
 StrasGage$gage_data$deltaAGWR <- calc_delta_AGWR(StrasGage$gage_data$AGWR)
+}
 }

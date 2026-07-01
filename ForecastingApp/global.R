@@ -14,6 +14,7 @@ suppressPackageStartupMessages({
   library(dataRetrieval)
   library(httr)
   library(sqldf)
+  library(shinybusy)
   #For getting data from R server
 #  library(DEQmethods)
   library(pins)
