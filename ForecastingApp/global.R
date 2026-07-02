@@ -19,6 +19,8 @@ suppressPackageStartupMessages({
   library(pins)
   #Spatial
   library(sf)
+  #show_modal_spinner
+  library(shinybusy)
 })
 
 
@@ -53,6 +55,10 @@ BF_GAGE_TEMPLATES_DEFAULT <- c(
 
 BF_SUMMARY_TEMPLATES_DEFAULT <- c(
   "baseflow_summary_df_{gage_id}.csv"
+)
+
+BF_UNTRIMMED_TEMPLATES_DEFAULT <- c(
+  "baseflow_stats_{gage_id}.csv"
 )
 
 # cache for analysis dfs and script text
