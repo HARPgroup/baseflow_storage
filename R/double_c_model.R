@@ -5,7 +5,7 @@ source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/
 ### Run the New Model
 agwhilo = AGWdouble$new(
   agws1=5, agwsmax1 = 5, 
-  agws2=1.0, agwsmax2 = 1.0,
+  agws2=2.0, agwsmax2 = 1.0,
   c1=0.95, c2=0.98, tmethod = "tmax"
 )
 # note in2cfs is only used when looking at Qcfs
