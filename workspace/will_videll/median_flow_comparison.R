@@ -94,10 +94,11 @@ usgs_long <- usgs_daily |>
          p10_monthly = p10_flow) |>
   pivot_longer(cols = median:p10_monthly, names_to = "type", values_to = "value")
 
-merged <- bf_long |>
-  filter(type == "bf_median") |>
+merged3 <- bf_long |>
+  filter(type == "bf_p10") |>
   left_join(usgs_long, by = "Month", relationship = "many-to-many") |>
-  mutate(vert_dist = abs(value.x - value.y)) |>
+  mutate(vert_dist = abs(value.x - value.y),
+         Abs_pct_err = (abs(value.x - value.y) / value.x) * 100) |>
   group_by(type.x, Month) |>
   slice_min(vert_dist, n = 1, with_ties = FALSE) |>
   select(Month,
