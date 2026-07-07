@@ -5,8 +5,8 @@
 summarize_event <- function(analysis_data,
                             event_number = 0,
                             dAGWR_range = 0.03){
-  source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/bf_event_stats.R")
-  source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/calc_event_stats.R")
+  # source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/bf_event_stats.R")
+  # source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/calc_event_stats.R")
   
   require(sqldf)
   
