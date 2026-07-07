@@ -64,18 +64,18 @@ ggplot()+
 
 ### Find the closest line (method 1, not ideal)
 
-# combined <- baseflow_events |>
-#   left_join(usgs_daily, by = "Month") |>
-#   select(Month,
-#          bf_p25 = p25,
-#          p10_month = p10_flow,
-#          median_7day = median.y) |>
-#   mutate(p10_dist = abs(bf_p25 - p10_month),
-#          median_dist = abs(median_7day - bf_p25),
-#          difference = abs(p10_dist - median_dist))
-#
-# combined$best_metric <- "Median"
-# combined$best_metric[combined$p10_dist < combined$median_dist] <- "Monthly 10th percentile"
+combined <- baseflow_events |>
+  left_join(usgs_daily, by = "Month") |>
+  select(Month,
+         bf_p25 = p25,
+         p10_month = p10_flow,
+         median_7day = median.y) |>
+  mutate(p10_dist = abs(bf_p25 - p10_month),
+         median_dist = abs(median_7day - bf_p25),
+         difference = abs(p10_dist - median_dist))
+
+combined$best_metric <- "Median"
+combined$best_metric[combined$p10_dist < combined$median_dist] <- "Monthly 10th percentile"
 
 
 ####
@@ -106,12 +106,11 @@ merged3 <- bf_long |>
          bf_value = value.x,
          Matched_Point = type.y,
          Point_Value = value.y,
-         Distance = vert_dist,
-         Abs_pct_err) %>%
+         Distance = vert_dist) %>%
   arrange(Month, bf_stat)
 
 ### Do we want this as part of the workflow or a stand alone script
-#all_VA_sites <- read_waterdata_monitoring_location(
-#  state_name = "Virginia",
-#  site_type = "Stream",
-#  properties = c("monitoring_location_id", "agency_code"))
+all_VA_sites <- read_waterdata_monitoring_location(
+  state_name = "Virginia",
+  site_type = "Stream",
+  properties = c("monitoring_location_id", "agency_code"))
