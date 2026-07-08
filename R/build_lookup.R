@@ -36,11 +36,8 @@ site_factors <- function(da_sqmi, flow_vec, vec_for_reg = NULL, m, b){
 #' @param vec_for_reg numeric
 #' @return A data frame...
 #' @export
-build_lookup <- function(df_clean, da_sqmi, m, b, n_steps = 25, vec_for_reg = NULL) {
-
+build_lookup <- function(obs_flow, da_sqmi, m, b, n_steps = 25, vec_for_reg = NULL) {
   #only baseflow periods
-  obs_flow <- df_clean$Flow[!is.na(df_clean$AGWRC)]
-
   min_flow <- min(obs_flow, na.rm = TRUE)
   max_flow <- max(obs_flow, na.rm = TRUE)
 
