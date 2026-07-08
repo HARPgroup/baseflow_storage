@@ -11,6 +11,7 @@ suppressPackageStartupMessages({
   library(lubridate)
   library(plotly)
   library(DT)
+  library(shinybusy)
   library(dataRetrieval)
   library(httr)
   library(sqldf)
