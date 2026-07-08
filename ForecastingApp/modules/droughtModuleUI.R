@@ -28,18 +28,50 @@ droughtModuleUI <- function(id) {
         br(),
         h4("Event-Level AGWRC vs Characteristic Flow"),
         
-        dateRangeInput(
-          inputId = ns("reg_date_range"),
-          label   = "Filter events by date range (event overlap with window):",
-          start   = Sys.Date() - 365,
-          end     = Sys.Date(),
-          format  = "yyyy-mm-dd",
-          separator = " to "
+        fluidRow(
+          column(6, 
+                 dateRangeInput(
+                   inputId = ns("reg_date_range"),
+                   label   = "Filter events by date range (event overlap with window):",
+                   start   = Sys.Date() - 365,
+                   end     = Sys.Date(),
+                   format  = "yyyy-mm-dd",
+                   separator = " to "
+                 )
+          ),
+          column(6,
+                 numericInput(
+                   inputId = ns("regression_flow_max"),
+                   label = "Use all flows below this value (cfs):",
+                   value = NA
+                 )
+          )
         ),
+        
+        h4("Population Statistics for Event AGWRC"),
+        p("Summary statistics for event-level AGWRC values after applying the filters above."),
+        DTOutput(ns("agwrc_population_stats")),
+        br(),
+        
+        h4("Population Statistics for Event Median Flow"),
+        p("Summary statistics for median event flows after applying the filters above."),
+        DTOutput(ns("median_flow_population_stats")),
+        br(),
         
         plotlyOutput(ns("agwrc_regression_plot")),
         br(),
-        verbatimTextOutput(ns("regression_summary"))
+        fluidRow(
+          column(
+            6,
+            h4("User Regression Summary:"),
+            verbatimTextOutput(ns("lm_user_summary"))
+          ),
+          column(
+            6,
+            h4("WSPA Regression Summary:"),
+            verbatimTextOutput(ns("lm_WSPA_summary"))
+          )
+        )
       ),
       
       tabPanel(
@@ -54,14 +86,18 @@ droughtModuleUI <- function(id) {
               label = "Projection start date (must exist in historical data):",
               value = Sys.Date()
             ),
-            numericInput(
-              ns("agwrc_single"),
-              label = "AGWRC (single daily ratio)",
-              value = 0.97,
-              min = 0.0,
-              max = 1.2,
-              step = 0.001
+            helpText("Last known AGWRC"),
+            verbatimTextOutput(
+              ns("last_known_agwrc")
             ),
+            uiOutput(ns("baseflow_event_info")),
+            radioButtons(
+              ns("agwrc_calculation"),
+              label = "Will recession coefficients be constant or variable?",
+              choiceNames = c("Constant (single value)", "Variable (regression)"),
+              choiceValues = c("constant","variable")
+            ),
+            uiOutput(ns("agwrc_inputs")),
             radioButtons(
               ns("forecast_metric"),
               label = "Plot metric:",
