@@ -5,6 +5,8 @@ m = -0.00820
 C <- b + m * log(Qts)
 source("C:\\Users\\gcw73279.COV\\Desktop\\gitBackups\\OWS\\baseflow_storage\\convert.flow.R")
 source("C:\\Users\\gcw73279.COV\\Desktop\\gitBackups\\OWS\\baseflow_storage\\workspace\\adam_hurlich\\DroughtEvaluation\\Functions\\forwardForecastv2.R")
+revconvert = 1.0 / convert.flow(1, 508) # bring from in/day back to cfs 
+
 Qin <- convert.flow(Qts, 508)
 dQ <- (b + m*log(Qts) - m) / (b + m*log(Qts))^2
 S <- Qin / (1.0 - C)

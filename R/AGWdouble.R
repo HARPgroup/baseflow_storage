@@ -1,9 +1,39 @@
+
+#'@title agwo_hspf
+#'@name
+#'agwo_hspf
+#'@description
+#'HSP style agwo evaluation function.
+#'@details
+#'Simulates flow out of a groundwater compartment given a recession constant C
+#'two compartment with varying C and max S per compartment.
+#'
+#'@param S initial storage
+#'@param C recession coefficient
+#'@param dthr timestep in hours
+#'@return method how to simulate, can be 'static', 'lookup', ''solver' or a 2 compartment object
+#'@export
 agwo_hspf <- function(S, C, dthr) {
   kgwV = 1.0 - C^(dthr/24.0)
   agwo = kgwV * S
   return(agwo)
 }
 
+#' AGWdouble 
+#' @description Object for calculating flows from a 2-compartment AGWS/hsp style surficial aquifer
+#' @details Provides all variables and equations to perform simulatio nand keep track of mass balance
+#' @importFrom R6 R6Class  
+#' @param agws1 Initial Storage in AGW compartment 1
+#' @param agws2 Initial Storage in AGW compartment 1
+#' @param c1 recession coeffiecent compartment 1 (def=0.99)
+#' @param c2 recession coefficient in compartment 2 (def=0.99)
+#' @param agwsmax1 maximum storage compartment 1 (default=1.0)
+#' @param agwsmax2 maximum storage in compartment 2 (default=1.0)
+#' @param tmethod transfer method from 1 to 2 ("all", "trans")
+#' @return reference class of type AGWdouble.
+#' @seealso NA
+#' @examples NA
+#' @export AGWdouble
 AGWdouble <- R6::R6Class(
   public = list(
     tmethod="all",

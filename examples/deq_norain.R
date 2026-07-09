@@ -6,11 +6,15 @@ basedir = "http://deq1.bse.vt.edu:81/usgs/agws/"
 
 gage_id = "01634000"
 glist = c(gage_id)
+g_roanoke = c("02065500", "02059500", "02056000","02054530", "02056900")
 glist = c(
   "03524000", "03167000", "01674500", "01667500",
   "01654000",  "01634000", "02016000", "02039500", "02042500", "02051500",
-  "02059500", "02056000","02054530", "02056650", "02056900", "02075500"
+  "02059500", "02056000","02054530", "02056650", "02056900"
 )
+# Notes:
+# - "02075500" Dan River at Paces VA is too influenced by 50 cfs flowby from Smith River to use
+g_list = g_roanoke
 odf <- data.frame(
   gage_id = character(),
   gage_name = character(),

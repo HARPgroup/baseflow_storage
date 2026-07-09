@@ -1,9 +1,37 @@
-
-
+#'@title solve_agwrc_lookup
+#'@name
+#'solve_agwrc_lookup
+#'@description
+#'Returns a C value from a table with S as lookup, stair-step
+#'@details
+#'For use to looup a C value based on S. Works best with a very fine grained table.
+#'
+#'@param S Input Storage
+#'@param Ctable table of Storage and C for lookup
+#'@return C from table with stair-step
+#'@export
 solve_agwrc_lookup <- function(S, Ctable){
   return(Ctable[Ctable$S >= S,][1,]$C)
 }
 
+#'@title step_scq
+#'@name
+#'step_scq
+#'@description
+#'Rund a model with multiple AGWS calcuation options.
+#'@details
+#'User can choose to run a lookup version, regression version or
+#'two compartment with varying C and max S per compartment.
+#'
+#'@param numts number of timesteps to iterate
+#'@param Sinit initial storage
+#'@param method how to simulate, can be 'static', 'lookup', ''solver' or a 2 compartment object
+#'@param in2cfs conversion factor inches to cfs
+#'@param b intercept for C = mS + b equation
+#'@param m intercept for C = mS + b equation
+#'@param C static C value
+#'@return dataframe with simulation values for each timestep from 1 to numts
+#'@export
 step_scq <- function (numts, Sinit, method, in2cfs, b=0.0, m=1.0, C=0.99) {
   # note if method = "lookup", C should be a dataframe with columns Q and C
   S = Sinit
@@ -39,4 +67,3 @@ step_scq <- function (numts, Sinit, method, in2cfs, b=0.0, m=1.0, C=0.99) {
   return(model_out)
 }
 
-revconvert = 1.0 / convert.flow(1, 508) # bring from in/day back to cfs 
