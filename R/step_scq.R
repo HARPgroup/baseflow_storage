@@ -14,6 +14,34 @@ solve_agwrc_lookup <- function(S, Ctable){
   return(Ctable[Ctable$S >= S,][1,]$C)
 }
 
+#'@title solve_agwrc_log
+#'@name
+#'solve_agwrc_lookup
+#'@description
+#'Returns a C value from log lin regression 
+#'@details
+#'For use to calculate a C with parameters developed by HARP process.
+#'
+#'@param S Input Storage
+#'@param m slope of equation
+#'@param b intercept of equation
+#'@return C from table with stair-step
+#'@export
+solve_agwrc_log <- function(S, m, b) {
+  
+  g <- function(C) {
+    C - (m * log(S * (1 - C)) + b)
+  }
+  
+  res <- tryCatch(
+    uniroot(g, lower = 0.001, upper = 0.999)$root,
+    error = function(e) NA_real_
+  )
+  
+  return(res)
+}
+
+
 #'@title step_scq
 #'@name
 #'step_scq
