@@ -10,12 +10,14 @@
 #'@param df df input with column named "Date" in format "YYYY-mm-dd" as Date obj
 #'@return Vectors of num month and char season for length of "Date" column
 #'@examples
-#'#get data from N F Shenandoah River via Strasburg, VA - USGS 01634000
+#'\dontrun{
+#'#'#get data from N F Shenandoah River via Strasburg, VA - USGS 01634000
 #'library(hydrotools)
 #'StrasGage <- hydrotools::WaterGageDaily$new(gage_id = "01634000")
 #'StrasGage$gage_data <- StrasGage$gage_data  |>
 #'  dplyr::rename(Date = time)
 #'month_season_data <- add_month_season(StrasGage$gage_data)
+#'}
 #'@importFrom dplyr mutate case_when
 #'@importFrom rlang .data
 #'@export

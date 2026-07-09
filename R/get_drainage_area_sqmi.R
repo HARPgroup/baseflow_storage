@@ -7,17 +7,27 @@
 #'Find the drainage area of site based on gageID using hydrotools
 #'@param gage_id char usgs gage number from commandArgs in function call
 #'@return num variable with drainage area in sq mi
-#'@importFrom hydrotools WaterGageBase
 #'@export
 get_drainage_area_sqmi <- function(gage_id) {
-  gage_obj <- hydrotools::WaterGageBase$new(gage_id = gage_id)
-  gage_obj$load_sf_da()
-
-  if (!(is.na(gage_obj$drainage_area))) {
-    stop("WaterGageBase$load_sf_da() did not return drain_area_va for gage_id = ", gage_id)
+  #Based on dataRetrieval pacakge version, use either new or deprecated
+  #NWIS functions
+  if(utils::packageVersion("dataRetrieval") >= "2.7.23") {
+    #New functions return an sf already. so just parse out drainage area
+    #for separate field
+    gage_data_sf <- dataRetrieval::read_waterdata_monitoring_location(paste0("USGS-",gage_id))
+    drainage_area <- gage_data_sf$drainage_area
+  }else{
+    #NWIS functions return a data frame, so convert to SF using
+    #appropriate coordinate fields
+    site_info <- dataRetrieval::readNWISsite(gage_id)
+    drainage_area <- site_info$drain_area_va
   }
 
-  area_sqmi <- suppressWarnings(as.numeric(gage_obj$drainage_area))
+  if (!(is.na(drainage_area))) {
+    stop("USGS did not return a valid drainage area for gage_id = ", gage_id)
+  }
+
+  area_sqmi <- as.numeric(drainage_area)
 
   if (is.na(area_sqmi) || area_sqmi <= 0) {
     stop("Invalid drainage area returned for gage_id = ", gage_id)

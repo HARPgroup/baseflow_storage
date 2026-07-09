@@ -6,7 +6,7 @@ server <- function(input, output, session) {
   observe({
     gage_id <- gsub("^([0-9]+) -.*","\\1",input$site_choice)
     gage <- hydrotools::WaterGageDaily$new(
-      # ds_in = ds,
+      ds_in = ds,
       gage_id = gage_id
     )
     #Add drainage area
