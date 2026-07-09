@@ -8,10 +8,63 @@
 #'   of Q and AGWRC
 #' @param b numeric of length 1 that is the intercept of a log-linear
 #'   relationship of Q and AGWRC
-#' @return A list containing the forcast flows and AGWRCs used in the forecast
+#' @return An AGWR coefficient calculated from the log-linear regression for Flow
 #'@export
 RegressionAGWRC <- function(Flow, m, b) {
   AGWRC <- m * log(Flow) + b
+  return(AGWRC)
+}
+
+
+#'@title regressionLimitAGWRC
+#'@name regressionLimitAGWRC
+#' @details Calculate AGWRC based on a log linear relationship of flow, m,
+#' and b e.g. AGWRC = m * log(Flow) + b
+#' @param Flow numeric of length 1. Flow to calculate AGWRC from in log-linear
+#'   relationship
+#' @param m numeric of length 1 that is the slope of a log-linear relationship
+#'   of Q and AGWRC
+#' @param b numeric of length 1 that is the intercept of a log-linear
+#'   relationship of Q and AGWRC
+#' @param low_flow_limit A flow value below which the regression is not
+#'   applicable. At this limit, the low_agwrc_limit will be returned. If NULL,
+#'   this is not considered and instead the regression is used.
+#' @param low_agwrc_limit If the input flow is below the low_flow_limit, this
+#'   function will return this value
+#' @param high_flow_limit A flow value above which the regression is not
+#'   applicable. At this limit, the high_flow_limit will be returned. If NULL,
+#'   this is not considered and instead the regression is used.
+#' @param high_agwrc_limit If the input flow is above the high_flow_limit, this
+#'   function will return this value
+#' @return An AGWR coefficient calculated from the log-linear regression for Flow
+#'@export regressionLimitAGWRC
+regressionLimitAGWRC <- function(Flow, m, b,
+                            low_flow_limit = NULL, low_agwrc_limit = NULL,
+                            high_flow_limit = NULL, high_agwrc_limit = NULL) {
+  #If a lower limit is provided and flow is below that limit, return the lower
+  #default agwrc value or warn user if not provided
+  if(!is.null(low_flow_limit) && Flow < low_flow_limit){
+    if(!is.null(low_agwrc_limit)){
+      return(low_agwrc_limit)
+    }else{
+      warning("No low_agwrc_limit provided but flow of ",Flow,
+              "is below low_flow_limit ", low_flow_limit)
+    }
+  }
+
+  #If a higher limit is provided and flow is above that limit, return the higher
+  #default agwrc value or warn user if not provided
+  if(!is.null(high_flow_limit) && Flow > high_flow_limit){
+    if(!is.null(high_agwrc_limit)){
+      return(high_agwrc_limit)
+    }else{
+      warning("No high_agwrc_limit provided but flow of ",Flow,
+              "is above low_flow_limit ", high_flow_limit)
+    }
+  }
+
+  #If limits don't apply, just calculate the regression as is:
+  AGWRC <- RegressionAGWRC(Flow, m, b)
   return(AGWRC)
 }
 
@@ -43,16 +96,33 @@ single_forecast <- function(Q0, AGWRC, days){
 #' @param AGWRC numeric or character. The decay coefficient to regress Q0 for
 #'   forecast. May be a single numeric to allow for a constant forecast or a
 #'   vector of numeric values to allow for a variable forecast but must be of
-#'   length days. Otherwise, may be "lm_constant" to claculate a constant value
-#'   from m and b or "lm_variable" to have a variable value
+#'   length days. Otherwise, may be "lm_constant" (calculate a constant AGWRC
+#'   based on Q0 from m and b); "lm_variable" (calculate a variable AGWRC from m
+#'   and b based on previous day flow). low_flow_limit and high_flow_limit may
+#'   be used to limit the initial AGWRC for lm_constant or the entire
+#'   lm_variable analysis such that AGWRC is bounded when flow is above or below
+#'   the provided limits
 #' @param m numeric of length 1 that is the slope of a log-linear relationship
 #'   of Q and AGWRC
 #' @param b numeric of length 1 that is the intercept of a log-linear
 #'   relationship of Q and AGWRC
+#' @param low_flow_limit A flow value below which the regression is not
+#'   applicable. At this limit, the low_agwrc_limit will be returned. Only
+#'   used in the "lm_constant_limit" and "lm_variable_limit" method and will not be
+#'   used if NULL.
+#' @param low_agwrc_limit If the input flow is below the low_flow_limit, this
+#'   function will return this value
+#' @param high_flow_limit A flow value above which the regression is not
+#'   applicable. At this limit, the high_flow_limit will be returned. If NULL,
+#'   this is not considered and instead the regression is used. Only used in the
+#'   "lm_constant_limit" and "lm_variable_limit" method and will not be used if
+#'   NULL.
+#' @param high_agwrc_limit If the input flow is above the high_flow_limit, this
+#'   function will return this value
 #' @return A data frame containing the days, forecast flows and AGWRCs used in
 #'   the forecast
 #' @examples
-#' GageID <- "01672500"
+#' GageID <- "02040000"
 #' reg_lm <- read.csv(
 #'   paste0("https://deq1.bse.vt.edu/usgs/agws/baseflow_regression_df_",
 #'   GageID, ".csv")
@@ -60,11 +130,21 @@ single_forecast <- function(Q0, AGWRC, days){
 #' forwardForecast(Q0 = 100, days = 1:90, AGWRC = 0.97)
 #' forwardForecast(Q0 = 100, days = 1:90, AGWRC = rnorm(90, 0.97, 0.001))
 #' forwardForecast(Q0 = 100, days = 1:90, AGWRC = "lm_constant", m = reg_lm$m, b = reg_lm$b)
+#' #Repeat now with limit
+#' forwardForecast(Q0 = 100, days = 1:90, AGWRC = "lm_constant",
+#'                 m = reg_lm$m, b = reg_lm$b,
+#'                 low_flow_limit = reg_lm$low_Q, low_agwrc_limit = reg_lm$low_Q_agwrc,
+#'                 high_flow_limit = reg_lm$high_Q, high_agwrc_limit = reg_lm$high_Q_agwrc)
 #' forwardForecast(Q0 = 100, days = 1:90, AGWRC = "lm_variable", m = reg_lm$m, b = reg_lm$b)
-#'
+#' #Repeat now with limit
+#' forwardForecast(Q0 = 100, days = 1:90, AGWRC = "lm_variable",
+#'                 m = reg_lm$m, b = reg_lm$b,
+#'                 low_flow_limit = reg_lm$low_Q, low_agwrc_limit = reg_lm$low_Q_agwrc,
+#'                 high_flow_limit = reg_lm$high_Q, high_agwrc_limit = reg_lm$high_Q_agwrc)
 #' @export
-forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
-
+forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b,
+                            low_flow_limit = NULL, low_agwrc_limit = NULL,
+                            high_flow_limit = NULL, high_agwrc_limit = NULL){
   # Assignments for future indexing, example 1:91 num vector
   n <- max(days)
   full_data <- 0:n
@@ -80,7 +160,11 @@ forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
 
   # Check for "lm_constant" argument, run RegressionAGWRC
   if(is.character(AGWRC) && AGWRC == "lm_constant"){
-    AGWRC <- RegressionAGWRC(Q0, m, b)
+    AGWRC <- regressionLimitAGWRC(Flow = Q0, m = m, b = b,
+                                  low_flow_limit = low_flow_limit,
+                                  low_agwrc_limit = low_agwrc_limit,
+                                  high_flow_limit = high_flow_limit,
+                                  high_agwrc_limit = high_agwrc_limit)
   }
 
   if(is.numeric(AGWRC)){
@@ -100,10 +184,7 @@ forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
         Qi[i+1] <- single_forecast(Q0 = Qi[i], AGWRC = AGWRCi[i], days = 1)
       }
     }
-  }
-
-  # AGWRC = "lm_variable" argument
-  if(is.character(AGWRC) && AGWRC == "lm_variable") {
+  }else if(is.character(AGWRC) && AGWRC == "lm_variable") {
 
     # Initial values for AGWRC and Qi in index 1
     AGWRCi[1] <- RegressionAGWRC(Q0, m, b)
@@ -112,7 +193,11 @@ forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b) {
     # Iterative loop for Qi and AGWRCi
     for (i in 1:n) {
       Qi[i+1] <- single_forecast(Q0 = Qi[i], AGWRC = AGWRCi[i], days = 1)
-      AGWRCi[i+1] <- RegressionAGWRC(Qi[i+1], m, b)
+      AGWRCi[i+1] <- regressionLimitAGWRC(Flow = Qi[i+1], m = m, b = b,
+                                          low_flow_limit = low_flow_limit,
+                                          low_agwrc_limit = low_agwrc_limit,
+                                          high_flow_limit = high_flow_limit,
+                                          high_agwrc_limit = high_agwrc_limit)
     }
   }
 

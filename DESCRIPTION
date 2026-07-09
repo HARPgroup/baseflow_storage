@@ -10,11 +10,13 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 8.0.0
 Imports:
   Kendall,
-  hydrotools,
   dplyr,
   sqldf,
   stats,
   utils,
   rlang,
+  dataRetrieval
+Suggests:
+  hydrotools
 Remotes:
   hydrotools=github::HARPgroup/hydro-tools 

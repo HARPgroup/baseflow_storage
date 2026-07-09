@@ -20,10 +20,12 @@ Add numerical month column in df based on Date column, then add char season
 column when month number matches individual season parameters
 }
 \examples{
-#get data from N F Shenandoah River via Strasburg, VA - USGS 01634000
+\dontrun{
+#'#get data from N F Shenandoah River via Strasburg, VA - USGS 01634000
 library(hydrotools)
 StrasGage <- hydrotools::WaterGageDaily$new(gage_id = "01634000")
 StrasGage$gage_data <- StrasGage$gage_data  |>
  dplyr::rename(Date = time)
 month_season_data <- add_month_season(StrasGage$gage_data)
+}
 }

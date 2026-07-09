@@ -11,10 +11,12 @@
 #'@param x Num vector with chronological values
 #'@return Num vector with AGWR in all indices except 1
 #'@examples
+#'\dontrun{
 #'#Get data from N F Shenandoah River via Strasburg, VA - USGS 01634000
 #'library(hydrotools)
 #'StrasGage <- hydrotools::WaterGageDaily$new(gage_id = "01634000")
 #'StrasGage$gage_data$AGWR <- calc_AGWR(StrasGage$gage_data$value)
+#'}
 #'@export
 #'
 calc_AGWR <- function (x) {
@@ -36,11 +38,13 @@ calc_AGWR <- function (x) {
 #'@param x Num vector with chronological AGWR values
 #'@return Num vector with change in AGWR in all positions except 1 and 2
 #'@examples
+#'\dontrun{
 #'#get data from N F Shenandoah River via Strasburg, VA - USGS 01634000
 #'library(hydrotools)
 #'StrasGage <- hydrotools::WaterGageDaily$new(gage_id = "01634000")
 #'StrasGage$gage_data$AGWR <- calc_AGWR(StrasGage$gage_data$value)
 #'StrasGage$gage_data$deltaAGWR <- calc_delta_AGWR(StrasGage$gage_data$AGWR)
+#'}
 #'@export
 calc_delta_AGWR <- function(x) {
   out <- calc_AGWR(x)
