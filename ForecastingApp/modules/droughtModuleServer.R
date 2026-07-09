@@ -22,6 +22,40 @@ droughtModuleServer <- function(id, gage_obj) {
       return(out)
     })
     
+    ## untrimmed data ##
+    untrimmed_points <- reactive({
+      gage_id <- gage_obj()$gage_id
+      req(gage_id)
+      
+      out <- tryCatch(
+        read_ows_data(
+          gage_id = gage_id,
+          kind = "gage_untrimmed",
+          templates = BF_UNTRIMMED_TEMPLATES_DEFAULT,
+          use_cache = TRUE
+        ),
+        error = function(e) {
+          showNotification(
+            paste("Untrimmed event CSV load failed:", e$message),
+            type = "warning",
+            duration = 8
+          )
+          return(NULL)
+        }
+      )
+      
+      req(!is.null(out), !is.null(out$df), nrow(out$df) > 0)
+      assign(out$cache_key, out$df, envir = .bf_cache)
+      
+      df <- out$df
+      
+      if ("Date" %in% names(df) && !inherits(df$Date, "Date")) {
+        df$Date <- as.Date(df$Date)
+      }
+      
+      df
+    })
+    
     ## USGS Daily values with standard names ####
     raw_daily <- reactive({
       req(gage_obj())
@@ -580,6 +614,10 @@ droughtModuleServer <- function(id, gage_obj) {
             column(6, h4("Flow over Event"), plotlyOutput(ns("event_flow_plot"))),
             column(6, h4("AGWR over Event"), plotlyOutput(ns("event_agwr_plot")))
           ),
+          br(),
+          h4("Untrimmed Event Data"),
+          p("This table shows all available rows for the selected GroupID before the app removes rows with missing AGWRC values."),
+          DTOutput(ns("event_untrimmed_table")),
           easyClose = TRUE,
           footer = modalButton("Close")
         )
@@ -628,6 +666,39 @@ droughtModuleServer <- function(id, gage_obj) {
           xaxis = list(title = "Date"),
           yaxis = list(title = "AGWR", rangemode = "tozero")
         )
+    })
+    ## untrimmed table ##
+    output$event_untrimmed_table <- renderDT({
+      df <- untrimmed_points()
+      gid <- selected_group()
+      req(!is.null(gid))
+      
+      df_event <- df %>%
+        dplyr::filter(.data$GroupID == gid) %>%
+        dplyr::arrange(.data$Date)
+      
+      req(nrow(df_event) > 0)
+      
+      display_cols <- intersect(
+        c(
+          "site_no",
+          "GroupID",
+          "Date",
+          "Flow",
+          "AGWR",
+          "delta_AGWR",
+          "calc_AGWR",
+          "R_squared",
+          "Season"
+        ),
+        names(df_event)
+      )
+      
+      DT::datatable(
+        df_event[, display_cols, drop = FALSE],
+        rownames = FALSE,
+        options = list(pageLength = 10, scrollX = TRUE)
+      )
     })
     # 70. Forecast Inputs UI ####
     output$agwrc_inputs <- renderUI({

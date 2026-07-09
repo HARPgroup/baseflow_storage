@@ -1,18 +1,16 @@
 
 #'@title agwo_hspf
-#'@name
-#'agwo_hspf
-#'@description
-#'HSP style agwo evaluation function.
-#'@details
-#'Simulates flow out of a groundwater compartment given a recession constant C
-#'two compartment with varying C and max S per compartment.
-#'
-#'@param S initial storage
-#'@param C recession coefficient
-#'@param dthr timestep in hours
-#'@return method how to simulate, can be 'static', 'lookup', ''solver' or a 2 compartment object
-#'@export
+#'@name agwo_hspf
+#' @description Calculate active groundwater outflow using HSPF methodologies
+#' @details Calculate active groundwater outflow using HSPF formula of AGWO = S
+#'   * (1 - C^timestep). This is an alternate of \code{agws::single_forecast()}
+#'   designed to help test against HSPF output
+#' @param S numeric of length 1 representing AGWS - active ground water storage
+#'   in inches
+#' @param C numeric of length 1 representing the AGWRC - Active groundwater
+#'   recession coefficient
+#' @param dthr numeric of length 1 representing the model timestep in hours
+#' @return A numeric of length 1 that is this timestep's AGWO
 agwo_hspf <- function(S, C, dthr) {
   kgwV = 1.0 - C^(dthr/24.0)
   agwo = kgwV * S
