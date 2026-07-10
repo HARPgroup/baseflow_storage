@@ -25,10 +25,10 @@ analyze_recession <- function(
   max_len = Inf) {
   #Creates lengths and value columns based on consecutive Recession Days
   rle_out <- rle(df$RecessionDay)
-  lengths <- rle_out$lengths
+  lengths_rle <- rle_out$lengths
   values <- rle_out$values
-  #Cumulative summation of lengths column, assigned to ends
-  ends <- cumsum(lengths)
+  #Cumulative summation of lengths_rle column, assigned to ends
+  ends <- cumsum(lengths_rle)
   #First starts value is 1, then next starts value is 1 + ends[1], for length of ends column. Assigned to starts
   starts <- c(1, utils::head(ends, -1) + 1)
 
@@ -37,10 +37,10 @@ analyze_recession <- function(
   #Assigns value of 1 to group_counter
   group_counter <- 1
 
-  #For all indices of lengths
-  for (i in seq_along(lengths)) {
-  #If index values is true and index lengths is >= min_len & <= max_len
-    if (values[i] && lengths[i] >= min_len && lengths[i] <= max_len) {
+  #For all indices of lengths_rle
+  for (i in seq_along(lengths_rle)) {
+  #If index values is true and index lengths_rle is >= min_len & <= max_len
+    if (values[i] && (lengths_rle[i] >= min_len) && (lengths_rle[i] <= max_len)) {
   #Creates sequence of indices from starts[i] to ends[i], assigns group_counter value to group_id
       group_id[starts[i]:ends[i]] <- group_counter
   #Adds 1 to group_counter every separate recession event
@@ -49,6 +49,11 @@ analyze_recession <- function(
   }
   #group_id values assigned to GroupID column in df
   df$GroupID <- group_id
+
+  if(all(is.na(group_id))){
+    stop("No baseflow events over the minimum length ", min_len,
+    "were identified at this gage. The AGWS workflow cannot proceed.")
+  }
 
   #Looks for all non-NA values in group_id[starts] and keeps those indices for each starts index
   recession_starts <- starts[!is.na(group_id[starts])]

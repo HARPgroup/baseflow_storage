@@ -26,5 +26,10 @@ devtools::install_github("HARPgroup/baseflow_storage", ref = "packageinitialize"
 <!-- badges: end -->
 
 ### Patch Notes:
+V 0.0.2 July 09, 2026
+1. Updated `forwadForecast()` with `regressionLimitAGWRC()` to prevent variable
+forecasts from dropping below minimum values to prevent extrapolation. Added a
+method to ensure Q0 is in range as well on lm_constant.
+
 V 0.0.1 June 29, 2026
 1. First package build.
