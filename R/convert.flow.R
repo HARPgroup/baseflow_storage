@@ -2,12 +2,12 @@
 #'@name
 #'convert.flow
 #'@description
-#'Convert cfs to watershed in.
+#'Convert flow in cfs to watershed inches
 #'@details
-#'Convert cfs to watershed in.
-#'@param flow_col num column with flow in cfs
-#'@param area_sqmi num variable drainage area in sq mi
-#'@return num column with flow in watershed in.
+#'Convert a vector of flows in cfs to watershed inches using drainage area
+#'@param flow_col numeric vector with flow in cfs
+#'@param area_sqmi numeric of length one with drainage area in sq mi
+#'@return numeric vector flow in watershed inches
 #'@export
 convert.flow <- function(flow_col, area_sqmi) {
   cfs <- flow_col

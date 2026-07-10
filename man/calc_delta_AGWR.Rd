@@ -7,10 +7,10 @@
 calc_delta_AGWR(x)
 }
 \arguments{
-\item{x}{Num vector with chronological AGWR values}
+\item{x}{Numeric vector with chronological AGWR values}
 }
 \value{
-Num vector with change in AGWR in all positions except 1 and 2
+Numeric vector with change in AGWR in all positions except 1 and 2
 }
 \description{
 Wrapper of calc_AGWR to comply with legacy code

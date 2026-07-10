@@ -2,17 +2,24 @@
 #'@name
 #'add_flow_in_day
 #'@description
-#'Adds watershed in. column
+#'Appends a flow timeseries data frame with a field to represent flow in
+#'watershed inches
 #'@details
-#'Calculates conversion of cfs to watershed in. with convert.flow function
+#'Calculates conversion of cfs to watershed inches with \code{convert.flow()}
 #'Adds column of watershed in. flow to df
-#'@param points_df df with columns: Date, GroupID, Flow, AGWR, delta_AGWR, AGWRC, kept, met_alpha
-#'@param area_sqmi num variable with drainage area in sq mi
-#'@param source_flow_col char string designating column name for Flow, default "Flow"
-#'@param new_col char string designating new column for Flow in watershed in., default "flow_in_day"
-#'@return point_df df with added column of "flow_in_day"
+#'@param points_df data.frame with a flow field with a name indicated by the
+#'  source_flow_col input
+#'@param area_sqmi numeric. Drainage area in sq mi, which may be provided by
+#'  \code{hydrotools::WaterGageBase$load_sf_da()}
+#'@param source_flow_col character, designating column name for Flow, default
+#'  "Flow"
+#'@param new_col character designating new column for Flow in watershed inches,
+#'  default "flow_in_day"
+#'@return data.frame with added column of "new_col" with flow in watershed
+#'  inches
 #'@export
-add_flow_in_day <- function(points_df, area_sqmi, source_flow_col = "Flow", new_col = "flow_in_day") {
+add_flow_in_day <- function(points_df, area_sqmi, source_flow_col = "Flow",
+                            new_col = "flow_in_day") {
 
   if (!(source_flow_col %in% names(points_df))) {
     stop("Missing source_flow_col: ", source_flow_col)

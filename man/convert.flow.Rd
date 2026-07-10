@@ -7,16 +7,16 @@
 convert.flow(flow_col, area_sqmi)
 }
 \arguments{
-\item{flow_col}{num column with flow in cfs}
+\item{flow_col}{numeric vector with flow in cfs}
 
-\item{area_sqmi}{num variable drainage area in sq mi}
+\item{area_sqmi}{numeric of length one with drainage area in sq mi}
 }
 \value{
-num column with flow in watershed in.
+numeric vector flow in watershed inches
 }
 \description{
-Convert cfs to watershed in.
+Convert flow in cfs to watershed inches
 }
 \details{
-Convert cfs to watershed in.
+Convert a vector of flows in cfs to watershed inches using drainage area
 }

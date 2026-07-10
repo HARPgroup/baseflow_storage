@@ -7,17 +7,22 @@
 bf_standardize_analysis_df(df, gage_id)
 }
 \arguments{
-\item{df}{df from locationTrimStats.csv requiring GroupID, Date, Flow, AGWR, delta_AGWR, kept, met_alpha columns}
+\item{df}{data.frame to check}
 
-\item{gage_id}{char usgs gage number from commandArgs in function call}
+\item{gage_id}{chararacter. A site name to append to the data if not present.}
 }
 \value{
-df with columns: Date, GroupID, Flow, AGWR, delta_AGWR, AGWRC, kept, met_alpha
+data.frame with the columns: Date, GroupID, Flow, AGWR, delta_AGWR,
+AGWRC, kept, met_alpha now formatted as character, numeric, or logical as
+appropriate
 }
 \description{
-Standardized column names
+Cehck for missing analysis fields in data.frame
 }
 \details{
-Input df is checked for specific column names, required names are stated if missing.
-Outputs new df with standardized naming convention for common variables.
+Input df is checked for specific column names \code{c("GroupID", "Date",
+"Flow", "AGWR", "delta_AGWR", "kept", "met_alpha")}, required names are stated
+if missing. Formats these variables with standardized classes by ensuring
+expected numeric data is numeric, expectedlogical is logical, and expected
+character is character
 }

@@ -4,9 +4,11 @@
 #'@description
 #'Site drainage area
 #'@details
-#'Find the drainage area of site based on gageID using hydrotools
-#'@param gage_id char usgs gage number from commandArgs in function call
-#'@return num variable with drainage area in sq mi
+#'Find the drainage area of site based on gageID using dataRetrieval and will
+#'use the old or new APIs bsaed on user package version. Deprecated in favor of
+#'\code{hydrotools::WaterGageBase$load_sf_da()}
+#'@param gage_id character usgs gage number from commandArgs in function call
+#'@return numeric, drainage area in sq mi
 #'@export
 get_drainage_area_sqmi <- function(gage_id) {
   #Based on dataRetrieval pacakge version, use either new or deprecated

@@ -2,14 +2,16 @@
 #'@name
 #'gap_fill
 #'@description
-#'Locates periods of missed recession events
+#'Fills logical vectors with TRUE within max_gap range
 #'@details
 #'Fills all false values with a consecutive length less than acceptable gap with
-#'true values if sequence of false values are between true values
-#'
-#'@param flag_vec Logical vector input calculated from AGWR, deltaAGWR and a deltaAGWR threshold
-#'@param max_gap Num value for acceptable gap of falses, default is 5
-#'@return Logical vector defining recession days
+#'true values if sequence of false values are between true values. Used in
+#'\code{flag_stable_baseflow()}, for instance, to fill in recession events by
+#'allowing minor excursions
+#'@param flag_vec Logical vector input (often calculated from AGWR, deltaAGWR and a
+#'  deltaAGWR threshold)
+#'@param max_gap Numeric. Acceptable gap, default is 5
+#'@return Logical vector defining recession days now with gaps filled
 #'@examples
 #'#Sample AGWR and deltaAGWR values, with threshold for change in deltaAGWR and max_gap
 #'AGWR <- c(0.8430233, 0.9379310, 0.9338235, 1.0708661, 0.9338235, 0.9311024, 0.9260042, 0.9200913)
@@ -23,11 +25,7 @@
 #'df$RecessionDay <- gap_fill(flag_vec, max_gap)
 #'@importFrom dplyr mutate case_when
 #'@export
-gap_fill <- function(
-  #Logical vector input calculated from AGWR, deltaAGWR and a deltaAGWR threshold
-  flag_vec,
-  #Num value for acceptable gap of falses, default is 5
-  max_gap = 5) {
+gap_fill <- function(flag_vec, max_gap = 5) {
   #NA values in flag_vec are defined as FALSE values
   flag_vec[is.na(flag_vec)] <- FALSE
   #Runs run length encoding function, creates lengths column for length of consecutive True/False values,
@@ -41,7 +39,7 @@ gap_fill <- function(
   for (i in seq(2, length(values) - 1)) {
   #If current index is False, its length <= max_gap,
   #and the surrounding values are True, run next line
-    if (!values[i] && lengths[i] <= max_gap && values[i - 1] && values[i + 1]) {
+    if (!values[i] && (lengths[i] <= max_gap) && values[i - 1] && values[i + 1]) {
   #Value of current index becomes True
       values[i] <- TRUE
     }

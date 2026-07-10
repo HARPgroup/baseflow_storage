@@ -4,20 +4,25 @@
 \alias{add_month_season}
 \title{add_month_season}
 \usage{
-add_month_season(df)
+add_month_season(df, date_col = "Date")
 }
 \arguments{
-\item{df}{df input with column named "Date" in format "YYYY-mm-dd" as Date obj}
+\item{df}{data.frame input with column named "Date" in format "YYYY-mm-dd" as
+Date obj}
+
+\item{date_col}{Character. The field in df containing dates.}
 }
 \value{
-Vectors of num month and char season for length of "Date" column
+data.frame now appended with columns Month and Season contianing num
+month and char season for length of "Date" column
 }
 \description{
-Add month and season to df
+Add month and meteorologic season to a data.frame
 }
 \details{
-Add numerical month column in df based on Date column, then add char season
-column when month number matches individual season parameters
+Add numerical month column in data.frame based on Date column, then add char
+meteorologic season column when month number matches individual season
+parameters
 }
 \examples{
 \dontrun{
