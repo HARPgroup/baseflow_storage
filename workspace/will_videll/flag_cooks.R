@@ -1,3 +1,11 @@
+#' @title flag_cooks
+#' @name
+#' flag_cooks
+#' @param model lm object
+#' @param event_df df containing baseflow events from DEQ baseflow workflow step 06
+#'
+#' @returns df of baseflow events, added flag for cooks distance
+#' @export
 flag_cooks <- function(model, event_df) {
   # define the variables
   cooks_d <- cooks.distance(model)

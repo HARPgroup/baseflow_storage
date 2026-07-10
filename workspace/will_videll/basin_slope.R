@@ -1,5 +1,3 @@
-### This function calculates the slope ###
-
 #' @title get_basin_slope
 #' @name
 #' get_basin_slope

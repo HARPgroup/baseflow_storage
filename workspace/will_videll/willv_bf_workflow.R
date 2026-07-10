@@ -1,5 +1,5 @@
 #Strasburg
-gageID <- "01634000"
+gageID <- "0"
 
 stepd01_args <- function(...){
   c(gageID, paste0("flow_",gageID, ".csv"))
@@ -58,11 +58,7 @@ commandArgs <- stepa07_args
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/baseflow_regression.R")
 commandArgs <- stepa08_args
 #Step 08_QC_tests
-<<<<<<< HEAD
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/workspace/will_videll/08_qc_tests.R")
-=======
-source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/R/08_qc_tests.R")
->>>>>>> dd476f1b1e9e2730541a9a8d20ae8a97a96cef4e
 commandArgs <- stepi01_args
 #Step import -> 01_regression_coeff
 source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/usgs_post_regression.R")

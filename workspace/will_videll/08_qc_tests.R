@@ -82,7 +82,7 @@ event_df <- flag_outliers_IQR(event_df)
 source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/workspace/will_videll/flag_cooks.R")
 event_df <- flag_cooks(model, event_df)
 
-# Write csvs
+### Write csvs ###
 
 #Monthly event total
 write.csv(monthly_events,

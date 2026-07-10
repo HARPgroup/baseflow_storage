@@ -65,6 +65,7 @@ ggplot()+
 ### Find the closest line (method 1, not ideal)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 # combined <- baseflow_events |>
 #   left_join(usgs_daily, by = "Month") |>
 #   select(Month,
@@ -78,6 +79,8 @@ ggplot()+
 # combined$best_metric <- "Median"
 # combined$best_metric[combined$p10_dist < combined$median_dist] <- "Monthly 10th percentile"
 =======
+=======
+>>>>>>> a532287d1e418e85b37cbf59a0f2885ffa31616c
 combined <- baseflow_events |>
   left_join(usgs_daily, by = "Month") |>
   select(Month,
@@ -90,7 +93,10 @@ combined <- baseflow_events |>
 
 combined$best_metric <- "Median"
 combined$best_metric[combined$p10_dist < combined$median_dist] <- "Monthly 10th percentile"
+<<<<<<< HEAD
 >>>>>>> dd476f1b1e9e2730541a9a8d20ae8a97a96cef4e
+=======
+>>>>>>> a532287d1e418e85b37cbf59a0f2885ffa31616c
 
 
 ####
@@ -110,17 +116,23 @@ usgs_long <- usgs_daily |>
   pivot_longer(cols = median:p10_monthly, names_to = "type", values_to = "value")
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> a532287d1e418e85b37cbf59a0f2885ffa31616c
 merged3 <- bf_long |>
   filter(type == "bf_p10") |>
   left_join(usgs_long, by = "Month", relationship = "many-to-many") |>
   mutate(vert_dist = abs(value.x - value.y),
          Abs_pct_err = (abs(value.x - value.y) / value.x) * 100) |>
+<<<<<<< HEAD
 =======
 merged <- bf_long |>
   filter(type == "bf_median") |>
   left_join(usgs_long, by = "Month", relationship = "many-to-many") |>
   mutate(vert_dist = abs(value.x - value.y)) |>
 >>>>>>> dd476f1b1e9e2730541a9a8d20ae8a97a96cef4e
+=======
+>>>>>>> a532287d1e418e85b37cbf59a0f2885ffa31616c
   group_by(type.x, Month) |>
   slice_min(vert_dist, n = 1, with_ties = FALSE) |>
   select(Month,
@@ -128,6 +140,7 @@ merged <- bf_long |>
          bf_value = value.x,
          Matched_Point = type.y,
          Point_Value = value.y,
+<<<<<<< HEAD
 <<<<<<< HEAD
          Distance = vert_dist,
          Abs_pct_err) %>%
@@ -139,6 +152,8 @@ merged <- bf_long |>
 #  site_type = "Stream",
 #  properties = c("monitoring_location_id", "agency_code"))
 =======
+=======
+>>>>>>> a532287d1e418e85b37cbf59a0f2885ffa31616c
          Distance = vert_dist) %>%
   arrange(Month, bf_stat)
 
@@ -147,4 +162,7 @@ all_VA_sites <- read_waterdata_monitoring_location(
   state_name = "Virginia",
   site_type = "Stream",
   properties = c("monitoring_location_id", "agency_code"))
+<<<<<<< HEAD
 >>>>>>> dd476f1b1e9e2730541a9a8d20ae8a97a96cef4e
+=======
+>>>>>>> a532287d1e418e85b37cbf59a0f2885ffa31616c

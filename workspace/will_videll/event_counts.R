@@ -1,5 +1,3 @@
-### This function determines the monthly total number of events ###
-
 #' @title bf_monthly_events_n
 #' @name
 #' bf_monthly_events_n
@@ -9,14 +7,13 @@
 #' creates a df with total number of bf events,
 #' df also includes total bf events by month
 #'
-#' @param event_df df from step 06 of DEQ bf workflow containing,
-#' must have GroupID and start_date columns
+#' @param event_df df from step 06 of DEQ bf workflow
 #' @param gage_ID str variable associated with a USGS gage location
 #'
 #' @returns df with columns for month, event_cnt, and gage_total
-#' @export
 #'
-#' @examples
+#' importFrom dplyr n_distinct mutate group_by summarise
+#' @export
 bf_monthly_events_n <- function(event_df, gage_ID){
   gage_total <- n_distinct(event_df$GroupID)
   monthly_event_count <- event_df |>
