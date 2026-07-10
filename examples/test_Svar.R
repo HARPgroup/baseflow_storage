@@ -5,6 +5,8 @@ m = -0.00820
 C <- b + m * log(Qts)
 source("C:\\Users\\gcw73279.COV\\Desktop\\gitBackups\\OWS\\baseflow_storage\\convert.flow.R")
 source("C:\\Users\\gcw73279.COV\\Desktop\\gitBackups\\OWS\\baseflow_storage\\workspace\\adam_hurlich\\DroughtEvaluation\\Functions\\forwardForecastv2.R")
+revconvert = 1.0 / convert.flow(1, 508) # bring from in/day back to cfs 
+
 Qin <- convert.flow(Qts, 508)
 dQ <- (b + m*log(Qts) - m) / (b + m*log(Qts))^2
 S <- Qin / (1.0 - C)
@@ -72,52 +74,6 @@ points(SQlow$Qcon ~ SQlow$Scon, col="green", pch=4)
 legend("bottomright", legend = c("Q @ C =f(S)", "Q constant C"), col = c("blue", "green"), pch = c(4,4))
 
 plot(SQlow$Smodel ~ SQlow$Scon, pch=4, col="black", main="Mount Jackson, Scon vs. Svar", xlim=c(0,0.5), ylim=c(0,0.5))
-
-
-# Main loop
-solve_agwrc_lookup <- function(S, Ctable){
-  return(Ctable[Ctable$S >= S,][1,]$C)
-}
-
-solve_agwrc_log <- function(S, m, b) {
-  
-  g <- function(C) {
-    C - (m * log(S * (1 - C)) + b)
-  }
-  
-  res <- tryCatch(
-    uniroot(g, lower = 0.001, upper = 0.999)$root,
-    error = function(e) NA_real_
-  )
-  
-  return(res)
-}
-
-step_scq <- function (numts, Sinit, method, in2cfs, b=0.0, m=1.0, C=0.99) {
-  # note if method = "lookup", C should be a dataframe with columns Q and C
-  S = Sinit
-  model_out <- data.frame(
-    S = numeric(),
-    Q = numeric(),
-    Qinch = numeric(),
-    C = numeric()
-  )
-  for (ts in 1:numts) {
-    if (method == 'solver') {
-      # use solver
-      Cs = solve_agwrc_log(S=S, m, b)
-    } else if (method == 'lookup') {
-      Cs = solve_agwrc_lookup(S, C)
-    } else {
-      Cs = C
-    }
-    Qinch = S * (1.0 - Cs)
-    Q = in2cfs * Qinch
-    S = S - Qinch
-    model_out <- rbind(model_out, data.frame(S=S, Q=Q, Qinch=Qinch, C=Cs))
-  }
-  return(model_out)
-}
 
 test <- step_scq(numts=10, Sinit=0.5, method="lookup", in2cfs=revconvert, C=Svar)
 
