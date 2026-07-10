@@ -14,27 +14,35 @@ flag_stable_baseflow(
 )
 }
 \arguments{
-\item{df}{df with flow_col, AGWR, and delta_AGWR columns}
+\item{df}{data.frame with flow_col, AGWR, and delta_AGWR column present, often
+calculated by \code{analyze_recession()}}
 
-\item{flow_col}{flow_col with Flow values from df}
+\item{flow_col}{character, flow_col with Flow values from df}
 
-\item{AGWR_col}{AGWR_col is assigned AGWR column from df}
+\item{AGWR_col}{character, AGWR_col is AGWR column from df}
 
-\item{delta_col}{delta_col is assigned delta_AGWR column from df}
+\item{delta_col}{character, delta_col is delta_AGWR column from df}
 
-\item{delta_thresh}{Num threshold value for change in delta_AGWR}
+\item{delta_thresh}{Numeric threshold value for day-to-day change in
+delta_AGWR. Defaults to 0.03, meaning the change in AGWR may be outside
+exceed 0.97 - 1.03 range except during \code{gap_fill()} periods}
 
-\item{max_gap}{Num value for acceptable gap of false values, default is 3}
+\item{max_gap}{Numeric. The time allowed between recession events to pass to
+\code{gap_fill()}. value for acceptable gap of false values, default is 3}
 }
 \value{
-Logical vector re-defining recession days column
+data.frame with all original fields and now a RecessionDay field that
+contains logical for if a day is considered in recession
 }
 \description{
 Evaluates recession days based on flow parameters
 }
 \details{
-Runs through all recession day events and calculates if flow for a given index position
-is >= the mean of flow * 1.15. If >=, recession day for index position is assigned false value.
+Asesses if each day in a flow time series is considered "in recession" by
+evaluating if the ratio of today's flow and yesterday's (AGWR) is less than 1
+and if the change in AGWR is within 0.97 - 1.03. Recession days are excluded
+if flow is greater than 1.15 times the mean flow. \code{gap_fill(max_gap)} is
+used to allow small excursions beyond the AGWR and dAGWR thresholds
 }
 \examples{
 #Sample data for flow_col, AGWR, and delta_AGWR

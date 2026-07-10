@@ -7,10 +7,10 @@
 calc_AGWR(x)
 }
 \arguments{
-\item{x}{Num vector with chronological values}
+\item{x}{Numeric vector with chronological values}
 }
 \value{
-Num vector with AGWR in all indices except 1
+Numeric vector with AGWR in all indices except 1
 }
 \description{
 Calculation of AGWR / Ratio of Iterative timeseries values

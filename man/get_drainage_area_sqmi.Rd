@@ -7,14 +7,16 @@
 get_drainage_area_sqmi(gage_id)
 }
 \arguments{
-\item{gage_id}{char usgs gage number from commandArgs in function call}
+\item{gage_id}{character usgs gage number from commandArgs in function call}
 }
 \value{
-num variable with drainage area in sq mi
+numeric, drainage area in sq mi
 }
 \description{
 Site drainage area
 }
 \details{
-Find the drainage area of site based on gageID using hydrotools
+Find the drainage area of site based on gageID using dataRetrieval and will
+use the old or new APIs bsaed on user package version. Deprecated in favor of
+\code{hydrotools::WaterGageBase$load_sf_da()}
 }

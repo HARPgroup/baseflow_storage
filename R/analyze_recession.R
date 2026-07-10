@@ -2,27 +2,26 @@
 #'@name
 #'analyze_recession
 #'@description
-#'Consolidates flow_csv data into recession events
+#'Identifies potential baseflow events from flow_csv
 #'@details
 #'Separates recession events and finds start and end date for each event.
 #'Duration and days between are calculated. Events are categorized by group ID.
-#'Output df only includes recession events, non-events are removed.
-#'
-#'@param df Applicable df with RecessionDay column
-#'@param site_name Char value with site name
-#'@param min_len Num value for minimum number of consecutive RecessionDays to be consider an event, default is 0
-#'@param max_len Num value for maximum number of consecutive RecessionDays to be consider an event, default is Inf
-#'@return Outputs summarized df including only recession events grouped by ID
+#'Stops with warning if no events are identified.
+#'@param df data.frame with a "RecessionDay" logical field that indicates if a
+#'  day is characterized by receeding flow. This is identified via
+#'  \code{flag_stable_baseflow()}
+#'@param site_name Chararacter. Site name, passed to output for informational
+#'  purposes only.
+#'@param min_len Numeric. Value for minimum number of consecutive RecessionDays
+#'  to be consider an event, default is 14
+#'@param max_len Numeric. Value for maximum number of consecutive RecessionDays
+#'  to be consider an event, default is Inf
+#'@return a list with df as the modified input now with potential baseflow
+#'  groupIDs and summary with a data.frame including only recession events
 #'@export
 analyze_recession <- function(
-  #df with RecessionDay column
-  df,
-  #Char with site name
-  site_name = "",
-  #Num value for minimum number of consecutive RecessionDays to be considered an event, default is 0
-  min_len = 0,
-  #Num value for maximum number of consecutive RecessionDays to be considered an event, default is Inf
-  max_len = Inf) {
+  df, site_name = "",
+  min_len = 14, max_len = Inf) {
   #Creates lengths and value columns based on consecutive Recession Days
   rle_out <- rle(df$RecessionDay)
   lengths_rle <- rle_out$lengths

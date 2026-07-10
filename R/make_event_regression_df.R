@@ -2,15 +2,21 @@
 #'@name
 #'make_event_regression_df
 #'@description
-#'Consolidates df for baseflow regression
+#'Summarized a data.frame to get median flow of recession events with corresponding AGWRC
 #'@details
-#'Converts previous df into more organized df with limited columns. Groups data by GroupID, finds start_date
-#'and end_date for all events, calculates median flow for each event and event AGWRC
-#'@param points_df df with columns, Date, GroupID, Flow, AGWR, delta_AGWR, AGWRC, kept, met_alpha
-#'@param regression_flow_col char string designating column name for regression_flow_col, default "Flow"
-#'@return df with GroupID, start_date, end_date, n_days, median_flow, event_AGWRC
+#'Summarizes a data.frame of recession events to calculate median flow during
+#'the event and the corresponding recession coefficient. Only keeps non-flagged
+#'data, with flags inidcated by logical values in the fields kept and met_alpha.
+#'The input for this function is often provided by \code{agws::trim_event_mk()}
+#'or \code{agws::attach_event_stats()}. The output from this function may be
+#'passed to \code{agws::fit_agwrc_regression()} for further analysis
+#'@param points_df data.frame with fields: Date, GroupID, Flow, AGWR,
+#'  AGWRC, kept, met_alpha
+#'@param regression_flow_col Character, designating field name for
+#'  regression_flow_col, default "Flow"
+#'@return data.frame one row per recession event with fields GroupID,
+#'  start_date, end_date, n_days, median_flow, event_AGWRC
 #'@importFrom rlang .data
-#'@importFrom stats median
 #'@export
 make_event_regression_df <- function(points_df, regression_flow_col = "Flow") {
 

@@ -2,18 +2,21 @@
 #'@name
 #'calc_event_stats
 #'@description
-#'Creates new df with AGWRC and group R.squared
+#'Remove out-of-range data and calculates log-linear regression of a recession
+#'event
 #'@details
-#'Creates a df based on 3 conditions in SQL, being AGWR, dAGWRmax, dAGWRmin.
-#'New df is combined with AGWRC and R.squared from bf_event_stats
-#'
+#'Removes out-of-range data by filtering the flow values in data for days in
+#'which the AGWR and dAGWR are within user provided range. Then, this filtered
+#'data is passed to \code{bf_event_stats()} to calculate the log-linear
+#'regression
 #'@param data df with Date, Flow, AGWR, delta_AGWR as minimum present columns.
-#'From locationBF.csv (analysis_df)
-#'@param event_num i in 1:max(data$GroupID) (summarize_event), can be set to one specific GroupID if desired
-#'@param dAGWRmax num 1 + dAGWR_range, default dAGWR_range is 0.03 from function call script (summarize_event)
-#'@param dAGWRmin num 1 - dAGWR_range, default dAGWR_range is 0.03 from function call script (summarize_event)
-#'@return new df with data df, AGWRC, and R.squared
-#'@importFrom sqldf sqldf
+#'@param event_num Numeric. The groupID of the recession event
+#'@param dAGWRmax numeric. The upper limit for the change in AGWR (which is the
+#'  ratio of today's and yesterday's flow). Defaults to 1.03
+#'@param dAGWRmin numeric. The lower limit for the change in AGWR (which is the
+#'  ratio of today's and yesterday's flow). Defaults to 0.97
+#'@return data.frame of fitlered data with the recession regression slope and r
+#'  squared
 #'@export
 calc_event_stats <- function (data, event_num, dAGWRmax, dAGWRmin){
 

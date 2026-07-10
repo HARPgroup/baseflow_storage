@@ -7,19 +7,22 @@
 bf_event_stats(data, flow_col = "Flow", date_col = "Date")
 }
 \arguments{
-\item{data}{df with Flow, Date columns}
+\item{data}{data.frame with two fields identified by flow_col and date_col}
 
-\item{flow_col}{Set column name for flow_col, default "Flow"}
+\item{flow_col}{Character. Field name for y variable in the regression log(y)
+~ x. default "Flow"}
 
-\item{date_col}{Set column name for date_col, default "Date"}
+\item{date_col}{Character. Field name for x variable in the regression log(y)
+~ x. Default "Date"}
 }
 \value{
-List with AGWRC and R.squared for all elements
+List with AGWRC (slope) and R.squared for regression
 }
 \description{
-Linear model of flow data
+Calculate a log-linear regression
 }
 \details{
-Creates a linear model between flow and date columns in df.
-Pulls AGWRC and R.squared values
+Creates a linear model between flow and date columns in data such as
+log(flow_col) = f(date_col) Returns the slope coefficient converted to linear
+space and the corresponding coefficient of determination (R squared)
 }

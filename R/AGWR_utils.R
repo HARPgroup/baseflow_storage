@@ -7,9 +7,8 @@
 #'Active groundwater recession coefficient is AGWR = Qt / Qt-1 This function
 #'divides the the value in the time series by the value in the previous
 #'day/index of the series
-#'
-#'@param x Num vector with chronological values
-#'@return Num vector with AGWR in all indices except 1
+#'@param x Numeric vector with chronological values
+#'@return Numeric vector with AGWR in all indices except 1
 #'@examples
 #'\dontrun{
 #'#Get data from N F Shenandoah River via Strasburg, VA - USGS 01634000
@@ -35,8 +34,8 @@ calc_AGWR <- function (x) {
 #'Wrapper of calc_AGWR to comply with legacy code
 #'@details
 #'Calls calc_AGWRC(x)
-#'@param x Num vector with chronological AGWR values
-#'@return Num vector with change in AGWR in all positions except 1 and 2
+#'@param x Numeric vector with chronological AGWR values
+#'@return Numeric vector with change in AGWR in all positions except 1 and 2
 #'@examples
 #'\dontrun{
 #'#get data from N F Shenandoah River via Strasburg, VA - USGS 01634000

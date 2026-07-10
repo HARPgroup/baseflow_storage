@@ -4,25 +4,31 @@
 \alias{analyze_recession}
 \title{analyze_recession}
 \usage{
-analyze_recession(df, site_name = "", min_len = 0, max_len = Inf)
+analyze_recession(df, site_name = "", min_len = 14, max_len = Inf)
 }
 \arguments{
-\item{df}{Applicable df with RecessionDay column}
+\item{df}{data.frame with a "RecessionDay" logical field that indicates if a
+day is characterized by receeding flow. This is identified via
+\code{flag_stable_baseflow()}}
 
-\item{site_name}{Char value with site name}
+\item{site_name}{Chararacter. Site name, passed to output for informational
+purposes only.}
 
-\item{min_len}{Num value for minimum number of consecutive RecessionDays to be consider an event, default is 0}
+\item{min_len}{Numeric. Value for minimum number of consecutive RecessionDays
+to be consider an event, default is 14}
 
-\item{max_len}{Num value for maximum number of consecutive RecessionDays to be consider an event, default is Inf}
+\item{max_len}{Numeric. Value for maximum number of consecutive RecessionDays
+to be consider an event, default is Inf}
 }
 \value{
-Outputs summarized df including only recession events grouped by ID
+a list with df as the modified input now with potential baseflow
+groupIDs and summary with a data.frame including only recession events
 }
 \description{
-Consolidates flow_csv data into recession events
+Identifies potential baseflow events from flow_csv
 }
 \details{
 Separates recession events and finds start and end date for each event.
 Duration and days between are calculated. Events are categorized by group ID.
-Output df only includes recession events, non-events are removed.
+Stops with warning if no events are identified.
 }
