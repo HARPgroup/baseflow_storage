@@ -1,6 +1,6 @@
 Package: agws
 Title: Develop and Analyze Baseflow Forecasts
-Version: 0.0.1
+Version: 0.0.2
 Authors@R: 
     person("Connor", "Brogan", email = "connor.brogan@deq.virginia.gov", role = c("aut", "cre"))
 Description: This package identifies baseflow events from a flow hydrograph and compiles an empirical relationship between the recession coefficient and flow. This data is then subsequently used to produce baseflow forecasts, with various support functions to allow for forecast and data QC.
@@ -9,13 +9,14 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 8.0.0
 Imports:
-  Kendall,
-  dplyr,
-  sqldf,
-  stats,
-  utils,
-  rlang,
-  dataRetrieval
+    Kendall,
+    dplyr,
+    sqldf,
+    stats,
+    utils,
+    rlang,
+    dataRetrieval,
+    nhdplusTools
 Suggests:
   hydrotools
 Remotes:
