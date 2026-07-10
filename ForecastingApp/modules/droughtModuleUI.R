@@ -14,6 +14,16 @@ droughtModuleUI <- function(id) {
         br(),
         h4("Historical Flow (Recent)"),
         p(em("Tip:"), " click a row in the events table to zoom the hydrograph to ~9 months before the event and up to 3 months after (capped to available data)."),
+        column(6, 
+               dateRangeInput(
+                 inputId = ns("hist_date_range"),
+                 label   = "Filter events by date range (event overlap with window):",
+                 start   = Sys.Date() - 365,
+                 end     = Sys.Date(),
+                 format  = "yyyy-mm-dd",
+                 separator = " to "
+               )
+        ),
         plotlyOutput(ns("historical_plot")),
         br(),
         h4("Identified Baseflow Events (Trimmed)"),

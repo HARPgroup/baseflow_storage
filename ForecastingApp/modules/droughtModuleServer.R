@@ -4,56 +4,69 @@ droughtModuleServer <- function(id, gage_obj) {
     ns <- session$ns
     
     # 0. Core Data Initialize ####
-    ## Read in Trimmed Stats data ####
-    #Read in the trimmed stats from the workflow
-    analysis_points <- reactive({
+    ## All Workflow Data ####
+    workflow_data <- reactive({
       gage_id <- gage_obj()$gage_id
       req(gage_id)
+      #Get all workflow data from gage
+      out <- gage_obj$baseflow_workflow_data(omsite = omsite)
       
-      out <- tryCatch(
-        bf_get_analysis(gage_id, kind = "gage"),
-        error = function(e) {
-          showNotification(paste("Analysis CSV load failed:", e$message), type = "error", duration = NULL)
-          return(NULL)
-        }
-      )
-      req(!is.null(out), nrow(out) > 0)
-      message("Loaded analysis rows from om_site: ", nrow(out), " for gage_id = ", gage_id, " (gage)")
+      if(is.null(out)){
+        showNotification("No baseflow forecasting data available for this gage.",
+        type = "message", duration = NULL)
+      }
+      
       return(out)
     })
     
-    ## untrimmed data ##
-    untrimmed_points <- reactive({
-      gage_id <- gage_obj()$gage_id
-      req(gage_id)
+    ## Trimmed Stats data ####
+    #Read in the trimmed stats from the workflow
+    trimmed_points <- reactive({
+      req(workflow_data())
       
-      out <- tryCatch(
-        read_ows_data(
-          gage_id = gage_id,
-          kind = "gage_untrimmed",
-          templates = BF_UNTRIMMED_TEMPLATES_DEFAULT,
-          use_cache = TRUE
-        ),
-        error = function(e) {
-          showNotification(
-            paste("Untrimmed event CSV load failed:", e$message),
-            type = "warning",
-            duration = 8
-          )
-          return(NULL)
+      out <- workflow_data()[["trimmed_events_df"]]
+      if(!is.null(out) & nrow(out) > 0){
+        #Ensure all needed columns are present
+        QC <- validate_required_cols(out, c("Date", "Flow", "AGWRC"),
+                                     context = paste0("analysis points (gage)"))
+        
+        if(QC){
+          #Make sure dates are date classes
+          if (("Date" %in% names(out)) && !inherits(out$Date, "Date")) {
+            out$Date <- as.Date(out$Date)
+          }
+          
+          # Remove rows that can't support storage math
+          out <- out %>%
+            dplyr::filter(!is.na(.data$Date), !is.na(.data$Flow), !is.na(.data$AGWRC))
+          message("Loaded analysis rows from om_site: ", nrow(out), " for gage_id = ", gage_id, " (gage)")
+        }else{
+          out <- NULL
         }
-      )
-      
-      req(!is.null(out), !is.null(out$df), nrow(out$df) > 0)
-      assign(out$cache_key, out$df, envir = .bf_cache)
-      
-      df <- out$df
-      
-      if ("Date" %in% names(df) && !inherits(df$Date, "Date")) {
-        df$Date <- as.Date(df$Date)
       }
       
-      df
+      if(is.null(out)){
+        message("No trimmed stats found for gage.")
+      }
+      
+      return(out)
+    })
+    
+    ## Untrimmed data ####
+    untrimmed_points <- reactive({
+      req(workflow_data())
+      
+      out <- workflow_data()[["events_df"]]
+      if(is.null(out) || nrow(out) == 0){
+        message("No events found for gage.")
+      }
+      #Make sure dates are date classes
+      if (!is.null(out) && nrow(out) > 0 && 
+          ("Date" %in% names(out)) && !inherits(out$Date, "Date")) {
+        out$Date <- as.Date(out$Date)
+      }
+      
+      return(out)
     })
     
     ## USGS Daily values with standard names ####
@@ -73,42 +86,14 @@ droughtModuleServer <- function(id, gage_obj) {
     ## Site Name ####
     #Used in plot labels and titles
     site_name <- reactive({
-      df <- analysis_points()
+      #Use either the gage id or the name used in the workflow
+      df <- trimmed_points()
       if ("site_name" %in% names(df)) {
         nm <- unique(df$site_name)
         nm <- nm[!is.na(nm) & nzchar(nm)]
         if (length(nm) > 0) return(nm[1])
       }
       paste("USGS", gage_obj()$gage_id)
-    })
-    
-    ## Trimmed Points ####
-    #Trimmed stats data frame, but now further validated and refined
-    trimmed_points <- reactive({
-      df <- analysis_points()
-      req(nrow(df) > 0)
-      
-      # Date coercion (defensive)
-      if (!inherits(df$Date, "Date")) {
-        df$Date <- as.Date(df$Date)
-      }
-      
-      QC <- validate_required_cols(df, c("Date", "Flow", "AGWRC"), context = paste0("analysis points (gage)"))
-      
-      if(QC){
-        # Remove rows that can't support storage math
-        df <- df %>%
-          dplyr::filter(!is.na(.data$Date), !is.na(.data$Flow), !is.na(.data$AGWRC))
-      }else{
-        df <- NULL
-      }
-      return(df)
-    })
-    
-    ## Trimmed DF ####
-    # Copy of Trimmed Points
-    trimmed_df <- reactive({
-      trimmed_points()
     })
     
     # 1b. Storage (AGWS-equivalent) computed locally ####
@@ -213,24 +198,18 @@ droughtModuleServer <- function(id, gage_obj) {
     })
     
     # 2. Event-level summary (for DT & regression) ####
-    ## Read summary data ####
+    ## Event summary data ####
     events_summary <- reactive({
-      df <- trimmed_df()
-      req(nrow(df) > 0)
-      #Read in baseflow event summary for gage:
-      ows_results <- read_ows_data(gage_id = gage_obj()$gage_id,
-                                   kind = "baseflow_summary",
-                                   templates = BF_SUMMARY_TEMPLATES_DEFAULT,
-                                   use_cache = TRUE)
-      #Update cache:
-      assign(ows_results$cache_key, ows_results$df, envir = .bf_cache)
-      
-      return(ows_results$df)
+      req(workflow_data())
+      #Get event summary data frame to allow for easy regression
+      df <- workflow_data()[["event_summary_df"]]
+      return(df)
     })
+    
     ## Update event dateInputs ####
     observeEvent(events_summary(), {
       evt <- events_summary()
-      req(nrow(evt) > 0)
+      req(evt)
       
       min_d <- min(evt$start_date, na.rm = TRUE)
       max_d <- max(evt$end_date,   na.rm = TRUE)
@@ -250,30 +229,52 @@ droughtModuleServer <- function(id, gage_obj) {
       evt <- events_summary()
       s   <- input$events_table_rows_selected
       if (is.null(s) || length(s) == 0) return(NULL)
-      evt[s[1], ]
+      selected_event <- evt[s[1], ]
+      
+      
+      #Update plot start and end date
+      df <- raw_daily()
+      #Minimum and maximum observed dates
+      min_date <- min(df$Date, na.rm = TRUE)
+      max_date <- max(df$Date, na.rm = TRUE)
+      #Event start and end, to be modified to show more at the start and end:
+      ev_start <- as.Date(ev$start_date[1])
+      ev_end   <- as.Date(ev$end_date[1])
+      updateDateRangeInput(
+        session,
+        "hist_date_range",
+        start = max(min_date, ev_start %m-% lubridate::period(months = 9)),
+        end   = min(max_date, ev_end   %m+% lubridate::period(months = 3))
+      )
+      
+      return(selected_event)
     })
     
     output$historical_plot <- renderPlotly({
       df <- raw_daily()
       req(nrow(df) > 0)
-      
+      #Minimum and maximum observed dates
+      min_date <- min(df$Date, na.rm = TRUE)
       max_date <- max(df$Date, na.rm = TRUE)
       
-      window_start <- max_date - lubridate::years(2)
-      window_end   <- max_date
-      
-      ev <- selected_event()
-      if (!is.null(ev)) {
-        ev_start <- as.Date(ev$start_date[1])
-        ev_end   <- as.Date(ev$end_date[1])
-        if (!is.na(ev_start) && !is.na(ev_end)) {
-          window_start <- ev_start %m-% lubridate::period(months = 9)
-          desired_end  <- ev_end   %m+% lubridate::period(months = 3)
-          window_end   <- min(desired_end, max_date, na.rm = TRUE)
-        }
+      #If user has provided a date range (which updates with selected events),
+      #use it.
+      dr <- input$hist_date_range
+      if (is.null(dr) || any(is.na(dr))){
+        window_start <-  max_date - lubridate::years(2)
+        window_end   <- max_date
+      } else{
+        window_start <- max(min_date, as.Date(dr[1]))
+        window_end   <- min(max_date, as.Date(dr[2]))
       }
-      window_start <- max(window_start, min(df$Date, na.rm = TRUE), na.rm = TRUE)
-      df_window    <- df %>% dplyr::filter(Date >= window_start, Date <= window_end)
+      #Get any selected event
+      ev <- selected_event()
+      
+      #Limit data to the user selected window
+      df_window    <- df %>% 
+        dplyr::filter(Date >= window_start, Date <= window_end)
+      
+      #Can only update plot if data was found:
       req(nrow(df_window) > 1)
       
       p <- plotly::plot_ly(
@@ -350,23 +351,27 @@ droughtModuleServer <- function(id, gage_obj) {
       out <- NULL
       if(inherits(gage_obj(),"WaterGageDaily")){
         show_modal_spinner(text = "Retrieving baseflow data from DEQ servers...")
-        gage_feature <- gage_obj()$load_wshd_feat()
-        AGWRC_model <- gage_feature$get_prop(propcode = "AGWRC-1.0")
-        regression_scenario <- AGWRC_model$get_prop(propcode = "simple_lm")
-        regression_m <- regression_scenario$get_prop("regression_m")$propvalue
-        regression_b <- regression_scenario$get_prop("regression_b")$propvalue
-        
-        if(!is.na(regression_b) & !is.na(regression_m)){
-          regression_m_pvalue <- regression_scenario$get_prop("regression_m_pvalue")$propvalue
-          regression_b_pvalue <- regression_scenario$get_prop("regression_b_pvalue")$propvalue
-          regression_Rsq <- regression_scenario$get_prop("regression_Rsq")$propvalue
-          out <- list(
-            m = regression_m,
-            b = regression_b,
-            m_pvalue = regression_m_pvalue,
-            b_pvalue = regression_b_pvalue,
-            Rsq = regression_Rsq
-          )
+        #Use the gage object to get all props on the agwrc model if feature and
+        #model exist, otherwise return NULL
+        try_agwrc_props <- gage_obj()$agwrc_fun()
+        if(!is.null(try_agwrc_props)){
+          #Now stored on self from agwrc_fun()
+          regression_m <- gage_obj()$agwrc_lm_m
+          regression_b <- gage_obj()$agwrc_lm_b
+          #If coefficients found, store stats:
+          if(!is.na(regression_b) & !is.na(regression_m)){
+            regression_m_pvalue <- try_agwrc_props[try_agwrc_props$propname == "regression_m_pvalue"]
+            regression_b_pvalue <- try_agwrc_props[try_agwrc_props$propname == "regression_b_pvalue"]
+            regression_Rsq <- try_agwrc_props[try_agwrc_props$propname == "regression_Rsq"]
+
+            out <- list(
+              m = regression_m,
+              b = regression_b,
+              m_pvalue = regression_m_pvalue,
+              b_pvalue = regression_b_pvalue,
+              Rsq = regression_Rsq
+            )
+          }
         }
         remove_modal_spinner()
       }
@@ -378,54 +383,39 @@ droughtModuleServer <- function(id, gage_obj) {
       evt <- events_summary()
       req(nrow(evt) > 0)
       
+      #Filter for dates
       dr <- input$reg_date_range
-      if (is.null(dr) || any(is.na(dr))) return(evt)
+      if (!is.null(dr) && all(!is.na(dr))){
+        start_win <- as.Date(dr[1])
+        end_win   <- as.Date(dr[2])
+        
+        evt <- evt %>%
+          dplyr::filter(
+            end_date   >= start_win,
+            start_date <= end_win
+          )
+      } 
       
-      start_win <- as.Date(dr[1])
-      end_win   <- as.Date(dr[2])
-      
-      evt <- evt %>%
-        dplyr::filter(
-          end_date   >= start_win,
-          start_date <= end_win
-        )
-      
+      #Filter for flows
       if(!is.na(input$regression_flow_max)){
         evt <- evt[evt$median_flow < input$regression_flow_max,]
       }
+      #Only keep events with non-NA flows and AGWRC
+      evt <- evt %>% dplyr::filter(!is.na(event_AGWRC), !is.na(median_flow))
       
       return(evt)
     })
     
+    ## AGWRC Population Stats ####
     output$agwrc_population_stats <- renderDT({
       evt <- reg_events_filtered()
       req(nrow(evt) > 0)
       
-      QC <- validate_required_cols(
-        evt,
-        c("event_AGWRC"),
-        context = "events_summary() for AGWRC population stats"
-      )
-      req(QC)
-      
       agwrc_vals <- evt$event_AGWRC
-      agwrc_vals <- agwrc_vals[!is.na(agwrc_vals)]
       
       req(length(agwrc_vals) > 0)
       
-      stats_df <- tibble::tibble(
-        n_events = length(agwrc_vals),
-        min      = min(agwrc_vals, na.rm = TRUE),
-        p05      = unname(stats::quantile(agwrc_vals, 0.05, na.rm = TRUE)),
-        p10      = unname(stats::quantile(agwrc_vals, 0.10, na.rm = TRUE)),
-        p25      = unname(stats::quantile(agwrc_vals, 0.25, na.rm = TRUE)),
-        median   = stats::median(agwrc_vals, na.rm = TRUE),
-        mean     = mean(agwrc_vals, na.rm = TRUE),
-        p75      = unname(stats::quantile(agwrc_vals, 0.75, na.rm = TRUE)),
-        p90      = unname(stats::quantile(agwrc_vals, 0.90, na.rm = TRUE)),
-        p95      = unname(stats::quantile(agwrc_vals, 0.95, na.rm = TRUE)),
-        max      = max(agwrc_vals, na.rm = TRUE)
-      )
+      stats_df <- population_stats(agwrc_vals)
       
       DT::datatable(
         stats_df,
@@ -437,36 +427,16 @@ droughtModuleServer <- function(id, gage_obj) {
           digits = 4
         )
     })
-    
+    ## Flow Pop Stats ####
     output$median_flow_population_stats <- renderDT({
       evt <- reg_events_filtered()
       req(nrow(evt) > 0)
       
-      QC <- validate_required_cols(
-        evt,
-        c("median_flow"),
-        context = "events_summary() for median flow population stats"
-      )
-      req(QC)
-      
       flow_vals <- evt$median_flow
-      flow_vals <- flow_vals[!is.na(flow_vals)]
       
       req(length(flow_vals) > 0)
       
-      stats_df <- tibble::tibble(
-        n_events = length(flow_vals),
-        min      = min(flow_vals, na.rm = TRUE),
-        p05      = unname(stats::quantile(flow_vals, 0.05, na.rm = TRUE)),
-        p10      = unname(stats::quantile(flow_vals, 0.10, na.rm = TRUE)),
-        p25      = unname(stats::quantile(flow_vals, 0.25, na.rm = TRUE)),
-        median   = stats::median(flow_vals, na.rm = TRUE),
-        mean     = mean(flow_vals, na.rm = TRUE),
-        p75      = unname(stats::quantile(flow_vals, 0.75, na.rm = TRUE)),
-        p90      = unname(stats::quantile(flow_vals, 0.90, na.rm = TRUE)),
-        p95      = unname(stats::quantile(flow_vals, 0.95, na.rm = TRUE)),
-        max      = max(flow_vals, na.rm = TRUE)
-      )
+      stats_df <- population_stats(flow_vals)
       
       DT::datatable(
         stats_df,
@@ -481,7 +451,7 @@ droughtModuleServer <- function(id, gage_obj) {
     
     ## User Regression and Data Frame ####
     #WORK DONE HERE
-    #Caclulate the regression between Flow and AGWRC based on user included date
+    #Calculate the regression between Flow and AGWRC based on user included date
     #range. We store the regression R object and a pred_df that has the
     #predicted data points along a vector of representative flows for the event
     user_regression <- reactiveVal(NULL)
@@ -492,18 +462,25 @@ droughtModuleServer <- function(id, gage_obj) {
       evt <- reg_events_filtered()
       req(nrow(evt) > 1)
       
-      evt <- evt %>% dplyr::filter(!is.na(event_AGWRC), !is.na(median_flow))
-      req(nrow(evt) > 1)
       #Create lm of log(q) and AGWRC and store model and prediction data frame
       #for plot
-      model <- stats::lm(event_AGWRC ~ log(median_flow), data = evt)
+      # model <- stats::lm(event_AGWRC ~ log(median_flow), data = evt)
+      model <- agws::fit_agwrc_regression(evt)
+      
       flow_seq <- seq(min(evt$median_flow, na.rm = TRUE),
                       max(evt$median_flow, na.rm = TRUE),
                       length.out = 100)
-      
-      pred_df <- data.frame(
+      #Get all prediciton data
+      pred_df <- as.data.frame(
+        predict(model, interval = "confidence", 
+                newdata = data.frame(median_flow = flow_seq))
+      )
+      #Reformat
+      pred_df_all <- data.frame(
         median_flow = flow_seq,
-        event_AGWRC = predict(model, newdata = data.frame(median_flow = flow_seq))
+        event_AGWRC = pred_df$fit,
+        CI_low = pred_df$lwr,
+        CI_high = pred_df$upr
       )
       
       #If available, store workflow regression results as well:
@@ -523,53 +500,39 @@ droughtModuleServer <- function(id, gage_obj) {
       user_regression(
         list(
           model = model,
-          pred_df = pred_df,
+          pred_df = pred_df_all,
           pred_df_workflow = pred_df_workflow
         )
       )
     })
+    
     ## Regression Plot ####
+    #Not using gage_obj plot to maintain superior labels and hover developed by
+    #HARP that uses full plotly
     output$agwrc_regression_plot <- renderPlotly({
       req(user_regression(), full_storage_df())
+      #For ggplot2::geom_line, add an arbitrary group var:
+      user_data <- user_regression()$pred_df
+      user_data$grp <- "all"
       
-      p <- plotly::plot_ly() |>
-        plotly::add_markers(
-          data = events_summary(),
-          x    = ~median_flow,
-          y    = ~event_AGWRC,
-          name = "Events",
-          customdata = ~GroupID,
-          hovertemplate = paste0(
-            "GroupID: %{customdata}<br>",
-            "Median flow: %{x:.1f} cfs<br>",
-            "Event AGWRC: %{y:.3f}",
-            "<extra></extra>"
-          )
-        ) |>
-        plotly::add_lines(
+      #Base scatterplot
+      p <- gage_obj()$plot_baseflow_agwrc(return_plotly = FALSE, CI = TRUE,
+                                        omsite = omsite) |>
+        # name = "User Regression fit"
+        ggplot2::geom_line(
           data = user_regression()$pred_df,
-          x    = ~median_flow,
-          y    = ~event_AGWRC,
-          name = "User Regression fit"
-        ) 
-      #Add WSPA regression workflow if available
-      if(!is.null(user_regression()$pred_df_workflow)){
-        p <- p |>
-          plotly::add_lines(
-            data = user_regression()$pred_df_workflow,
-            x    = ~median_flow,
-            y    = ~event_AGWRC,
-            name = "WSPA Regression fit"
-          ) 
-      }
-      
-      p |>
-        plotly::layout(
-          title = paste("AGWRC vs Flow (event-level) -", site_name()),
-          xaxis = list(title = "Characteristic event flow (median, cfs)", rangemode = "tozero"),
-          yaxis = list(title = "Event AGWRC")
+          aes(x = .data$median_flow, y = .data$event_AGWRC,
+              group = .data$datagrp,
+              text = paste0(
+                "Median flow: ", round(.data$median_flow,2)," cfs<br>",
+                "Event AGWRC: ", round(.data$event_AGWRC,5)
+              )
+          )
         )
+      
+      return(plotly::ggplotly(p, text = "text"))
     })
+    
     ## User Regression Summary ####
     output$lm_user_summary <- renderPrint({
       evt <- reg_events_filtered()
@@ -587,7 +550,6 @@ droughtModuleServer <- function(id, gage_obj) {
         "Intercept b-pvalue = ",signif(workflowLM()$b_pvalue,4),"\n",
         "R Squared = ",round(workflowLM()$Rsq,4)
       )
-      
     })
     
     
@@ -625,7 +587,7 @@ droughtModuleServer <- function(id, gage_obj) {
     })
     ## Flow Plot ####
     output$event_flow_plot <- renderPlotly({
-      df <- trimmed_df()
+      df <- trimmed_points()
       gid <- selected_group()
       req(!is.null(gid))
       
@@ -647,7 +609,7 @@ droughtModuleServer <- function(id, gage_obj) {
     })
     ## AGWR Plot ####
     output$event_agwr_plot <- renderPlotly({
-      df <- trimmed_df()
+      df <- trimmed_points()
       gid <- selected_group()
       req(!is.null(gid))
       
@@ -700,6 +662,7 @@ droughtModuleServer <- function(id, gage_obj) {
         options = list(pageLength = 10, scrollX = TRUE)
       )
     })
+    
     # 70. Forecast Inputs UI ####
     output$agwrc_inputs <- renderUI({
       if(input$agwrc_calculation == "constant"){
@@ -707,7 +670,7 @@ droughtModuleServer <- function(id, gage_obj) {
           numericInput(
             ns("agwrc_single"),
             label = "AGWRC (single daily ratio)",
-            value = 0.97,
+            value = 1.0,
             min = 0.0,
             max = 1.2,
             step = 0.001
@@ -751,8 +714,23 @@ droughtModuleServer <- function(id, gage_obj) {
       if (nrow(hit) == 1 && !is.na(hit$event_AGWRC)) {
         initial_agwrc <- hit$event_AGWRC
       }else{
-        #Otherwise use the mean event AGWRC found
-        initial_agwrc <- mean(evt$event_AGWRC, na.rm = TRUE)
+        #Otherwise use the regression AGWRC
+        req(workflowLM())
+        df <- full_storage_df()
+        Q0 <- df$Flow[df$Date == input$forecast_start]
+        if(length(Q0) > 0 && !is.null(Q0) && !is.na(Q0)){
+          out <- agws::regressionLimitAGWRC(
+            Flow = Q0, m = gage_obj()$agwrc_lm_m, b = gage_obj()$agwrc_lm_b,
+            low_flow_limit = gage_obj$agwrc_lm_limit$agwrc_reg_qlow,
+            low_agwrc_limit = gage_obj$agwrc_lm_limit$agwrc_reg_clow,
+            high_flow_limit = gage_obj$agwrc_lm_limit$agwrc_reg_qhigh,
+            high_agwrc_limit = gage_obj$agwrc_lm_limit$agwrc_reg_chigh
+          )
+        }else{
+          out <- 1.0
+        }
+        
+        initial_agwrc <- out
       }
       updateNumericInput(session, "agwrc_single", value = round(initial_agwrc, 3))
     }, ignoreInit = TRUE)
@@ -844,7 +822,7 @@ droughtModuleServer <- function(id, gage_obj) {
       selected_date <- as.Date(input$forecast_start)
       
       # filter the trimmed data to be on or before the input date
-      df <- trimmed_df()
+      df <- trimmed_points()
       filtered_df <- df %>% 
         dplyr::filter(Date <= selected_date,
                       !is.na(AGWRC)) %>%
