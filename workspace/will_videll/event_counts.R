@@ -12,15 +12,14 @@
 #'
 #' @returns df with columns for month, event_cnt, and gage_total
 #'
-#' importFrom dplyr n_distinct mutate group_by summarise
-#' @export
+#' @export bf_monthly_events_n
 bf_monthly_events_n <- function(event_df, gage_ID){
-  gage_total <- n_distinct(event_df$GroupID)
+  gage_total <- dplyr::n_distinct(event_df$GroupID)
   monthly_event_count <- event_df |>
-    mutate(month = month(as.Date(start_date, format = "%y-%m-%d"))) |>
-    group_by(month) |>
-    summarise(event_cnt = n_distinct(GroupID)) |>
-    mutate(gage_total = gage_total)
+    dplyr::mutate(month = month(as.Date(start_date, format = "%y-%m-%d"))) |>
+    dplyr::group_by(month) |>
+    dplyr::summarise(event_cnt = n_distinct(GroupID)) |>
+    dplyr::mutate(gage_total = gage_total)
 
 
   cat(paste0("Monthly event totals saved to 'step08_", gageID, "_eventCount.csv'"), "\n\n")

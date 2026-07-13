@@ -1,5 +1,5 @@
-#Strasburg
-gageID <- "0"
+#Clinch River at Cleveland
+gageID <- "03524000"
 
 stepd01_args <- function(...){
   c(gageID, paste0("flow_",gageID, ".csv"))
