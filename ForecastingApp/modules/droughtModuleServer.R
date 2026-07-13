@@ -9,7 +9,7 @@ droughtModuleServer <- function(id, gage_obj) {
       gage_id <- gage_obj()$gage_id
       req(gage_id)
       #Get all workflow data from gage
-      out <- gage_obj$baseflow_workflow_data(omsite = omsite)
+      out <- gage_obj()$baseflow_workflow_data(omsite = omsite)
       
       if(is.null(out)){
         showNotification("No baseflow forecasting data available for this gage.",
@@ -39,7 +39,7 @@ droughtModuleServer <- function(id, gage_obj) {
           # Remove rows that can't support storage math
           out <- out %>%
             dplyr::filter(!is.na(.data$Date), !is.na(.data$Flow), !is.na(.data$AGWRC))
-          message("Loaded analysis rows from om_site: ", nrow(out), " for gage_id = ", gage_id, " (gage)")
+          message("Loaded analysis rows from om_site: ", nrow(out), " for gage_id = ", gage_obj()$gage_id, " (gage)")
         }else{
           out <- NULL
         }
@@ -91,9 +91,13 @@ droughtModuleServer <- function(id, gage_obj) {
       if ("site_name" %in% names(df)) {
         nm <- unique(df$site_name)
         nm <- nm[!is.na(nm) & nzchar(nm)]
-        if (length(nm) > 0) return(nm[1])
+        if (length(nm) > 0){
+          out <- nm[1]
+        } 
+      }else{
+        out <- paste("USGS", gage_obj()$gage_id)
       }
-      paste("USGS", gage_obj()$gage_id)
+      return(out)
     })
     
     # 1b. Storage (AGWS-equivalent) computed locally ####
@@ -238,8 +242,8 @@ droughtModuleServer <- function(id, gage_obj) {
       min_date <- min(df$Date, na.rm = TRUE)
       max_date <- max(df$Date, na.rm = TRUE)
       #Event start and end, to be modified to show more at the start and end:
-      ev_start <- as.Date(ev$start_date[1])
-      ev_end   <- as.Date(ev$end_date[1])
+      ev_start <- as.Date(selected_event$start_date[1])
+      ev_end   <- as.Date(selected_event$end_date[1])
       updateDateRangeInput(
         session,
         "hist_date_range",
@@ -360,9 +364,9 @@ droughtModuleServer <- function(id, gage_obj) {
           regression_b <- gage_obj()$agwrc_lm_b
           #If coefficients found, store stats:
           if(!is.na(regression_b) & !is.na(regression_m)){
-            regression_m_pvalue <- try_agwrc_props[try_agwrc_props$propname == "regression_m_pvalue"]
-            regression_b_pvalue <- try_agwrc_props[try_agwrc_props$propname == "regression_b_pvalue"]
-            regression_Rsq <- try_agwrc_props[try_agwrc_props$propname == "regression_Rsq"]
+            regression_m_pvalue <- try_agwrc_props[try_agwrc_props$propname == "regression_m_pvalue","propvalue"]
+            regression_b_pvalue <- try_agwrc_props[try_agwrc_props$propname == "regression_b_pvalue","propvalue"]
+            regression_Rsq <- try_agwrc_props[try_agwrc_props$propname == "regression_Rsq","propvalue"]
 
             out <- list(
               m = regression_m,
@@ -473,7 +477,7 @@ droughtModuleServer <- function(id, gage_obj) {
       #Get all prediciton data
       pred_df <- as.data.frame(
         predict(model, interval = "confidence", 
-                newdata = data.frame(median_flow = flow_seq))
+                newdata = data.frame(logQ = log(flow_seq)))
       )
       #Reformat
       pred_df_all <- data.frame(
@@ -507,8 +511,6 @@ droughtModuleServer <- function(id, gage_obj) {
     })
     
     ## Regression Plot ####
-    #Not using gage_obj plot to maintain superior labels and hover developed by
-    #HARP that uses full plotly
     output$agwrc_regression_plot <- renderPlotly({
       req(user_regression(), full_storage_df())
       #For ggplot2::geom_line, add an arbitrary group var:
@@ -517,20 +519,23 @@ droughtModuleServer <- function(id, gage_obj) {
       
       #Base scatterplot
       p <- gage_obj()$plot_baseflow_agwrc(return_plotly = FALSE, CI = TRUE,
-                                        omsite = omsite) |>
+                                        omsite = omsite)
         # name = "User Regression fit"
-        ggplot2::geom_line(
-          data = user_regression()$pred_df,
-          aes(x = .data$median_flow, y = .data$event_AGWRC,
-              group = .data$datagrp,
-              text = paste0(
-                "Median flow: ", round(.data$median_flow,2)," cfs<br>",
-                "Event AGWRC: ", round(.data$event_AGWRC,5)
-              )
-          )
+      p <- p + ggplot2::geom_line(
+        data = user_data, 
+        aes(x = .data$median_flow, y = .data$event_AGWRC,
+            group = .data$grp,
+            color = "User Regression",
+            text = paste0(
+              "Median flow: ", round(.data$median_flow,2)," cfs<br>",
+              "Event AGWRC: ", round(.data$event_AGWRC,5)
+            )
         )
-      
-      return(plotly::ggplotly(p, text = "text"))
+      ) + 
+        scale_color_manual(breaks = c("WSPA Regression", "User Regression"),
+                            values = c("steelblue2", "slateblue"))
+      browser()
+      return(plotly::ggplotly(p, tooltip = "text"))
     })
     
     ## User Regression Summary ####
@@ -542,8 +547,8 @@ droughtModuleServer <- function(id, gage_obj) {
     
     output$lm_WSPA_summary <- renderPrint({
       req(workflowLM())
-      
-      cat(
+      browser()
+      print(
         "Slope (m) = ",workflowLM()$m,"\n",
         "Intercept (b) = ",workflowLM()$b,"\n",
         "Slope p-value = ",signif(workflowLM()$m_pvalue,4),"\n",
@@ -721,10 +726,10 @@ droughtModuleServer <- function(id, gage_obj) {
         if(length(Q0) > 0 && !is.null(Q0) && !is.na(Q0)){
           out <- agws::regressionLimitAGWRC(
             Flow = Q0, m = gage_obj()$agwrc_lm_m, b = gage_obj()$agwrc_lm_b,
-            low_flow_limit = gage_obj$agwrc_lm_limit$agwrc_reg_qlow,
-            low_agwrc_limit = gage_obj$agwrc_lm_limit$agwrc_reg_clow,
-            high_flow_limit = gage_obj$agwrc_lm_limit$agwrc_reg_qhigh,
-            high_agwrc_limit = gage_obj$agwrc_lm_limit$agwrc_reg_chigh
+            low_flow_limit = gage_obj()$agwrc_lm_limit$agwrc_reg_qlow,
+            low_agwrc_limit = gage_obj()$agwrc_lm_limit$agwrc_reg_clow,
+            high_flow_limit = gage_obj()$agwrc_lm_limit$agwrc_reg_qhigh,
+            high_agwrc_limit = gage_obj()$agwrc_lm_limit$agwrc_reg_chigh
           )
         }else{
           out <- 1.0
