@@ -1,9 +1,53 @@
-basepath <- "/var/www/R"
-source("/var/www/R/config.R")
-library(hydrotools)
-library(agws)
-gage_obj <- WaterGageDaily$new(gage_id = "03524000", ds_in = ds)
+#basepath <- "/var/www/R"
+#source("/var/www/R/config.R")
+#library(hydrotools)
+#library(agws)
+#library(tidyverse)
+#gage_obj <- WaterGageDaily$new(gage_id = "03524000", ds_in = ds)
+#event_df <- read_csv("C:/HARP/baseflow_storage/step2_03524000.csv")
 
-#Plot forecasts as plotly or ggplot
-forecast_data <- gage_obj$baseflow_forecast(start_date = "2023-07-01", AGWRC = "lm_variable",
-                                            use_limits = TRUE)
+
+#' @title min_flow_accuracy
+#' @name min_flow_accuracy
+#' @description
+#' uses agws::forwardForecast() to create a 90-day forecast for identified 
+#' events at a given USGS gage location. Absolute error and absolute percent error 
+#' are calculated at the minimum observed flow value from the 90-day forecast.
+#' 
+#' @param gage_obj an R6 gage object from VDEQ baseflow workflow
+#' @param event_df df of identified baseflow events from step 02 of VDEQ baseflow workflow.
+#' Requires `GroupID` and `Date` columns.
+#'
+#' @returns df with GroupID, start_date, obs_flow, proj_flow, abs_err, abs_pcnt_err.
+#' @export min_flow_accuracy
+min_flow_accuracy <- function(gage_obj, event_df){
+  
+  event_df1 <- event_df |> 
+    dplyr::group_by(GroupID) |> 
+    dplyr::summarize(start_date = min(Date),
+              obs_min_flow = NA,
+              proj_flow = NA,
+              min_flow_date = NA)
+  
+  for(i in 1:nrow(event_df1)){
+    
+    forecast <- gage_obj$baseflow_forecast(start_date = event_df1$start_date[i], AGWRC = "lm_variable",
+                                           use_limits = TRUE) |> 
+      dplyr::slice_min(obs_flow)
+    
+    event_df1$obs_min_flow[i] <- forecast$obs_flow[1]
+    event_df1$proj_flow[i] <- forecast$Forecast[1]
+    event_df1$min_flow_date[i] <- forecast$Date[1]
+    event_df1$min_flow_date <- as.Date(event_df1$min_flow_date)
+  }
+  
+  event_df1 <- event_df1 |> 
+    dplyr::mutate(days_after_start = min_flow_date - start_date,
+           abs_err = abs(proj_flow - obs_min_flow),
+           abs_pcnt_err = abs(abs_err/obs_min_flow) * 100)
+  return(event_df1)
+}
+
+#test <- min_flow_accuracy(gage_obj, event_df)
+
+

@@ -1,8 +1,6 @@
 #' @title bf_monthly_events_n
 #' @name
 #' bf_monthly_events_n
-#' @description
-#' counts total and monthly number of baseflow events at a given gage
 #' @details
 #' creates a df with total number of bf events,
 #' df also includes total bf events by month
