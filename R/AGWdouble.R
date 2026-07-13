@@ -17,10 +17,10 @@ agwo_hspf <- function(S, C, dthr) {
   return(agwo)
 }
 
-#' AGWdouble 
+#' AGWdouble
 #' @description Object for calculating flows from a 2-compartment AGWS/hsp style surficial aquifer
 #' @details Provides all variables and equations to perform simulatio nand keep track of mass balance
-#' @importFrom R6 R6Class  
+#' @importFrom R6 R6Class
 #' @param agws1 Initial Storage in AGW compartment 1
 #' @param agws2 Initial Storage in AGW compartment 1
 #' @param c1 recession coeffiecent compartment 1 (def=0.99)
@@ -31,9 +31,15 @@ agwo_hspf <- function(S, C, dthr) {
 #' @return reference class of type AGWdouble.
 #' @seealso NA
 #' @examples NA
-#' @export AGWdouble
 AGWdouble <- R6::R6Class(
   public = list(
+    #' @field agws1 Initial Storage in AGW compartment 1
+    #' @field agws2 Initial Storage in AGW compartment 1
+    #' @field c1 recession coeffiecent compartment 1 (def=0.99)
+    #' @field c2 recession coefficient in compartment 2 (def=0.99)
+    #' @field agwsmax1 maximum storage compartment 1 (default=1.0)
+    #' @field agwsmax2 maximum storage in compartment 2 (default=1.0)
+    #' @field tmethod transfer method from 1 to 2 ("all", "trans")
     tmethod="all",
     agws1 = 0.0,
     agws2 = 0.0,
@@ -51,7 +57,7 @@ AGWdouble <- R6::R6Class(
     log = NA,
     dthr = 24.0,
     initialize = function(
-        agws1=0.0, agws2=0.0, c1=0.99, c2=0.99, 
+        agws1=0.0, agws2=0.0, c1=0.99, c2=0.99,
         agwsmax1=1.0, agwsmax2=1.0, tmethod="all"
       ) {
       self$agws1 = agws1
@@ -91,7 +97,7 @@ AGWdouble <- R6::R6Class(
       # now computer transfers from top layer to bottom
       agwin2 = 0.0
       # how much free space in agws2?
-      free2 = (agwsmax2 - agws2) 
+      free2 = (agwsmax2 - agws2)
       # this method assumes lower layer can take all that upper gives
       if (tmethod == "all") {
         tmax2 = free2
@@ -110,7 +116,7 @@ AGWdouble <- R6::R6Class(
       }
       # since we consider agwo as that which goes from GW to the stream
       # we subtract the transfer to the bottom GW layer
-      agwo1 = agwo1 - agwin2 
+      agwo1 = agwo1 - agwin2
       # record total outflow from GW to stream
       agwo = agwo1 + agwo2
       # calculate an effective C to compare to other methods
@@ -121,14 +127,14 @@ AGWdouble <- R6::R6Class(
       agws2 = agws2 + agwin2 - agwo2
       return(
         list(
-          agwo=agwo, agws1=agws1, agws2=agws2, agwo2=agwo2, 
+          agwo=agwo, agws1=agws1, agws2=agws2, agwo2=agwo2,
           agwo1=agwo1, agwin1=agwin1, agwin2=agwin2, ce=ce
         )
       )
     },
     eval = function() {
       outlist = self$solve_double_C(
-        agws1=self$agws1, agws2=self$agws2, c1=self$c1, c2=self$c2, agwsmax1=self$agwsmax1, 
+        agws1=self$agws1, agws2=self$agws2, c1=self$c1, c2=self$c2, agwsmax1=self$agwsmax1,
         agwsmax2=self$agwsmax2, agwin1=self$agwin1, dthr=self$dthr, tmethod=self$tmethod
       )
       self$agws1 = outlist$agws1
@@ -155,7 +161,7 @@ AGWdouble <- R6::R6Class(
       )
       if (format != "dataframe") {
         output = kableExtra::kable(
-          output, 
+          output,
           format=format
         )
       }
