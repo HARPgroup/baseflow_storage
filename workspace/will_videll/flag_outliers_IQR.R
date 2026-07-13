@@ -1,3 +1,12 @@
+#' @title flag_outliers_IQR
+#' @name flag_outliers_IQR
+#' @details
+#' Adds column to flag events outside acceptable IQR range.
+#'
+#' @param event_df df from step 06 of DEQ bf workflow
+#'
+#' @returns event_df data frame of recorded
+#' @export flag_outliers_IQR
 flag_outliers_IQR <- function(event_df) {
   # calculate Q1, Q3, and IQR
   Q1 = quantile(event_df$logQ, 0.25, na.rm = TRUE)
@@ -30,7 +39,7 @@ flag_outliers_IQR <- function(event_df) {
   cat(flagged_val_msg, "\n")
   # create a new column in event_df that lists T/F for outliers
   event_df <- event_df %>%
-    mutate(IQR_flagged_outlier = logQ < lower |
+    dplyr::mutate(IQR_flagged_outlier = logQ < lower |
              logQ > upper)
   return(event_df)
 }
