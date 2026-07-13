@@ -100,100 +100,14 @@ droughtModuleServer <- function(id, gage_obj) {
       return(out)
     })
     
-    # 1b. Storage (AGWS-equivalent) computed locally ####
-    ## Calculate Trimmed Storage ####
-    #WORK DONE HERE -> Separate Workflow?
-    storage_points <- reactive({
-      df <- trimmed_points()
-      req(nrow(df) > 0)
-      
-      out <- tryCatch(
-        add_storage_cols(
-          df = df,
-          data_obj = gage_obj,
-          site_num = gage_obj()$gage_id,
-          flow_col = "Flow",
-          agwrc_col = "AGWRC"
-        ),
-        error = function(e) {
-          showNotification(paste("Storage calculation failed:", e$message), type = "error", duration = NULL)
-          return(NULL)
-        }
-      )
-      
-      req(!is.null(out), nrow(out) > 0)
-      QC <- validate_required_cols(out, c("Date", "Flow_in", "Storage_in"), context = "storage_points() output")
-      if(!QC){
-        out <- NULL
-      }
-      return(out)
-    })
-    
-    ## Summarize Storage Events ####
-    #WORK DONE HERE -> Separate Workflow?
-    storage_event_sums <- reactive({
-      req(storage_points())
-      df <- storage_points()
-      QC <- validate_required_cols(df, c("Date", "GroupID", "Flow_in", "Storage_in"),
-                                   context = "storage_points() for event summary")
-      if(QC & nrow(df) > 0){
-        has_agwet <- "AGWET" %in% names(df)
-        
-        out <- df %>%
-          dplyr::arrange(.data$GroupID, .data$Date) %>%
-          dplyr::group_by(.data$GroupID) %>%
-          dplyr::summarise(
-            start_date = min(.data$Date, na.rm = TRUE),
-            end_date   = max(.data$Date, na.rm = TRUE),
-            Storage_0  = .data$Storage_in[which.min(.data$Date)],
-            Storage_f  = .data$Storage_in[which.max(.data$Date)],
-            Flow_tot   = sum(.data$Flow_in, na.rm = TRUE),
-            AGWET_tot  = if (has_agwet) sum(.data$AGWET, na.rm = TRUE) else NA_real_,
-            .groups = "drop"
-          ) %>%
-          dplyr::mutate(
-            remainder = .data$Storage_0 - .data$Flow_tot - .data$Storage_f
-          )
-      }else{
-        out <- NULL
-      }
-      
-      return(out)
-    })
-    
     ## Interpolate Storage ####
-    #WORK DONE HERE -> Move to object?
     #Interpolate storage between events
     full_storage_df <- reactive({
-      req(storage_points())
       #Has user requested storage or flow?
       metric <- input$forecast_metric %||% "flow"
-      sp <- storage_points()
       if(metric == "storage"){
-        flow_storage <- raw_daily() |> 
-          #Remove data prior to the first known baseflow event. This data has
-          #unknown last AGWRC
-          filter(Date >= min(sp$Date)) |> 
-          left_join(sp, by = c("Date","Flow"))
-        
-        for(i in 1:nrow(flow_storage)){
-          if(is.na(flow_storage$Storage_in[i])){
-            #If today's storage is na, first use the previous day (the last known
-            #baseflow event) AGWRC
-            flow_storage$AGWRC[i] <- flow_storage$AGWRC[i - 1]
-          }
-        }
-        #Now find storage based on that AGWRC
-        storage_df_i <- add_storage_cols(
-          df = flow_storage,
-          data_obj = gage_obj,
-          site_num = gage_obj()$gage_id,
-          flow_col = "Flow",
-          agwrc_col = "AGWRC"
-        )
-        #Store in flow_storage
-        flow_storage$Flow_in <- storage_df_i$Flow_in
-        flow_storage$Storage_in <- storage_df_i$Storage_in
+        showNotification("Not implemented yet.")
+        flow_storage <- NULL
       }else{
         flow_storage <- raw_daily()
       }
@@ -533,8 +447,9 @@ droughtModuleServer <- function(id, gage_obj) {
         )
       ) + 
         scale_color_manual(breaks = c("WSPA Regression", "User Regression"),
-                            values = c("steelblue2", "slateblue"))
-      browser()
+                            values = c("steelblue2", "slateblue")) + 
+        ggplot2::labs(title = "AGWRC vs Flow (event-level)")
+      
       return(plotly::ggplotly(p, tooltip = "text"))
     })
     
@@ -545,10 +460,9 @@ droughtModuleServer <- function(id, gage_obj) {
       summary(user_regression()$model)
     })
     
-    output$lm_WSPA_summary <- renderPrint({
+    output$lm_WSPA_summary <- renderText({
       req(workflowLM())
-      browser()
-      print(
+      paste0(
         "Slope (m) = ",workflowLM()$m,"\n",
         "Intercept (b) = ",workflowLM()$b,"\n",
         "Slope p-value = ",signif(workflowLM()$m_pvalue,4),"\n",
@@ -668,17 +582,16 @@ droughtModuleServer <- function(id, gage_obj) {
       )
     })
     
-    # 70. Forecast Inputs UI ####
+    # 70. Forecast UI ####
     output$agwrc_inputs <- renderUI({
       if(input$agwrc_calculation == "constant"){
         out <- tagList(
           numericInput(
             ns("agwrc_single"),
             label = "AGWRC (single daily ratio)",
-            value = 1.0,
+            value = 0.97,
             min = 0.0,
-            max = 1.2,
-            step = 0.001
+            max = 1.0
           ),
           fluidRow(
             column(6,
@@ -705,175 +618,179 @@ droughtModuleServer <- function(id, gage_obj) {
     
     
     # 7a. Auto-default AGWRC ####
-    observeEvent(list(input$forecast_start, events_summary()), {
+    ## Rec AGWRs ####
+    ### Last known ####
+    # Identify known baseflow period or last known event:
+    last_known_event <- reactiveVal(NULL)
+    observe({
+      out <- NULL
       req(input$forecast_start)
-      evt <- events_summary()
-      req(nrow(evt) > 0)
+      # save the input date as a variable
+      selected_date <- as.Date(input$forecast_start)
       
-      sd <- as.Date(input$forecast_start)
-      
-      hit <- evt %>%
-        dplyr::filter(start_date <= sd, end_date >= sd) %>%
-        dplyr::slice(1)
-      
-      if (nrow(hit) == 1 && !is.na(hit$event_AGWRC)) {
-        initial_agwrc <- hit$event_AGWRC
-      }else{
-        #Otherwise use the regression AGWRC
-        req(workflowLM())
-        df <- full_storage_df()
-        Q0 <- df$Flow[df$Date == input$forecast_start]
-        if(length(Q0) > 0 && !is.null(Q0) && !is.na(Q0)){
-          out <- agws::regressionLimitAGWRC(
-            Flow = Q0, m = gage_obj()$agwrc_lm_m, b = gage_obj()$agwrc_lm_b,
-            low_flow_limit = gage_obj()$agwrc_lm_limit$agwrc_reg_qlow,
-            low_agwrc_limit = gage_obj()$agwrc_lm_limit$agwrc_reg_clow,
-            high_flow_limit = gage_obj()$agwrc_lm_limit$agwrc_reg_qhigh,
-            high_agwrc_limit = gage_obj()$agwrc_lm_limit$agwrc_reg_chigh
+      #Known baseflow event
+      evt <- events_summary() %>%
+        dplyr::filter(
+          start_date <= selected_date,
+          end_date >= selected_date
+        )
+      #Return stats if known event exists:
+      if (nrow(evt) == 0) {
+        # filter the trimmed data to be on or before the input date
+        df <- events_summary()
+        filtered_df <- df %>% 
+          dplyr::filter(end_date <= selected_date,
+                        !is.na(event_AGWRC)) |> 
+          dplyr::mutate(start_date = as.Date(start_date), 
+                        end_date = as.Date(end_date))
+        
+        # select the last row from the filtered dates
+        last_event <- filtered_df[which.max(filtered_df$end_date),]
+        
+        if(nrow(last_event) > 0){
+          # Return event info if it exists
+          out <- list(
+            agwrc = last_event$event_AGWRC,
+            start_date = last_event$start_date,
+            end_date = last_event$end_date,
+            groupID = last_event$GroupID,
+            type = "Last Known Baseflow Event"
           )
-        }else{
-          out <- 1.0
         }
         
-        initial_agwrc <- out
-      }
-      updateNumericInput(session, "agwrc_single", value = round(initial_agwrc, 3))
-    }, ignoreInit = TRUE)
-    
-    # Identify known baseflow periods 
-    current_baseflow_event <- reactive({
-      req(input$forecast_start)
-      
-      evt <- events_summary()
-      req(nrow(evt) > 0)
-      
-      evt <- evt %>%
-        dplyr::filter(
-          start_date <= as.Date(input$forecast_start),
-          end_date >= as.Date(input$forecast_start)
+      }else{
+        # Return event info if it exists
+        out <- list(
+          agwrc = evt$event_AGWRC[1],
+          start_date = evt$start_date[1],
+          end_date = evt$end_date[1],
+          groupID = evt$GroupID[1],
+          type = "Known Baseflow Event"
         )
-      
-      if (nrow(evt) == 0) {
-        return(list(
-          data = NULL,
-          GroupID = NULL,
-          start_date = NULL,
-          end_date = NULL
-        ))
       }
-      
-      list(
-        data = evt,
-        GroupID = evt$GroupID[1],
-        start_date = evt$start_date[1],
-        end_date = evt$end_date[1],
-        AGWRC = evt$event_AGWRC[1]
-      )
+      last_known_event(out)
     })
     
     # define the UI output
     output$baseflow_event_info <- renderUI({
-      ev <- current_baseflow_event()
       out <- NULL
-      if (is.null(ev$data)) {
-        out <- p(strong("Baseflow event status:"),
-                 br(),"Selected forecast start date is not within a known baseflow event."
-        )
-      } else {
+      if (!is.null(last_known_event())) {
         # reduce the number of AGWRC decimal points to 4
-        reduced_dec <- sprintf("%.4f", ev$AGWRC)
         out <- p(strong("Baseflow event status:"),
-                 br(),em("Known baseflow event"),
-                 br(),em("GroupID:"), ev$GroupID,
-                 br(),em("Event Dates:"), ev$start_date, 
-                 "to", ev$end_date,
-                 br(),em("Event AGWRC:"), reduced_dec
+                 br(),em(last_known_event()$type),
+                 br(),em("GroupID:"), last_known_event()$groupID,
+                 br(),em("Event Dates:"), last_known_event()$start_date, 
+                 "to", last_known_event()$end_date,
+                 br(),em("Event AGWRC:"), sprintf("%.4f", last_known_event()$agwrc)
         )
       }
       return(out)
     })
     
-    ## Constant AGWRC Recommendations ####
-    #Calculate a recommended AGWRC from today's flow using user regression
-    output$agwrc_user_lm <- renderText({
-      req(user_regression(), full_storage_df())
-      df <- full_storage_df()
-      Q0 <- df$Flow[df$Date == input$forecast_start]
-      if(length(Q0) > 0 && !is.null(Q0) && !is.na(Q0)){
-        out <- coef(user_regression()$model)[2] * log(Q0) + coef(user_regression()$model)[1]
-      }else{
-        out <- NULL
+    ### Q0 ####
+    #Flow on selected day
+    Q0 <- reactive({
+      out <- NULL
+      #If the forecast date and processed gage data are no null, find the
+      #starting flow on the forecast date
+      if(!is.null(input$forecast_start) && !is.null(raw_daily())){
+        Qinitial <- raw_daily()$Flow[raw_daily()$Date == input$forecast_start]
+        if(length(Qinitial) > 0 && !is.null(Qinitial) && !is.na(Qinitial)){
+          #If no flow is available, keep as null. Otherwise, return flow:
+          out <- Qinitial
+        }
+      }
+      if((!is.null(input$forecast_start) && !is.null(raw_daily())) && is.null(out)){
+        showNotification("Selected forecast start date has no flow record.", type = "error")
       }
       return(out)
-    })
-    #Calculate a recommended AGWRC from today's flow using WSPA regression
-    output$agwrc_wspa_lm <- renderText({
-      req(workflowLM())
-      df <- full_storage_df()
-      Q0 <- df$Flow[df$Date == input$forecast_start]
-      if(length(Q0) > 0 && !is.null(Q0) && !is.na(Q0)){
-        out <- workflowLM()$m * log(Q0) + workflowLM()$b
-      }else{
-        out <- NULL
-      }
-      return(out)
-    })
-    #Calculate last known AGWRC value
-    last_known_agwrc <- reactive({
-      # run the forecast_start code first
-      req(input$forecast_start)
-      
-      # save the input date as a variable
-      selected_date <- as.Date(input$forecast_start)
-      
-      # filter the trimmed data to be on or before the input date
-      df <- trimmed_points()
-      filtered_df <- df %>% 
-        dplyr::filter(Date <= selected_date,
-                      !is.na(AGWRC)) %>%
-        dplyr::arrange(Date)
-      
-      # ensure that df has at least one row to prevent errors
-      req(nrow(filtered_df) > 0)
-      
-      # select the last row from the filtered dates
-      last_row <- dplyr::slice_tail(filtered_df, n = 1)
-      
-      # create a list to return date, AGWRC, and GroupID
-      list(
-        AGWRC = last_row$AGWRC,
-        Date = last_row$Date,
-        GroupID = last_row$GroupID
-      )
-      
-      # reduce the number of AGWRC decimal points to 4
-      reduced_dec <- sprintf("%.4f", last_row$AGWRC)
-      
-      # paste these values vertically in the output text
-      paste(
-        "Last known AGWRC:", reduced_dec,
-        "\nDate:", last_row$Date,
-        "\nGroupID:", last_row$GroupID
-      )
     })
     
-    # define the output for verbatimTextOuptut in UI
-    output$last_known_agwrc <- renderText({
-      req(last_known_agwrc())
+    ### Regression ####
+    #Calculate a recommended AGWRC from today's flow using user regression
+    agwrc_wspa_reg_value <- reactiveVal(NULL)
+    agwrc_user_reg_value <- reactiveVal(NULL)
+    observe({
+      req(user_regression(), workflowLM(), Q0())
+      #If the user chooses to use limits, get off gage. Otherwise set to NULL
+      if(input$agwrc_limits){
+        low_q <- gage_obj()$agwrc_lm_limit$agwrc_reg_qlow
+        low_c <- gage_obj()$agwrc_lm_limit$agwrc_reg_clow
+        high_q <- gage_obj()$agwrc_lm_limit$agwrc_reg_qhigh
+        high_c <- gage_obj()$agwrc_lm_limit$agwrc_reg_chigh
+      }else{
+        low_q <-  NULL
+        low_c <-  NULL
+        high_q <- NULL
+        high_c <- NULL
+      }
+      
+      m <- workflowLM()$m
+      b <- workflowLM()$b
+      
+      #WSPA regression
+      wspa_reg_value <- agws::regressionLimitAGWRC(
+        Flow = Q0(), m = m, b = b,
+        low_flow_limit = low_q,
+        low_agwrc_limit = low_c,
+        high_flow_limit = high_q,
+        high_agwrc_limit = high_c
+      )
+      #user regression
+      user_reg_value <- coef(user_regression()$model)[2] * log(Q0()) + coef(user_regression()$model)[1]
+      #Store value for UI or later use
+      agwrc_wspa_reg_value(wspa_reg_value)
+      agwrc_user_reg_value(user_reg_value)
     })
+    
+    #Display the regression results for the selected flow:
+    output$agwrc_user_lm <- renderText({
+      return(agwrc_user_reg_value())
+    })
+    output$agwrc_wspa_lm <- renderText({
+      return(agwrc_wspa_reg_value())
+    })
+    
+    ## Default AGWRC ####
+    observeEvent(Q0(), {
+      req(input$forecast_start)
+      evt <- events_summary()
+      req(nrow(evt) > 0)
+      
+      initial_agwrc <- NULL
+      #If in known event, use the known value
+      if (!is.null(last_known_event()) && last_known_event()$type == "Last Known Baseflow Event") {
+        initial_agwrc <- last_known_event()$agwrc
+      }else{
+        #Otherwise use the WSPA regression value if valid. If not, use last
+        #known event or mean AGWRC:
+        if(!is.null(agwrc_wspa_reg_value())){
+          initial_agwrc <- agwrc_wspa_reg_value()
+        }else if (!is.null(last_known_event()) && last_known_event()$type == "Known Baseflow Event"){
+          initial_agwrc <- last_known_event()$agwrc
+        }else{
+          initial_agwrc <- mean(event_summary()$event_agwrc, na.rm = TRUE)
+        }
+      }
+      
+      if(!is.null(input$agwrc_single)){
+        #Update numeric input
+        updateNumericInput(session, "agwrc_single", value = round(initial_agwrc, 3))
+      }
+    })
+    
     
     # 7b. Forecast logic (single AGWRC for now) + AGWS display ####
     #Update the date input with the max date found in the raw data
-    observeEvent(raw_daily(), {
+    observeEvent(raw_daily(), ignoreInit = FALSE, {
       df <- raw_daily()
       if (nrow(df) > 0) {
         updateDateInput(session, "forecast_start", value = max(df$Date, na.rm = TRUE))
       }
-    }, ignoreInit = FALSE)
+    })
     
     forecast_horizons <- c(15, 30, 45, 90)
     ## Calculate forecast data frame ####
-    #WORK DONE HERE -> Move to object?
     #Calculate forecast results and return a data frame that has the forecast
     #values, date, and days after start (integer)
     forecast_results <- reactive({
@@ -881,15 +798,10 @@ droughtModuleServer <- function(id, gage_obj) {
       req(nrow(df) > 0)
       start_date <- as.Date(input$forecast_start)
       agwrc <- input$agwrc_single
-      req(!is.na(start_date), !is.na(agwrc))
+      req(!is.na(start_date), !is.na(agwrc), Q0())
       #QC checks: Flow must exist on the start date and the input AGWRC must be
       #valid
-      Q0 <- df$Flow[df$Date == start_date]
-      if (length(Q0) == 0) {
-        showNotification("Selected forecast start date has no flow record.", type = "error")
-        return(NULL)
-      }
-      if(!is.null(input$agwrc_single)){
+      if(input$agwrc_calculation == "constant" && !is.null(input$agwrc_single)){
         if (is.na(input$agwrc_single) || input$agwrc_single >= 1 || input$agwrc_single <= 0) {
           showNotification("Selected AGWRC must be between 0 and 1.", type = "error")
           return(NULL)
@@ -906,75 +818,81 @@ droughtModuleServer <- function(id, gage_obj) {
       #If metric is storage, project storage and calculate flow. If metric is
       #flow, project flow and calculate storage.
       if (metric == "storage") {
-        sp <- storage_points()
-        if (is.null(sp) || nrow(sp) == 0 || !(start_date %in% sp$Date)) {
-          showNotification(paste0("The selected start date falls outside of known 
-                           baseflow periods. Storage will be estimated between
-                                  baseflow periods based on flow and last known 
-                                  recession coefficients. The input AGWRC will
-                                  ONLY be used in the forward projection."),
-                           type = "message", duration = 10)
-        }
-        S0 <- df$Storage_in[df$Date == start_date]
-        #### Projected Storage ####
-        agwrc      <- input$agwrc_single
-        proj_storage_in <- S0 * (agwrc ^ (1:max(forecast_horizons)))
-        # Recalculate flow
-        proj_flow_in <- (1 - agwrc) * proj_storage_in
-        proj_flow <- proj_flow_in / sp_conv
+        showNotification("Can't forecast, not yet implemented.")
       } else {
         #### Flow Projection ####
         #Initial Flow
-        Q0 <- as.numeric(Q0[1])
         if(input$agwrc_calculation == "constant"){
           req(input$agwrc_single)
           ##### Constant ####
           agwrc <- input$agwrc_single
-          #Projection
-          proj_flow <- Q0 * (agwrc ^ (1:max(forecast_horizons)))
-          proj_flow_in <- proj_flow * sp_conv
-          #If flow is the metric, we estimate storage via Q / (1 - AGWRC)
-          proj_storage_in <- proj_flow_in / (1 - agwrc)
+          #Projection - no need to use limits as they do not apply in the
+          #baseflow_forecast for a user input AGWRC. Instead, these are applied
+          #in the recommended values
+          proj_flow <- gage_obj()$baseflow_forecast(start_date = start_date,
+                                                    AGWRC = agwrc)
           
         }else if(input$agwrc_calculation == "variable"){
           ##### Variable ####
           req(input$agwrc_regression)
-          proj_flow <- numeric(max(forecast_horizons))
-          proj_flow_in <- numeric(max(forecast_horizons))
-          proj_storage_in <- numeric(max(forecast_horizons))
-          agwrc <- numeric(max(forecast_horizons))
+          
           if(input$agwrc_regression == "user"){
             m <- coef(user_regression()$model)[2]
             b <- coef(user_regression()$model)[1]
+            low_q <- exp(min(user_regression()$model$model$logQ))
+            low_c <- user_regression()$model$fitted.values[which.min(user_regression()$model$model$logQ)]
+            high_q <- exp(max(user_regression()$model$model$logQ))
+            high_c <- user_regression()$model$fitted.values[which.max(user_regression()$model$model$logQ)]
           }else if(input$agwrc_regression == "wspa"){
             m <- workflowLM()$m
             b <- workflowLM()$b
+            low_q <-  gage_obj()$agwrc_lm_limit$agwrc_reg_qlow
+            low_c <-  gage_obj()$agwrc_lm_limit$agwrc_reg_clow
+            high_q <- gage_obj()$agwrc_lm_limit$agwrc_reg_qhigh
+            high_c <- gage_obj()$agwrc_lm_limit$agwrc_reg_chigh
           }
-          #Inital value
-          agwrc[1] <- m * log(Q0) + b
-          proj_flow[1] <- Q0 * agwrc[1]
-          proj_flow_in[1] <- proj_flow[1] * sp_conv
-          proj_storage_in[1] <- proj_flow_in[1] / (1 - agwrc[1])
-          #Iterate using variable agwr calculated from regression
-          for(i in 2:max(forecast_horizons)){
-            agwrc[i] <- m * log(proj_flow[i - 1]) + b
-            #Projection
-            proj_flow[i] <- proj_flow[i - 1] * agwrc[i]
-            proj_flow_in[i] <- proj_flow[i] * sp_conv
-            #If flow is the metric, we estimate storage via Q / (1 - AGWRC)
-            proj_storage_in[i] <- proj_flow_in[i] / (1 - agwrc[i])
+          #If the user wishes to ignore regression limits and extrapolate, set
+          #to NULL:
+          if(!input$agwrc_limits){
+            low_q <-  NULL
+            low_c <-  NULL
+            high_q <- NULL
+            high_c <- NULL
           }
+          
+          #Projection
+          proj_flow <- agws::forwardForecast(Q0 = Q0(),
+                                               AGWRC = "lm_variable", 
+                                               m = m, b = b,
+                                               low_flow_limit = low_q, 
+                                               low_agwrc_limit = low_c,
+                                               high_flow_limit = high_q, 
+                                               high_agwrc_limit = high_c
+          )
+          #Join back in the observed flow, when possible, to allow for easier
+          #historic lookback comparisons
+          proj_flow$Date <- as.Date(start_date) + proj_flow$Day
+          #Join in the observed flow where possible:
+          proj_flow$obs_flow <- gage_obj()$gage_data[match(proj_flow$Date,
+                                                           gage_obj()$gage_data[,gage_obj()$date_col]),
+                                                     gage_obj()$flow_col]
         }
         
+        #Convert to watershed inches
+        proj_flow$proj_flow_in <- agws::convert.flow(flow_col = proj_flow$Forecast,
+                                                     area_sqmi = gage_obj()$drainage_area)
+        #If flow is the metric, we estimate storage via Q / (1 - AGWRC)
+        proj_flow$proj_storage_in <- proj_flow$proj_flow_in / (1 - proj_flow$AGWRC)
       }
       #Assemble an output
-      out <- tibble::tibble(
-        horizon_days      = 1:max(forecast_horizons),
-        forecast_date     = start_date + horizon_days,
-        AGWRC             = agwrc,
-        proj_flow_cfs     = proj_flow,
-        proj_flow_in_day  = proj_flow_in,
-        proj_storage_in   = proj_storage_in
+      out <- data.frame(
+        horizon_days      = proj_flow$Day,
+        forecast_date     = proj_flow$Day + start_date,
+        AGWRC             = proj_flow$AGWRC,
+        proj_flow_cfs     = proj_flow$Forecast,
+        proj_flow_in_day  = proj_flow$proj_flow_in,
+        proj_storage_in   = proj_flow$proj_storage_in,
+        obs_flow_cfs      = proj_flow$obs_flow
       )
       return(out)
     })
@@ -982,9 +900,7 @@ droughtModuleServer <- function(id, gage_obj) {
     output$forecast_table <- renderDT({
       fr <- forecast_results()
       req(fr)
-      df <- full_storage_df()
-      fr <- fr[fr$horizon_days %in% forecast_horizons,] |> 
-        left_join(df, by = c("forecast_date" = "Date"))
+      fr <- fr[fr$horizon_days %in% forecast_horizons,]
       
       DT::datatable(
         fr %>%
@@ -994,29 +910,13 @@ droughtModuleServer <- function(id, gage_obj) {
             AGWRC,
             proj_flow_cfs    = round(proj_flow_cfs, 2),
             proj_storage_in  = round(proj_storage_in, 4),
-            obs_flow_cfs = round(Flow, 2)
+            obs_flow_cfs     = round(obs_flow_cfs, 2)
           ),
         rownames = FALSE,
         options = list(dom = "tp", pageLength = 6)
       )
     })
     
-    output$storage_event_table <- renderDT({
-      evs <- storage_event_sums()
-      req(nrow(evs) > 0)
-      DT::datatable(
-        evs %>%
-          dplyr::mutate(
-            Storage_0 = round(Storage_0, 4),
-            Storage_f = round(Storage_f, 4),
-            Flow_tot  = round(Flow_tot, 4),
-            AGWET_tot = round(AGWET_tot, 4),
-            remainder = round(remainder, 4)
-          ),
-        rownames = FALSE,
-        options = list(pageLength = 8, scrollX = TRUE)
-      )
-    })
     ## Plot ####
     output$forecast_plot <- renderPlotly({
       metric <- input$forecast_metric %||% "flow"

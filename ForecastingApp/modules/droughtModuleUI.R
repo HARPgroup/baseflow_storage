@@ -92,11 +92,7 @@ droughtModuleUI <- function(id) {
             dateInput(
               ns("forecast_start"),
               label = "Projection start date (must exist in historical data):",
-              value = Sys.Date()
-            ),
-            helpText("Last known AGWRC"),
-            verbatimTextOutput(
-              ns("last_known_agwrc")
+              value = (Sys.Date() - 1)
             ),
             uiOutput(ns("baseflow_event_info")),
             radioButtons(
@@ -104,6 +100,11 @@ droughtModuleUI <- function(id) {
               label = "Will recession coefficients be constant or variable?",
               choiceNames = c("Constant (single value)", "Variable (regression)"),
               choiceValues = c("constant","variable")
+            ),
+            checkboxInput(
+              ns("agwrc_limits"),
+              label = "Shoud AGWRC be restricted to regression min/max?",
+              value = TRUE
             ),
             uiOutput(ns("agwrc_inputs")),
             radioButtons(
@@ -126,10 +127,7 @@ droughtModuleUI <- function(id) {
             plotlyOutput(ns("forecast_plot")),
             br(),
             h4("Projected Values"),
-            DTOutput(ns("forecast_table")),
-            br(),
-            h4("Storage summaries (from Flow + AGWRC)"),
-            DTOutput(ns("storage_event_table"))
+            DTOutput(ns("forecast_table"))
           )
         )
       )
