@@ -5,7 +5,7 @@
 #'
 #' @param event_df df from step 06 of DEQ bf workflow
 #'
-#' @returns event_df data frame of recorded
+#' @returns event_df data frame of recorded events with flags based on IQR
 #' @export flag_outliers_IQR
 flag_outliers_IQR <- function(event_df) {
   # calculate Q1, Q3, and IQR

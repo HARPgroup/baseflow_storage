@@ -22,6 +22,7 @@
 #' @export min_flow_accuracy
 min_flow_accuracy <- function(gage_obj, event_df){
   
+  #group event data by GroupID, 1 row per event.Create empty columns for data.
   event_df1 <- event_df |> 
     dplyr::group_by(GroupID) |> 
     dplyr::summarize(start_date = min(Date),
@@ -29,18 +30,22 @@ min_flow_accuracy <- function(gage_obj, event_df){
               proj_flow = NA,
               min_flow_date = NA)
   
+  #loop through each event
   for(i in 1:nrow(event_df1)){
     
+    #run agws::forwardForecast() at event start date and slice the day with the lowest observed flow.
     forecast <- gage_obj$baseflow_forecast(start_date = event_df1$start_date[i], AGWRC = "lm_variable",
                                            use_limits = TRUE) |> 
       dplyr::slice_min(obs_flow)
     
+    #fill empty data columns with values from sliced forecast
     event_df1$obs_min_flow[i] <- forecast$obs_flow[1]
     event_df1$proj_flow[i] <- forecast$Forecast[1]
     event_df1$min_flow_date[i] <- forecast$Date[1]
     event_df1$min_flow_date <- as.Date(event_df1$min_flow_date)
   }
   
+  #calculate error
   event_df1 <- event_df1 |> 
     dplyr::mutate(days_after_start = min_flow_date - start_date,
            abs_err = abs(proj_flow - obs_min_flow),
