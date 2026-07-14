@@ -24,6 +24,13 @@ droughtModuleUI <- function(id) {
         ),
         plotlyOutput(ns("historical_plot")),
         br(),
+        fluidRow(
+          column(
+            12, align = "center",
+            actionButton(ns("find_stats"), "Recession Stats For Display Period", icon = icon("calculator"))
+          )
+        ),
+        br(),
         h4("Identified Baseflow Events (Trimmed)"),
         p("Each row summarizes a trimmed baseflow recession event (GroupID)."),
         DTOutput(ns("events_table")),

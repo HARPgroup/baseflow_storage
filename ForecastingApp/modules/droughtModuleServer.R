@@ -246,6 +246,37 @@ droughtModuleServer <- function(id, gage_obj) {
         )
     })
     
+    ## Calc Event Stats ####
+    observeEvent(input$find_stats,{
+      #First, use agws::summarize_event to get the AGWRC and R2 for this event
+      #Then, launch a modalDialogue that contains a plot of the agwr and dagwr
+      #for this event
+      #Below the plot, the agwrc and R2 should be noted
+      event_data <- raw_daily()[raw_daily()$Date >= min(input$hist_date_range) &
+                    raw_daily()$Date <= max(input$hist_date_range),]
+      event_data$AGWR <- agws::calc_AGWR(event_data$Flow)
+      event_data$delta_AGWR <- agws::calc_delta_AGWR(event_data$AGWR)
+      event_data$GroupID <- 1
+      
+      event_stats <- agws::summarize_event(event_data, event_number = 1, dAGWR_range = 0.03)
+      
+      showModal(
+        modalDialog(
+          title = paste("Recession Statistics for Period",min(input$hist_date_range),
+                        "to", max(input$hist_date_range)),
+          fluidRow(
+            column(6,
+                   p("Event AGWRC:", round(event_stats$calc_AGWRC[1], 4))
+            ),
+            column(6,
+                   p("Event R2:", round(event_stats$R_squared[1], 4))
+            )
+          )
+        )
+      )
+    })
+    
+    
     # 4. Events table (DT) ####
     output$events_table <- renderDT({
       evt <- events_summary()
@@ -810,10 +841,6 @@ droughtModuleServer <- function(id, gage_obj) {
       
       metric <- input$forecast_metric %||% "flow"
       
-      # Convert projected flow to inches/day (used for diagnostics/table; not required for storage projection)
-      da <- gage_obj()$drainage_area
-      sp_conv <- if (!is.na(da) && da > 0) ((86400 * 12) / (5280 * 5280)) / da else NA_real_
-      
       ### Storage and Flow projection: ####
       #If metric is storage, project storage and calculate flow. If metric is
       #flow, project flow and calculate storage.
@@ -907,7 +934,7 @@ droughtModuleServer <- function(id, gage_obj) {
           dplyr::transmute(
             horizon_days,
             forecast_date,
-            AGWRC,
+            AGWRC            = round(AGWRC, 4),
             proj_flow_cfs    = round(proj_flow_cfs, 2),
             proj_storage_in  = round(proj_storage_in, 4),
             obs_flow_cfs     = round(obs_flow_cfs, 2)
