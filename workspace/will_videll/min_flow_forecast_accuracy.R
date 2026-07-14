@@ -5,8 +5,7 @@
 #library(tidyverse)
 #gage_obj <- WaterGageDaily$new(gage_id = "03524000", ds_in = ds)
 #event_df <- read_csv("C:/HARP/baseflow_storage/step2_03524000.csv")
-
-
+#var <- gage_obj$baseflow_workflow_data(omsite)
 #' @title min_flow_accuracy
 #' @name min_flow_accuracy
 #' @description
