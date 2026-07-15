@@ -68,7 +68,7 @@ step2filt <- step2 |>
       # Remove previous FALSE run if < 7
       if (i > 1 &&
           !runs$values[i - 1] &&
-          runs$lengths[i - 1] < 7) {
+          runs$lengths[i - 1] < 11) {
 
         remove[starts[i - 1]:ends[i - 1]] <- T
       }
@@ -76,7 +76,7 @@ step2filt <- step2 |>
       # Remove next FALSE run if < 7
       if (i < length(runs$values) &&
           !runs$values[i + 1] &&
-          runs$lengths[i + 1] < 7) {
+          runs$lengths[i + 1] < 11) {
 
         remove[starts[i + 1]:ends[i + 1]] <- T
       }
@@ -96,9 +96,4 @@ step2a$flag_storm <- NULL
 "step2a_02016000.csv" <- step2a
 gageID <- '02016000'
 
-stepa03_args <- function(...){
-  c(paste0("step2a_",gageID, ".csv"), "for", paste0("step3_",gageID, ".csv"))
-}
-commandArgs <- stepa03_args
-#Step 03_baseflow_stats
-source("https://raw.githubusercontent.com/HARPgroup/meta_model/refs/heads/main/scripts/usgs/baseflow_stats.R")
+filtered_out_ids <- setdiff(step2$GroupID, step2a$GroupID)
