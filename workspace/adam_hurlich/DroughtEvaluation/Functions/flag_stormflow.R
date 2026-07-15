@@ -3,15 +3,12 @@ step2 <- read.csv("C:/HARP/HARP - GitHub/baseflow_storage/adama/DroughtPredictio
 flag_storm <- rep(F, nrow(step2))
 
 condition_start <- step2$AGWR > 1 & (step2$delta_AGWR < 0.97 | step2$delta_AGWR > 1.03)
-
 condition_continue <- step2$AGWR > 1 | step2$delta_AGWR < 0.97 | step2$delta_AGWR > 1.03
 
 i <- 1
 
 while (i <= nrow(step2) - 2) {
-
   initial_flag <- condition_start[i]
-
   if (initial_flag) {
 
     j <- i + 1
@@ -41,13 +38,11 @@ flag_storm$values <- flag_storm$values & (flag_storm$lengths >= 3)
 flag_storm <- inverse.rle(flag_storm)
 step2$flag_storm <- flag_storm
 
-
 library(dplyr)
 
 step2filt <- step2 |>
   group_by(GroupID) |>
   group_modify(~ {
-
     data <- .x
 
     remove <- rep(F, nrow(data))
@@ -55,6 +50,7 @@ step2filt <- step2 |>
     runs <- rle(data$flag_storm)
 
     ends <- cumsum(runs$lengths)
+
     starts <- ends - runs$lengths + 1
 
     for (i in seq_along(runs$values)) {
@@ -66,17 +62,13 @@ step2filt <- step2 |>
       remove[starts[i]:ends[i]] <- T
 
       # Remove previous FALSE run if < 7
-      if (i > 1 &&
-          !runs$values[i - 1] &&
-          runs$lengths[i - 1] < 11) {
+      if (i > 1 && !runs$values[i - 1] && runs$lengths[i - 1] < 11) {
 
         remove[starts[i - 1]:ends[i - 1]] <- T
       }
 
       # Remove next FALSE run if < 7
-      if (i < length(runs$values) &&
-          !runs$values[i + 1] &&
-          runs$lengths[i + 1] < 11) {
+      if (i < length(runs$values) && !runs$values[i + 1] && runs$lengths[i + 1] < 11) {
 
         remove[starts[i + 1]:ends[i + 1]] <- T
       }
@@ -93,7 +85,6 @@ step2a <- step2filt |>
 
 step2a$flag_storm <- NULL
 
-"step2a_02016000.csv" <- step2a
-gageID <- '02016000'
+write.csv(step2a, file = "step2a_02016000.csv", row.names = F)
 
 filtered_out_ids <- setdiff(step2$GroupID, step2a$GroupID)
