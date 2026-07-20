@@ -1,20 +1,36 @@
 library(dplyr)
 
-# input df --> step2 from baseflow workflow
-step2 <- read.csv("C:/HARP/HARP - GitHub/baseflow_storage/adama/DroughtPredictionEvaluation/CowpastureOutlierData/step2_02016000.csv")
+## input df --> step2 from baseflow workflow
+#step2 <- read.csv("C:/HARP/HARP - GitHub/baseflow_storage/adama/DroughtPredictionEvaluation/CowpastureOutlierData/step2_02016000.csv")
 
+#'@title flag_stormflow
+#'@name
+#'flag_stormflow
+#'@description
+#'Additional baseflow workflow filtering
+#'@details
+#'From step 2 in baseflow workflow, applies additional filtering conditions to reject events
+#'with substantial flow runoff. Events are filtered, and all days meeting runoff conditions are removed.
+#'Event length is then checked by days prior and after filtered period. Event fragments must meet min_days to exist
+#'@param df data.frame with GroupID, Flow, AGWR, and delta_AGWR
+#'@param flow_threshold numeric, default of 1.10 set for runoff tolerance. Flow0 * flow_threshold =< Flow[i]
+#'@param min_days numeric, default of 11 set for minimum length of days prior and after runoff filtering
+#'@return df data.frame with GroupID, Flow, AGWR, and delta_AGWR, all filtered events are removed
+#'@importFrom dplyr group_by group_modify ungroup filter select
+#'@importFrom rlang .data
+#'@export
 flag_stormflow <- function(df, flow_threshold = 1.10, min_days = 11){
 
   # df length of input df
   flag_runoff <- rep(F, nrow(df))
 
   # initial flagging condition
-  condition_start <- step2$AGWR > 1 & (step2$delta_AGWR < 0.97 | step2$delta_AGWR > 1.03)
+  condition_start <- df$AGWR > 1 & (df$delta_AGWR < 0.97 | df$delta_AGWR > 1.03)
 
-  # continuing flagging
-  condition_continue <- step2$AGWR > 1 | step2$delta_AGWR < 0.97 | step2$delta_AGWR > 1.03
+  # continuing flagging condition
+  condition_continue <- df$AGWR > 1 | df$delta_AGWR < 0.97 | df$delta_AGWR > 1.03
 
-  n <- nrow(step2)
+  n <- nrow(df)
   i <- 1
 
   # run length df
@@ -39,16 +55,16 @@ flag_stormflow <- function(df, flow_threshold = 1.10, min_days = 11){
     }
 
     # find flow0 of flagged period
-    Flow0 <- step2$Flow[i-1]
-    flag_runoff[i:(j - 1)] <- TRUE
+    Flow0 <- df$Flow[i - 1]
+    flag_runoff[i:(j - 1)] <- T
 
     k <- j
 
-    # flag_runoff df set to T for condition_continue T
+    # flag_runoff df set to T for condition_continue T past 3 days
     while (k <= n) {
 
       if (condition_continue[k]) {
-        flag_runoff[k] <- TRUE
+        flag_runoff[k] <- T
         k <- k + 1
         next
       }
@@ -56,12 +72,12 @@ flag_stormflow <- function(df, flow_threshold = 1.10, min_days = 11){
 
       # Logical vector, Allowance of 1 day gap or flow[k] > 1.10 * Flow0
       if (gap_day == n) break
-      resumes <- condition_continue[gap_day + 1] || step2$Flow[gap_day + 1] >= flow_threshold * Flow0
+      resumes <- condition_continue[gap_day + 1] || df$Flow[gap_day + 1] >= flow_threshold * Flow0
 
       # If condition of resumes met, continue condition_continue methodology
       if (resumes) {
 
-        flag_runoff[gap_day] <- TRUE
+        flag_runoff[gap_day] <- T
 
         k <- gap_day + 1
         next
@@ -69,13 +85,13 @@ flag_stormflow <- function(df, flow_threshold = 1.10, min_days = 11){
       } else {
 
         # 110% of initial flow continues flagging
-        if (step2$Flow[gap_day] >= flow_threshold * Flow0) {
-          flag_runoff[gap_day] <- TRUE
+        if (df$Flow[gap_day] >= flow_threshold * Flow0) {
+          flag_runoff[gap_day] <- T
           k <- gap_day + 1
 
           # final check to avoid residuals flow, 110% is tentative
-          while (k <= n && step2$Flow[k] >= flow_threshold * Flow0) {
-            flag_runoff[k] <- TRUE
+          while (k <= n && df$Flow[k] >= flow_threshold * Flow0) {
+            flag_runoff[k] <- T
             k <- k + 1
           }
         }
@@ -91,29 +107,27 @@ flag_stormflow <- function(df, flow_threshold = 1.10, min_days = 11){
   flag_runoff <- rle(flag_runoff)
   flag_runoff$values <- flag_runoff$values & (flag_runoff$lengths >= 3)
   flag_runoff <- inverse.rle(flag_runoff)
-  step2$flag_runoff <- flag_runoff
+  df$flag_runoff <- flag_runoff
 
   # filtering for day length before and after flagged period
-  step2filt <- step2 |>
+  df_filt <- df |>
     dplyr::group_by(GroupID) |>
     dplyr::group_modify(~ {
-
       data <- .x
-
       remove <- rep(F, nrow(data))
 
+      # end and start indices from rle
       runs <- rle(data$flag_runoff)
-
       ends <- cumsum(runs$lengths)
-
       starts <- ends - runs$lengths + 1
 
+      # check i for 1:length of rle values column
       for (i in seq_along(runs$values)) {
 
         # ignore F values
         if (!runs$values[i]) next
 
-        # remove all T values
+        # remove all initial T values
         remove[starts[i]:ends[i]] <- T
 
         # remove previous F run if length < min_days (11 default)
@@ -122,7 +136,7 @@ flag_stormflow <- function(df, flow_threshold = 1.10, min_days = 11){
           remove[starts[i - 1]:ends[i - 1]] <- T
         }
 
-        # remove next F run if length < min_days (11 default)
+        # remove following F run if length < min_days (11 default)
         if (i < length(runs$values) && !runs$values[i + 1] && runs$lengths[i + 1] < min_days) {
 
           remove[starts[i + 1]:ends[i + 1]] <- T
@@ -134,67 +148,20 @@ flag_stormflow <- function(df, flow_threshold = 1.10, min_days = 11){
     }) %>%
     dplyr::ungroup()
 
-  step2a <- step2filt |>
+  # remove indices with T
+  df_a <- df_filt |>
     dplyr::filter(!remove) |>
     dplyr::select(-remove)
 
-  step2a$flag_runoff <- NULL
+  df_a$flag_runoff <- NULL
 
-return(step2a)
+  # list of filtered out GroupIDs
+  cat("Filtered out GroupIDs:\n")
+  cat(setdiff(df$GroupID, df_a$GroupID))
+
+return(df_a)
 
 }
 
-
-
-result <- flag_stormflow(df = step2)
-
-write.csv(step2a, file = "step2a_02016000_11day.csv", row.names = F)
-
-filtered_out_ids <- setdiff(stepog$GroupID, step2a$GroupID)
-
-library(plotly)
-
-step6a <- read.csv("C:/HARP/HARP - GitHub/baseflow_storage/adama/flag_stormflow/02016000/flag_stormflow_11day_v2/step06a_02016000.csv")
-step7a <- read.csv("C:/HARP/HARP - GitHub/baseflow_storage/adama/flag_stormflow/02016000/flag_stormflow_11day_v2/step07a_02016000.csv")
-
-# Your data
-df <- data.frame(
-  x = step6a$median_flow,
-  y = step6a$event_AGWRC
-)
-
-# Your regression coefficients
-m <- step7a$m   # should be negative for downward curve
-b <- step7a$b
-
-# Smooth curve
-curve_df <- data.frame(
-  x = seq(min(df$x), max(df$x), length.out = 500)
-)
-
-curve_df$y <- m * log(curve_df$x) + b
-
-# Plot
-plot_ly() %>%
-  add_markers(
-    data = df,
-    x = ~x,
-    y = ~y,
-    name = "Observed",
-    marker = list(size = 8)
-  ) %>%
-  add_lines(
-    data = curve_df,
-    x = ~x,
-    y = ~y,
-    name = "y = m log(x) + b",
-    line = list(width = 3)
-  ) %>%
-  layout(
-    xaxis = list(title = "Characteristic Event Flow (median, cfs)"),
-    yaxis = list(title = "Event AGWRC"),
-    title = "AGWRC vs. Flow (Event-Level) - USGS-02016000 - +/- 11 Day Window"
-  )
-
-Q = 106
-y <- (log(Q) * m) + b
+## Local Testing
+#step2a <- flag_stormflow(df = step2)
