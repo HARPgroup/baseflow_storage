@@ -14,7 +14,22 @@ droughtModuleUI <- function(id) {
         br(),
         h4("Historical Flow (Recent)"),
         p(em("Tip:"), " click a row in the events table to zoom the hydrograph to ~9 months before the event and up to 3 months after (capped to available data)."),
+        dateRangeInput(
+          inputId = ns("hist_date_range"),
+          label   = "Show flows in date range (updated by event selection below as well):",
+          start   = Sys.Date() - 365,
+          end     = Sys.Date(),
+          format  = "yyyy-mm-dd",
+          separator = " to "
+        ),
         plotlyOutput(ns("historical_plot")),
+        br(),
+        fluidRow(
+          column(
+            12, align = "center",
+            actionButton(ns("find_stats"), "Recession Stats For Display Period", icon = icon("calculator"))
+          )
+        ),
         br(),
         h4("Identified Baseflow Events (Trimmed)"),
         p("Each row summarizes a trimmed baseflow recession event (GroupID)."),
@@ -48,6 +63,16 @@ droughtModuleUI <- function(id) {
           )
         ),
         
+        h4("Population Statistics for Event AGWRC"),
+        p("Summary statistics for event-level AGWRC values after applying the filters above."),
+        DTOutput(ns("agwrc_population_stats")),
+        br(),
+        
+        h4("Population Statistics for Event Median Flow"),
+        p("Summary statistics for median event flows after applying the filters above."),
+        DTOutput(ns("median_flow_population_stats")),
+        br(),
+        
         plotlyOutput(ns("agwrc_regression_plot")),
         br(),
         fluidRow(
@@ -74,19 +99,19 @@ droughtModuleUI <- function(id) {
             dateInput(
               ns("forecast_start"),
               label = "Projection start date (must exist in historical data):",
-              value = Sys.Date()
+              value = (Sys.Date() - 1)
             ),
             uiOutput(ns("baseflow_event_info")),
-            ),
-            helpText("Last known AGWRC"),
-            verbatimTextOutput(
-              ns("last_known_agwrc")
-            ),
             radioButtons(
               ns("agwrc_calculation"),
               label = "Will recession coefficients be constant or variable?",
               choiceNames = c("Constant (single value)", "Variable (regression)"),
               choiceValues = c("constant","variable")
+            ),
+            checkboxInput(
+              ns("agwrc_limits"),
+              label = "Shoud AGWRC be restricted to regression min/max?",
+              value = TRUE
             ),
             uiOutput(ns("agwrc_inputs")),
             radioButtons(
@@ -109,12 +134,10 @@ droughtModuleUI <- function(id) {
             plotlyOutput(ns("forecast_plot")),
             br(),
             h4("Projected Values"),
-            DTOutput(ns("forecast_table")),
-            br(),
-            h4("Storage summaries (from Flow + AGWRC)"),
-            DTOutput(ns("storage_event_table"))
+            DTOutput(ns("forecast_table"))
           )
         )
       )
     )
+  )
 }

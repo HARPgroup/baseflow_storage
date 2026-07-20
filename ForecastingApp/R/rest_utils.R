@@ -62,17 +62,15 @@ read_ows_data <- function(gage_id,
       gage_id = gage_id,
       path_template = tpl
     )
-    if (bf_url_exists(candidate_url)) {
-      hit_url <- candidate_url
-      hit_template <- tpl
-      break
-    }
+    message(candidate_url)
+    hit_url <- candidate_url
   }
 
   if (is.null(hit_url)) {
     stop(
       "No analyzed ", kind, " file found for gage_id = ", gage_id, "\n",
-      "Tried templates: ", paste(templates, collapse = ", "), "\n"
+      "Tried templates: ", paste(templates, collapse = ", "), "\n
+      and candidate_url was last: ",candidate_url
     )
   }
   

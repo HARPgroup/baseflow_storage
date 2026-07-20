@@ -1,0 +1,25 @@
+#' @title bf_monthly_events_n
+#' @name
+#' bf_monthly_events_n
+#' @details
+#' creates a df with total number of bf events,
+#' df also includes total bf events by month
+#'
+#' @param event_df df from step 06 of DEQ bf workflow
+#' @param gage_ID str variable associated with a USGS gage location
+#'
+#' @returns df with columns for month, event_cnt, and gage_total
+#'
+#' @export bf_monthly_events_n
+bf_monthly_events_n <- function(event_df, gage_ID){
+  gage_total <- dplyr::n_distinct(event_df$GroupID)
+  monthly_event_count <- event_df |>
+    dplyr::mutate(month = month(as.Date(start_date, format = "%y-%m-%d"))) |>
+    dplyr::group_by(month) |>
+    dplyr::summarise(event_cnt = n_distinct(GroupID)) |>
+    dplyr::mutate(gage_total = gage_total)
+
+
+  cat(paste0("Monthly event totals saved to 'step08_", gageID, "_eventCount.csv'"), "\n\n")
+  return(monthly_event_count)
+}
