@@ -5,10 +5,7 @@ date: "2026-07-17"
 params:
   gageid: "02039500"
   location: "Appomattox River at Farmville, VA"
-  startdate_I: "2026-04-21"
-  startdate_II: "2017-06-12"
-  startdate_III: "2002-06-24"
-  startdate_IV: "1966-05-18"
+  startdates: !r as.Date(c("2026-04-21", "2017-06-12", "2002-06-24", "1966-05-18"))
   enddate: "2026-07-20"
   iterative_AGWRC: 0.98
 ---
@@ -19,7 +16,12 @@ basepath <- "/var/www/R"
 source("/var/www/R/config.R")
 ```
 
-```{r, include = FALSE}
+```{r loop, warning = FALSE, echo = FALSE, message = FALSE}
+library(knitr)
+library(flextable)
+library(dplyr)
+library(ggplot2)
+
 # create gage object environment for specified gage
 gage_obj <- hydrotools::WaterGageDaily$new(gage_id = params$gageid,
                                            ds_in = ds)
@@ -27,15 +29,76 @@ gage_obj <- hydrotools::WaterGageDaily$new(gage_id = params$gageid,
 all_data <- gage_obj$baseflow_workflow_data(omsite = omsite)
 agwrc <- gage_obj$agwrc_fun(TRUE)
 
-# extract forecast data from specified start date
-forecast_data <- gage_obj$baseflow_forecast(start_date = params$startdate_I,
+# Create forecast graphs loop for the given start dates
+forecast_plot <- list()
+forecast_table <- list()
+
+for (i in seq_along(params$startdates)) {
+  
+  sd <- params$startdates[i]
+  
+  # Define different AGWRC forecast methods
+  forecast_data <- gage_obj$baseflow_forecast(start_date = sd,
                                             AGWRC = "lm_constant",
                                             use_limits = TRUE)
+  
+  Iterative_AGWRC <- gage_obj$baseflow_forecast(start_date = sd, 
+                                           AGWRC = params$iterative_AGWRC) %>%
+    rename(Iterative_AGWRC = AGWRC) %>%
+    rename(Itr_AGWRC_Flow = Forecast)
+  
+  Constant_AGWRC <- gage_obj$baseflow_forecast(start_date = sd, 
+                                     AGWRC = "lm_constant") %>%
+    rename(Constant_AGWRC = AGWRC) %>%
+    rename(Con_AGWRC_Flow = Forecast)
+  
+  Variable_AGWRC <- gage_obj$baseflow_forecast(start_date = sd,
+                                     AGWRC = "lm_variable") %>%
+    rename(Variable_AGWRC = AGWRC) %>%
+    rename(Var_AGWRC_Flow = Forecast)
+  
+  # Plot the forecast data
+  forecast_plot[[as.character(sd)]] <- gage_obj$plot_baseflow_forecast(
+  start_date = sd,
+  forecast_days = 0:90,
+  AGWRC = list(Constant_AGWRC = "lm_constant",
+               Variable_AGWRC = "lm_variable",
+               Iterative_AGWRC = params$iterative_AGWRC),
+  return_plotly = FALSE,
+  include_days_before = 30,
+  use_limits = TRUE
+)
+  
+  forecast_plot[[as.character(sd)]] <- forecast_plot[[as.character(sd)]] + 
+    theme_minimal() +
+    labs(
+      x = "Date",
+      y = "Flow (cfs)",
+      title = "Observed and Projected Flows"
+    )
+  
+# create forecast table
+all_flow <- forecast_data %>%
+  full_join(Constant_AGWRC, by = c("Day", "Date", "obs_flow" )) %>%
+  full_join(Iterative_AGWRC, by = c("Day", "Date", "obs_flow" )) %>%
+  full_join(Variable_AGWRC, by = c("Day", "Date", "obs_flow" ))
+
+final_flow_df <- all_flow %>%
+  select(Day, Date, obs_flow, Con_AGWRC_Flow, Var_AGWRC_Flow, Itr_AGWRC_Flow) %>%
+  rename(Obs_Flow = obs_flow)
+
+Forecast_df <- final_flow_df %>%
+  filter(Day %in% c(15, 30, 45, 90))
+
+forecast_table[[as.character(sd)]] <- flextable(Forecast_df) %>%
+  autofit()
+}
+
 ```
 
 ## Overview
 
-AGWRC analysis for USGS **`r params$gageid`: `r params$location`**. This is a "flashy" gage where the frequent ups and downs of flow make predicting flow difficult. Predictions for this gage are also sensitive to start dates.
+AGWRC analysis for USGS **`r params$gageid`: `r gage_obj$gage_data_sf$monitoring_location_name`**. This is a "flashy" gage where the frequent ups and downs of flow make predicting flow difficult. Predictions for this gage are also sensitive to start dates.
 
 ## Terminology
 **Regression AGWRC**: the AGWRC calculated by imputing starting flow from manually selected flow event into AGWRC vs Flow Regression
@@ -60,317 +123,68 @@ The R-squared value is: `r all_data$lm_df$Rsq`. This small value suggests that v
 
 ### First Baseflow Event Investigation
 
-```{r baseflow plot, warning = FALSE, echo = FALSE, message = FALSE}
-library(dplyr)
-# define different AGWRC methods
-lm_iterative <- gage_obj$baseflow_forecast(start_date = params$startdate_I, 
-                                           AGWRC = params$iterative_AGWRC) %>%
-  rename(Iterative_AGWRC = AGWRC) %>%
-  rename(Itr_AGWRC_Flow = Forecast)
-  
-lm_con <- gage_obj$baseflow_forecast(start_date = params$startdate_I, 
-                                     AGWRC = "lm_constant") %>%
-  rename(Constant_AGWRC = AGWRC) %>%
-  rename(Con_AGWRC_Flow = Forecast)
-
-lm_var <- gage_obj$baseflow_forecast(start_date = params$startdate_I,
-                                     AGWRC = "lm_variable") %>%
-  rename(Variable_AGWRC = AGWRC) %>%
-  rename(Var_AGWRC_Flow = Forecast)
-
-# plot data
-library(ggplot2)
-ggplot() + 
-  geom_line(aes(x = lm_iterative$Date,
-                y = lm_iterative$Itr_AGWRC_Flow,
-                color = "Iterative AGWRC Forecast")) +
-  geom_line(aes(x = lm_con$Date,
-                y = lm_con$Con_AGWRC_Flow,
-                color = "Constant AGWRC Forecast")) +
-  geom_line(aes(x = lm_var$Date,
-                y = lm_var$Var_AGWRC_Flow,
-                color = "Variable AGWRC Forecast")) +
-  geom_line(aes(x = lm_var$Date,
-                y = lm_var$obs_flow,
-                color = "Observed Flow")) +
-  scale_color_manual(
-    values = c(
-      "Iterative AGWRC Forecast" = "blue4",
-      "Constant AGWRC Forecast" = "dodgerblue3",
-      "Variable AGWRC Forecast" = "cyan2",
-      "Observed Flow" = "black"
-    ),
-    name = "Legend"
-  ) +
-  labs(
-    x = "Date",
-    y = "Flow (cfs)",
-    title = "Observed and Projected Flows"
-  ) +
-  scale_y_log10()
-
+```{r baseflow plot 1, warning = FALSE, echo = FALSE, message = FALSE}
+print(forecast_plot[[1]])
 ```
 
-**Image 2.** Observed and Projected Flows from `r params$startdate_I`
+**Image 2.** Observed and Projected Flows from `r params$startdates[1]`
+
 Although none of the AGWRC values were very effective in surviving the storms and catching the "troughs" following the peaks in flow, the iterative AGWRC performed the best of the three. 
 
-**Table 1.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdate_I`
-```{r, warning = FALSE, echo = FALSE, message = FALSE}
+**Table 1.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[1]`
+```{r table 1, warning = FALSE, echo = FALSE, message = FALSE}
 library(knitr)
 library(flextable)
-# create forecast table
-all_flow <- forecast_data %>%
-  full_join(lm_con, by = c("Day", "Date", "obs_flow" )) %>%
-  full_join(lm_iterative, by = c("Day", "Date", "obs_flow" )) %>%
-  full_join(lm_var, by = c("Day", "Date", "obs_flow" ))
-
-final_flow_df <- all_flow %>%
-  select(Day, Date, obs_flow, Con_AGWRC_Flow, Var_AGWRC_Flow, Itr_AGWRC_Flow) %>%
-  rename(Obs_Flow = obs_flow)
-
-Forecast_df <- final_flow_df %>%
-  filter(Day %in% c(15, 30, 45, 90))
-
-flextable(Forecast_df) %>%
-  autofit()
+forecast_table[[1]]
 ```
 
 ### Second Baseflow Event Investigation
 
-```{r baseflow plot2, warning = FALSE, echo = FALSE, message = FALSE}
-library(dplyr)
-forecast_data_II <- gage_obj$baseflow_forecast(start_date = params$startdate_II,
-                                            AGWRC = "lm_constant",
-                                            use_limits = TRUE)
-# define different AGWRC methods
-lm_iterative_II <- gage_obj$baseflow_forecast(start_date = params$startdate_II, 
-                                           AGWRC = params$iterative_AGWRC) %>%
-  rename(Iterative_AGWRC = AGWRC) %>%
-  rename(Itr_AGWRC_Flow = Forecast)
-  
-lm_con_II <- gage_obj$baseflow_forecast(start_date = params$startdate_II, 
-                                     AGWRC = "lm_constant") %>%
-  rename(Constant_AGWRC = AGWRC) %>%
-  rename(Con_AGWRC_Flow = Forecast)
-
-lm_var_II <- gage_obj$baseflow_forecast(start_date = params$startdate_II,
-                                     AGWRC = "lm_variable") %>%
-  rename(Variable_AGWRC = AGWRC) %>%
-  rename(Var_AGWRC_Flow = Forecast)
-
-# plot data
-library(ggplot2)
-ggplot() + 
-  geom_line(aes(x = lm_iterative_II$Date,
-                y = lm_iterative_II$Itr_AGWRC_Flow,
-                color = "Iterative AGWRC Forecast")) +
-  geom_line(aes(x = lm_con_II$Date,
-                y = lm_con_II$Con_AGWRC_Flow,
-                color = "Constant AGWRC Forecast")) +
-  geom_line(aes(x = lm_var_II$Date,
-                y = lm_var_II$Var_AGWRC_Flow,
-                color = "Variable AGWRC Forecast")) +
-  geom_line(aes(x = lm_var_II$Date,
-                y = lm_var_II$obs_flow,
-                color = "Observed Flow")) +
-  scale_color_manual(
-    values = c(
-      "Iterative AGWRC Forecast" = "blue4",
-      "Constant AGWRC Forecast" = "dodgerblue3",
-      "Variable AGWRC Forecast" = "cyan2",
-      "Observed Flow" = "black"
-    ),
-    name = "Legend"
-  ) +
-  labs(
-    x = "Date",
-    y = "Flow (cfs)",
-    title = "Observed and Projected Flows"
-  ) +
-  scale_y_log10()
+```{r baseflow plot 2, warning = FALSE, echo = FALSE, message = FALSE}
+print(forecast_plot[[2]])
 ```
 
-**Image 3.** Observed and Projected Flows from `r params$startdate_II`
+**Image 3.** Observed and Projected Flows from `r params$startdates[2]`
+
 The iterative AGWRC overpredicted the first trough, but predicted the subsequent three troughs well. The iterative and variable AGWRC predictions were effective in surviving the first storm and predicting the first trough, but they greatly underpredicted the remaining flows.
 
-**Table 2.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdate_II`
-```{r, warning = FALSE, echo = FALSE, message = FALSE}
+**Table 2.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[2]`
+```{r table 2, warning = FALSE, echo = FALSE, message = FALSE}
 library(knitr)
 library(flextable)
-# create forecast table
-all_flow_II <- forecast_data_II %>%
-  full_join(lm_con_II, by = c("Day", "Date", "obs_flow" )) %>%
-  full_join(lm_iterative_II, by = c("Day", "Date", "obs_flow" )) %>%
-  full_join(lm_var_II, by = c("Day", "Date", "obs_flow" ))
-
-final_flow_df_II <- all_flow_II %>%
-  select(Day, Date, obs_flow, Con_AGWRC_Flow, Var_AGWRC_Flow, Itr_AGWRC_Flow) %>%
-  rename(Obs_Flow = obs_flow)
-
-Forecast_df_II <- final_flow_df_II %>%
-  filter(Day %in% c(15, 30, 45, 90))
-
-flextable(Forecast_df_II) %>%
-  autofit()
+forecast_table[[2]]
 ```
 
 ### Third Baseflow Event Investigation
 
 ```{r baseflow plot3, warning = FALSE, echo = FALSE, message = FALSE}
-library(dplyr)
-forecast_data_III <- gage_obj$baseflow_forecast(start_date = params$startdate_III,
-                                            AGWRC = "lm_constant",
-                                            use_limits = TRUE)
-# define different AGWRC methods
-lm_iterative_III <- gage_obj$baseflow_forecast(start_date = params$startdate_III, 
-                                           AGWRC = params$iterative_AGWRC) %>%
-  rename(Iterative_AGWRC = AGWRC) %>%
-  rename(Itr_AGWRC_Flow = Forecast)
-  
-lm_con_III <- gage_obj$baseflow_forecast(start_date = params$startdate_III, 
-                                     AGWRC = "lm_constant") %>%
-  rename(Constant_AGWRC = AGWRC) %>%
-  rename(Con_AGWRC_Flow = Forecast)
-
-lm_var_III <- gage_obj$baseflow_forecast(start_date = params$startdate_III,
-                                     AGWRC = "lm_variable") %>%
-  rename(Variable_AGWRC = AGWRC) %>%
-  rename(Var_AGWRC_Flow = Forecast)
-
-# plot data
-library(ggplot2)
-ggplot() + 
-  geom_line(aes(x = lm_iterative_III$Date,
-                y = lm_iterative_III$Itr_AGWRC_Flow,
-                color = "Iterative AGWRC Forecast")) +
-  geom_line(aes(x = lm_con_III$Date,
-                y = lm_con_III$Con_AGWRC_Flow,
-                color = "Constant AGWRC Forecast")) +
-  geom_line(aes(x = lm_var_III$Date,
-                y = lm_var_III$Var_AGWRC_Flow,
-                color = "Variable AGWRC Forecast")) +
-  geom_line(aes(x = lm_var_III$Date,
-                y = lm_var_III$obs_flow,
-                color = "Observed Flow")) +
-  scale_color_manual(
-    values = c(
-      "Iterative AGWRC Forecast" = "blue4",
-      "Constant AGWRC Forecast" = "dodgerblue3",
-      "Variable AGWRC Forecast" = "cyan2",
-      "Observed Flow" = "black"
-    ),
-    name = "Legend"
-  ) +
-  labs(
-    x = "Date",
-    y = "Flow (cfs)",
-    title = "Observed and Projected Flows"
-  ) # +
-#scale_y_log10()
+print(forecast_plot[[3]])
 ```
 
-**Image 4.** Observed and Projected Flows from `r params$startdate_III`
+**Image 4.** Observed and Projected Flows from `r params$startdates[3]`
+
 The iterative AGWRC was effective in the predicting the first trough, but overpredicted flow in the second trough where the flow approached 0 cfs. The iterative AGWRC and constant AGWRC produced very similar predictions and also overpredicted flow in mid August. 
 
-**Table 3.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdate_III`
-```{r, warning = FALSE, echo = FALSE, message = FALSE}
-library(knitr)
-library(flextable)
-# create forecast table
-all_flow_III <- forecast_data_III %>%
-  full_join(lm_con_III, by = c("Day", "Date", "obs_flow" )) %>%
-  full_join(lm_iterative_III, by = c("Day", "Date", "obs_flow" )) %>%
-  full_join(lm_var_III, by = c("Day", "Date", "obs_flow" ))
-
-final_flow_df_III <- all_flow_III %>%
-  select(Day, Date, obs_flow, Con_AGWRC_Flow, Var_AGWRC_Flow, Itr_AGWRC_Flow) %>%
-  rename(Obs_Flow = obs_flow)
-
-Forecast_df_III <- final_flow_df_III %>%
-  filter(Day %in% c(15, 30, 45, 90))
-
-flextable(Forecast_df_III) %>%
-  autofit()
+**Table 3.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[3]`
+```{r table 3, warning = FALSE, echo = FALSE, message = FALSE}
+forecast_table[[3]]
 ```
 
 ### Fourth Baseflow Event Investigation
 
-```{r baseflow plot4, warning = FALSE, echo = FALSE, message = FALSE}
-library(dplyr)
-forecast_data_IV <- gage_obj$baseflow_forecast(start_date = params$startdate_IV,
-                                            AGWRC = "lm_constant",
-                                            use_limits = TRUE)
-# define different AGWRC methods
-lm_iterative_IV <- gage_obj$baseflow_forecast(start_date = params$startdate_IV, 
-                                           AGWRC = params$iterative_AGWRC) %>%
-  rename(Iterative_AGWRC = AGWRC) %>%
-  rename(Itr_AGWRC_Flow = Forecast)
-  
-lm_con_IV <- gage_obj$baseflow_forecast(start_date = params$startdate_IV, 
-                                     AGWRC = "lm_constant") %>%
-  rename(Constant_AGWRC = AGWRC) %>%
-  rename(Con_AGWRC_Flow = Forecast)
-
-lm_var_IV <- gage_obj$baseflow_forecast(start_date = params$startdate_IV,
-                                     AGWRC = "lm_variable") %>%
-  rename(Variable_AGWRC = AGWRC) %>%
-  rename(Var_AGWRC_Flow = Forecast)
-
-# plot data
-library(ggplot2)
-ggplot() + 
-  geom_line(aes(x = lm_iterative_IV$Date,
-                y = lm_iterative_IV$Itr_AGWRC_Flow,
-                color = "Iterative AGWRC Forecast")) +
-  geom_line(aes(x = lm_con_IV$Date,
-                y = lm_con_IV$Con_AGWRC_Flow,
-                color = "Constant AGWRC Forecast")) +
-  geom_line(aes(x = lm_var_IV$Date,
-                y = lm_var_IV$Var_AGWRC_Flow,
-                color = "Variable AGWRC Forecast")) +
-  geom_line(aes(x = lm_var_IV$Date,
-                y = lm_var_IV$obs_flow,
-                color = "Observed Flow")) +
-  scale_color_manual(
-    values = c(
-      "Iterative AGWRC Forecast" = "blue4",
-      "Constant AGWRC Forecast" = "dodgerblue3",
-      "Variable AGWRC Forecast" = "cyan2",
-      "Observed Flow" = "black"
-    ),
-    name = "Legend"
-  ) +
-  labs(
-    x = "Date",
-    y = "Flow (cfs)",
-    title = "Observed and Projected Flows"
-  ) +
-  scale_y_log10()
-
+```{r baseflow plot 4, warning = FALSE, echo = FALSE, message = FALSE}
+print(forecast_plot[[4]])
 ```
 
-**Image 5.** Observed and Projected Flows from `r params$startdate_IV`
+**Image 5.** Observed and Projected Flows from `r params$startdates[4]`
+
 Of the three AGWRC predictions, the iterative AGWRC was the most effective in surviving the storms. The precipitation events at the end of July and the start of August impacted the accuracy of the 90-day prediction.
 
-**Table 4.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdate_III`
-```{r, warning = FALSE, echo = FALSE, message = FALSE}
+**Table 4.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[4]`
+```{r table 4, warning = FALSE, echo = FALSE, message = FALSE}
 library(knitr)
 library(flextable)
-# create forecast table
-all_flow_IV <- forecast_data_IV %>%
-  full_join(lm_con_IV, by = c("Day", "Date", "obs_flow" )) %>%
-  full_join(lm_iterative_IV, by = c("Day", "Date", "obs_flow" )) %>%
-  full_join(lm_var_IV, by = c("Day", "Date", "obs_flow" ))
-
-final_flow_df_IV <- all_flow_IV %>%
-  select(Day, Date, obs_flow, Con_AGWRC_Flow, Var_AGWRC_Flow, Itr_AGWRC_Flow) %>%
-  rename(Obs_Flow = obs_flow)
-
-Forecast_df_IV <- final_flow_df_IV %>%
-  filter(Day %in% c(15, 30, 45, 90))
-
-flextable(Forecast_df_IV) %>%
-  autofit()
+forecast_table[[4]]
 ```
 
 ## Conclusions and Recommended AGWRC
