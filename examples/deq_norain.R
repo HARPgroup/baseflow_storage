@@ -9,7 +9,7 @@ argst <- commandArgs(trailingOnly=T)
 # Ex:
 # argst = c("02065500,02059500,02056000,02054530,02056900,02058400,02071000,02061500,02064000", '/tmp/test.csv')
 # argst = c("02065500,02059500,02056000,02054530,02056900", '/tmp/test.csv', "2002-07-10")
-# argst = c("03524000,03167000,01674500,01667500,01654000,01634000,02016000,02039500,02042500,02051500,02059500,02056000,02054530,02056650,02056900", '/tmp/test.csv')
+# argst = c("03524000,03167000,01674500,01667500,01654000,01634000,02016000,02039500,02042500,02051500,02059500,02056650", '/tmp/test.csv')
 
 message(paste("length of argst = ", length(argst)))
 if (length(argst) < 2) {
@@ -79,9 +79,9 @@ for (gage_id in glist) {
   # inspect for start date
   plot(
     Flow ~ Date, 
-    data=omgage$gage_data[omgage$gage_data$Date >= "2026-05-15",],
+    data=omgage$gage_data[omgage$gage_data$Date >= (as.Date(proj_start_date) - 30),],
     main=paste("Observed", model$feature$name),
-    ylim=c(0, max(omgage$gage_data[omgage$gage_data$Date >= "2026-05-15",]$Flow))
+    ylim=c(0, max(omgage$gage_data[omgage$gage_data$Date >= (as.Date(proj_start_date) - 30),]$Flow))
   )
   days = nrow(omgage$gage_data)
   last30 = omgage$gage_data[(days - 30):days,]
