@@ -1,3 +1,11 @@
+#' @title flag_cooks
+#' @name
+#' flag_cooks
+#' @param model lm object
+#' @param event_df df containing baseflow events from DEQ baseflow workflow step 06
+#'
+#' @returns df of baseflow events, added flag for cooks distance
+#' @export flag_cooks
 flag_cooks <- function(model, event_df) {
   # define the variables
   cooks_d <- cooks.distance(model)
@@ -18,9 +26,9 @@ flag_cooks <- function(model, event_df) {
   cat(flagged_cooks_msg, "\n\n")
   # create a new column for cooks distance for each data point
   event_df <- event_df %>%
-    mutate(cooks_distance = cooks_d)
+    dplyr::mutate(cooks_distance = cooks_d)
   # create a new column with T/F for flagged points
   event_df <- event_df %>%
-    mutate(cooks_flagged = cooks_d > threshold)
+    dplyr::mutate(cooks_flagged = cooks_d > threshold)
   return(event_df)
 }
