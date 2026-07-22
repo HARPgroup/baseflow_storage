@@ -1,24 +1,3 @@
-#### Packages ####
-library(jsonlite)
-library(geojsonsf)
-library(sf)
-library(dataRetrieval)
-library(dplyr)
-
-#### Local - Function Inputs ####
-#state = 'VA'
-#UID = "USGS-02016000"
-#
-#site_geo_test <- dataRetrieval::read_waterdata_monitoring_location(monitoring_location_id = UID)
-#site_geo_test$Longitude <- sf::st_coordinates(site_geo_test)[, 1]
-#site_geo_test$Latitude  <- sf::st_coordinates(site_geo_test)[, 2]
-#site_data_geo_test <- sf::st_drop_geometry(site_geo_test)
-#
-#latitude = site_data_geo_test$Latitude
-#longitude = site_data_geo_test$Longitude
-
-#### Function Start ####
-
 #'@title streamStats_Delineation_single
 #'@name
 #'streamStats_Delineation_single
@@ -30,16 +9,15 @@ library(dplyr)
 #'@param state Character. Abbreviation of state of USGS gage, e.g. 'VA'
 #'@param longitude Numeric. longitude value of USGS gage
 #'@param latitude Numeric. latitude value of USGS gage
-#'@param UID Character. USGS monitoring_location_id for output df
-#' \code{read_waterdata_monitoring_location()}
+#'@param UID Character. USGS monitoring_location_id for output df e.g. that
+#'  derived from \code{read_waterdata_monitoring_location()}
 #'@return A df with list columns of UID, POINT geometry and POLYGON geometry for a USGS gage
 #'@importFrom jsonlite fromJSON toJSON
 #'@importFrom geojsonsf geojson_wkt
 #'@export
-streamStats_Delineation_single <- function(state, # StreamStats state info e.g. 'VA'
-                                           longitude, # longitude value, numeric
-                                           latitude, # latitude value, numeric
-                                           UID # Unique station identifier to append to dataset
+streamStats_Delineation_single <- function(state = "VA",
+                                           longitude, latitude,
+                                           UID
 ){
   query <-  paste0('https://streamstats.usgs.gov/ss-delineate/v1/delineate/sshydro/',
                    state, '?lat=', toString(latitude),
@@ -54,25 +32,6 @@ streamStats_Delineation_single <- function(state, # StreamStats state info e.g. 
     warning = function(cond){
       message(paste('StreamStats Error:', cond))
       return(NULL)})
-
-  # Recursive loop for finding "FeatureCollection" in JSON file, typically about 5 objects in bedded from input df
-  find_FeatureCollection <- function(JSON) {
-    outData <- list()
-
-    if (is.list(JSON)) {
-      if (!is.null(JSON$type) &&
-          JSON$type == "FeatureCollection" &&
-          !is.null(JSON$features)) {
-        outData <- list(JSON)
-      } else {
-        for (i in seq_along(JSON)) {
-          outData <- c(outData, find_FeatureCollection(JSON[[i]]))
-        }
-      }
-    }
-
-    return(outData)
-  }
 
   fcs <- find_FeatureCollection(JSON)
 
@@ -89,8 +48,40 @@ streamStats_Delineation_single <- function(state, # StreamStats state info e.g. 
   return(WKT)
 }
 
-#### Multi-call Function Start ####
 
+#'@title find_FeatureCollection
+#'@name find_FeatureCollection
+#'@description Get relevant features from a feature collection or other json
+#'@details
+#'Using USGS streamStats service API https://streamstats.usgs.gov/ss-delineate/docs#/
+#' Find "FeatureCollection" in JSON file, typically about 5 objects in bedded
+#' from input df
+#'@param state Character. Abbreviation of state of USGS gage, e.g. 'VA'
+#'@param longitude Numeric. longitude value of USGS gage
+#'@param latitude Numeric. latitude value of USGS gage
+#'@param UID Character. USGS monitoring_location_id for output df e.g. that
+#'  derived from \code{read_waterdata_monitoring_location()}
+#'@return A df with list columns of UID, POINT geometry and POLYGON geometry for
+#'  a USGS gage
+find_FeatureCollection <- function(JSON) {
+  outData <- list()
+
+  if (is.list(JSON)) {
+    if (!is.null(JSON$type) &&
+        JSON$type == "FeatureCollection" &&
+        !is.null(JSON$features)) {
+      outData <- list(JSON)
+    } else {
+      for (i in seq_along(JSON)) {
+        outData <- c(outData, find_FeatureCollection(JSON[[i]]))
+      }
+    }
+  }
+  return(outData)
+}
+
+
+#### Multi-call Function Start ####
 #'@title streamStats_Delineation
 #'@name
 #'streamStats_Delineation
@@ -135,35 +126,4 @@ streamStats_Delineation <- function(# accepts multiple
 
   return(GageData)
 }
-
-#### Local - Testing Single ####
-#test1 <- streamStats_Delineation_single(state = state, longitude = longitude, latitude = latitude, UID = UID)
-
-#### Local - Testing Multi ####
-#state <- "VA"
-#states <- "Virginia"
-#
-#state_sta <- read_waterdata_ts_meta(
-#  state_name        = states,
-#  parameter_code    = "00060",
-#  statistic_id      = "00003",
-#  skipGeometry      = TRUE
-#)
-#
-#state_sta <- state_sta |>
-#  filter(grepl("USGS-", monitoring_location_id))
-#
-#site_geo <- dataRetrieval::read_waterdata_monitoring_location(monitoring_location_id = state_sta$monitoring_location_id)
-#
-#site_geo$longitude <- sf::st_coordinates(site_geo)[, 1]
-#site_geo$latitude  <- sf::st_coordinates(site_geo)[, 2]
-#
-#site_geo <- site_geo |>
-#  dplyr::select(monitoring_location_id, latitude, longitude)
-#
-#USGS_VA <- streamStats_Delineation(state, site_geo$longitude, site_geo$latitude, site_geo$monitoring_location_id)
-#
-#test <- data.frame(lapply(USGS_VA, as.character), stringsAsFactors = FALSE)
-#
-#write.csv(test, file = "All_USGS_VA.csv", row.names = F)
 

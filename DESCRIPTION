@@ -9,12 +9,14 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 8.0.0
 Imports:
-  Kendall,
-  hydrotools,
-  dplyr,
-  sqldf,
-  stats,
-  utils,
-  rlang,
+    Kendall,
+    dplyr,
+    sqldf,
+    stats,
+    utils,
+    rlang,
+    jsonlite,
+    geojsonsf,
+    sf
 Remotes:
   hydrotools=github::HARPgroup/hydro-tools 
