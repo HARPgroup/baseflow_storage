@@ -7,10 +7,10 @@
 calc_AGWR(x)
 }
 \arguments{
-\item{x}{Num vector with chronological values}
+\item{x}{Numeric vector with chronological values}
 }
 \value{
-Num vector with AGWR in all indices except 1
+Numeric vector with AGWR in all indices except 1
 }
 \description{
 Calculation of AGWR / Ratio of Iterative timeseries values
@@ -21,8 +21,10 @@ divides the the value in the time series by the value in the previous
 day/index of the series
 }
 \examples{
+\dontrun{
 #Get data from N F Shenandoah River via Strasburg, VA - USGS 01634000
 library(hydrotools)
 StrasGage <- hydrotools::WaterGageDaily$new(gage_id = "01634000")
 StrasGage$gage_data$AGWR <- calc_AGWR(StrasGage$gage_data$value)
+}
 }

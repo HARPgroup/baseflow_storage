@@ -2,24 +2,24 @@
 #'@name
 #'attach_event_stats
 #'@description
-#'Creates new binded df between input df and function df
+#'Add baseflow event statistics, including recession coefficient, to a data
+#'frame of baseflow events calculated from \code{agws::analyze_recession()}
 #'@details
-#'Joins analysis_df (locationBF.csv) with function df (summarize_event), uses SQL query
-#'to filter for equal GroupID and Date, then filters out R.squared values less than 0
-#'
-#'@param analysis_data df with Date, Flow, AGWR, delta_AGWR as minimum present columns.
-#'From locationBF.csv (analysis_df)
-#'@param r_lim num variable setting R.squared limit, default 0
+#'Calculates baseflow recession coefficients after filtering data for in range
+#'data points via \code{summarize_event()} via a log-linear regression using
+#'\code{summarize_event()} and adds these regression statistics to the input
+#'data frame of recession events. Optionally filters for events with regressions
+#'with coefficients of determination (R squared) greater than user input r_lim
+#'@param analysis_data df with Date, Flow, AGWR, delta_AGWR as minimum present
+#'  columns.
+#'@param r_lim numeric. Minimum R.squared limit, default 0
 #'@return df with site_no, Date, Flow, AGWR, delta_AGWR, Year, Month,
-#'Day, season, GroupID, calc_AGWRC, R_squared (locationstats.csv)
-#'@importFrom sqldf sqldf
+#'Day, season, GroupID, calc_AGWRC, R_squared
 #'@export
 attach_event_stats <- function(analysis_data, r_lim =0){
-  # source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/main/summarize_event.R")
-  analysis_data <- analysis_data
   event_stats <- summarize_event(analysis_data)
 
-  combined_data <- sqldf(sprintf(
+  combined_data <- sqldf::sqldf(sprintf(
     "select a.*, b.AGWR as calc_AGWR, b.R_squared
     from analysis_data as a
     left outer join event_stats as b

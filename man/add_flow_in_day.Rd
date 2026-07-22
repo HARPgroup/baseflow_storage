@@ -12,21 +12,27 @@ add_flow_in_day(
 )
 }
 \arguments{
-\item{points_df}{df with columns: Date, GroupID, Flow, AGWR, delta_AGWR, AGWRC, kept, met_alpha}
+\item{points_df}{data.frame with a flow field with a name indicated by the
+source_flow_col input}
 
-\item{area_sqmi}{num variable with drainage area in sq mi}
+\item{area_sqmi}{numeric. Drainage area in sq mi, which may be provided by
+\code{hydrotools::WaterGageBase$load_sf_da()}}
 
-\item{source_flow_col}{char string designating column name for Flow, default "Flow"}
+\item{source_flow_col}{character, designating column name for Flow, default
+"Flow"}
 
-\item{new_col}{char string designating new column for Flow in watershed in., default "flow_in_day"}
+\item{new_col}{character designating new column for Flow in watershed inches,
+default "flow_in_day"}
 }
 \value{
-point_df df with added column of "flow_in_day"
+data.frame with added column of "new_col" with flow in watershed
+inches
 }
 \description{
-Adds watershed in. column
+Appends a flow timeseries data frame with a field to represent flow in
+watershed inches
 }
 \details{
-Calculates conversion of cfs to watershed in. with convert.flow function
+Calculates conversion of cfs to watershed inches with \code{convert.flow()}
 Adds column of watershed in. flow to df
 }

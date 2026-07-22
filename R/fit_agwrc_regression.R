@@ -2,11 +2,13 @@
 #'@name
 #'fit_agwrc_regression
 #'@description
-#'Runs linear regression of logFlow and eventAGWRC
+#'Runs linear regression of log(Flow) and eventAGWRC
 #'@details
-#'Runs linear regression of logFlow and eventAGWRC
-#'@param event_df df with GroupID, start_date, end_date, n_days, median_flow, event_AGWRC
-#'@return model variable with m, b, m-value, p-value, and R.squared
+#'Runs linear regression of log(Flow) and eventAGWRC from output of
+#'\code{agws::make_event_regression_df()} to provide insight if recession decay
+#'coefficients are related to flow levels (e.g. groundwater storage levels)
+#'@param event_df data.frame with GroupID, median_flow, event_AGWRC
+#'@return lm object with m, b, m-value, p-value, and R.squared
 #'@importFrom rlang .data
 #'@export
 fit_agwrc_regression <- function(event_df) {
@@ -26,7 +28,6 @@ fit_agwrc_regression <- function(event_df) {
     dplyr::mutate(logQ = log(.data$median_flow))
 
   model <- stats::lm(event_AGWRC ~ logQ, data = reg_df)
-  model_summary <- summary(model)
 
   return(model)
 }

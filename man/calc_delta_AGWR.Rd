@@ -7,10 +7,10 @@
 calc_delta_AGWR(x)
 }
 \arguments{
-\item{x}{Num vector with chronological AGWR values}
+\item{x}{Numeric vector with chronological AGWR values}
 }
 \value{
-Num vector with change in AGWR in all positions except 1 and 2
+Numeric vector with change in AGWR in all positions except 1 and 2
 }
 \description{
 Wrapper of calc_AGWR to comply with legacy code
@@ -19,9 +19,11 @@ Wrapper of calc_AGWR to comply with legacy code
 Calls calc_AGWRC(x)
 }
 \examples{
+\dontrun{
 #get data from N F Shenandoah River via Strasburg, VA - USGS 01634000
 library(hydrotools)
 StrasGage <- hydrotools::WaterGageDaily$new(gage_id = "01634000")
 StrasGage$gage_data$AGWR <- calc_AGWR(StrasGage$gage_data$value)
 StrasGage$gage_data$deltaAGWR <- calc_delta_AGWR(StrasGage$gage_data$AGWR)
+}
 }

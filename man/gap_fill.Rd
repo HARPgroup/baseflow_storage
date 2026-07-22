@@ -7,19 +7,22 @@
 gap_fill(flag_vec, max_gap = 5)
 }
 \arguments{
-\item{flag_vec}{Logical vector input calculated from AGWR, deltaAGWR and a deltaAGWR threshold}
+\item{flag_vec}{Logical vector input (often calculated from AGWR, deltaAGWR and a
+deltaAGWR threshold)}
 
-\item{max_gap}{Num value for acceptable gap of falses, default is 5}
+\item{max_gap}{Numeric. Acceptable gap, default is 5}
 }
 \value{
-Logical vector defining recession days
+Logical vector defining recession days now with gaps filled
 }
 \description{
-Locates periods of missed recession events
+Fills logical vectors with TRUE within max_gap range
 }
 \details{
 Fills all false values with a consecutive length less than acceptable gap with
-true values if sequence of false values are between true values
+true values if sequence of false values are between true values. Used in
+\code{flag_stable_baseflow()}, for instance, to fill in recession events by
+allowing minor excursions
 }
 \examples{
 #Sample AGWR and deltaAGWR values, with threshold for change in deltaAGWR and max_gap

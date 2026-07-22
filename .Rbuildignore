@@ -3,3 +3,9 @@
 ^\.github$
 ^\.positai$
 ^\.claude$
+^examples$
+^ForecastingApp$
+^workflow$
+^workspace$
+^.[^/]+\.R$
+^FinalRegressionExample\.R$

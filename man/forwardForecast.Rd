@@ -4,7 +4,17 @@
 \alias{forwardForecast}
 \title{forwardForecast}
 \usage{
-forwardForecast(Q0, days = 0:90, AGWRC, m, b)
+forwardForecast(
+  Q0,
+  days = 0:90,
+  AGWRC,
+  m,
+  b,
+  low_flow_limit = NULL,
+  low_agwrc_limit = NULL,
+  high_flow_limit = NULL,
+  high_agwrc_limit = NULL
+)
 }
 \arguments{
 \item{Q0}{numeric of length 1. initial flow on day 0}
@@ -16,17 +26,39 @@ AGWRC if AGWRC = "lm_variable"}
 \item{AGWRC}{numeric or character. The decay coefficient to regress Q0 for
 forecast. May be a single numeric to allow for a constant forecast or a
 vector of numeric values to allow for a variable forecast but must be of
-length days. Otherwise, may be "lm_constant" to claculate a constant value
-from m and b or "lm_variable" to have a variable value}
+length days. Otherwise, may be "lm_constant" (calculate a constant AGWRC
+based on Q0 from m and b); "lm_variable" (calculate a variable AGWRC from m
+and b based on previous day flow). low_flow_limit and high_flow_limit may
+be used to limit the initial AGWRC for lm_constant or the entire
+lm_variable analysis such that AGWRC is bounded when flow is above or below
+the provided limits}
 
 \item{m}{numeric of length 1 that is the slope of a log-linear relationship
 of Q and AGWRC}
 
 \item{b}{numeric of length 1 that is the intercept of a log-linear
 relationship of Q and AGWRC}
+
+\item{low_flow_limit}{A flow value below which the regression is not
+applicable. At this limit, the low_agwrc_limit will be returned. Only
+used in the "lm_constant_limit" and "lm_variable_limit" method and will not be
+used if NULL.}
+
+\item{low_agwrc_limit}{If the input flow is below the low_flow_limit, this
+function will return this value}
+
+\item{high_flow_limit}{A flow value above which the regression is not
+applicable. At this limit, the high_flow_limit will be returned. If NULL,
+this is not considered and instead the regression is used. Only used in the
+"lm_constant_limit" and "lm_variable_limit" method and will not be used if
+NULL.}
+
+\item{high_agwrc_limit}{If the input flow is above the high_flow_limit, this
+function will return this value}
 }
 \value{
-A data frame containing the days, forcast flows and AGWRCs used in the forecast
+A data frame containing the days, forecast flows and AGWRCs used in
+the forecast
 }
 \description{
 forwardForecast
@@ -35,4 +67,25 @@ forwardForecast
 A function to calculate a forcast days in the future based on Q0. Allows for
 vector inputs of days and AGWRC. Alternatively, allows for calculation of AGWRC
 via AGWRC = "lm_constant" or AGWRC = "lm_variable"
+}
+\examples{
+GageID <- "02040000"
+reg_lm <- read.csv(
+  paste0("https://deq1.bse.vt.edu/usgs/agws/baseflow_regression_df_",
+  GageID, ".csv")
+)
+forwardForecast(Q0 = 100, days = 1:90, AGWRC = 0.97)
+forwardForecast(Q0 = 100, days = 1:90, AGWRC = rnorm(90, 0.97, 0.001))
+forwardForecast(Q0 = 100, days = 1:90, AGWRC = "lm_constant", m = reg_lm$m, b = reg_lm$b)
+#Repeat now with limit
+forwardForecast(Q0 = 100, days = 1:90, AGWRC = "lm_constant",
+                m = reg_lm$m, b = reg_lm$b,
+                low_flow_limit = reg_lm$low_Q, low_agwrc_limit = reg_lm$low_Q_agwrc,
+                high_flow_limit = reg_lm$high_Q, high_agwrc_limit = reg_lm$high_Q_agwrc)
+forwardForecast(Q0 = 100, days = 1:90, AGWRC = "lm_variable", m = reg_lm$m, b = reg_lm$b)
+#Repeat now with limit
+forwardForecast(Q0 = 100, days = 1:90, AGWRC = "lm_variable",
+                m = reg_lm$m, b = reg_lm$b,
+                low_flow_limit = reg_lm$low_Q, low_agwrc_limit = reg_lm$low_Q_agwrc,
+                high_flow_limit = reg_lm$high_Q, high_agwrc_limit = reg_lm$high_Q_agwrc)
 }

@@ -2,13 +2,18 @@
 #'@name
 #'bf_standardize_analysis_df
 #'@description
-#'Standardized column names
+#'Cehck for missing analysis fields in data.frame
 #'@details
-#'Input df is checked for specific column names, required names are stated if missing.
-#'Outputs new df with standardized naming convention for common variables.
-#'@param df df from locationTrimStats.csv requiring GroupID, Date, Flow, AGWR, delta_AGWR, kept, met_alpha columns
-#'@param gage_id char usgs gage number from commandArgs in function call
-#'@return df with columns: Date, GroupID, Flow, AGWR, delta_AGWR, AGWRC, kept, met_alpha
+#'Input df is checked for specific column names \code{c("GroupID", "Date",
+#'"Flow", "AGWR", "delta_AGWR", "kept", "met_alpha")}, required names are stated
+#'if missing. Formats these variables with standardized classes by ensuring
+#'expected numeric data is numeric, expectedlogical is logical, and expected
+#'character is character
+#'@param df data.frame to check
+#'@param gage_id chararacter. A site name to append to the data if not present.
+#'@return data.frame with the columns: Date, GroupID, Flow, AGWR, delta_AGWR,
+#'  AGWRC, kept, met_alpha now formatted as character, numeric, or logical as
+#'  appropriate
 #'@importFrom rlang .data
 #'@export
 bf_standardize_analysis_df <- function(df, gage_id) {

@@ -9,16 +9,20 @@ single_forecast(Q0, AGWRC, days)
 \arguments{
 \item{Q0}{numeric of length 1 for initial flow}
 
-\item{AGWRC}{numeric scalar or vector for AGWRC}
+\item{AGWRC}{numeric of length 1 for AGWRC}
 
 \item{days}{numeric scalar or vector running calculation up to maximum value in vector}
 }
 \value{
-numeric column containing forecast flows
+numeric vector containing forecasted flows
 }
 \description{
 single_forecast
 }
 \details{
 Calculate flow prediction based on initial flow, AGWRC, and days
+using the exponential decay function of Q = Q0 * (AGWRC^days)
+}
+\examples{
+single_forecast(Q0 = 100, AGWRC = 0.97, days = 0:10)
 }

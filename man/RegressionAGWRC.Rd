@@ -17,12 +17,12 @@ of Q and AGWRC}
 relationship of Q and AGWRC}
 }
 \value{
-A list containing the forcast flows and AGWRCs used in the forecast
+An AGWR coefficient calculated from the log-linear regression for Flow
 }
 \description{
 RegressionAGWRC
 }
 \details{
 Calculate AGWRC based on a log linear relationship of flow, m,
-and b
+and b e.g. AGWRC = m * log(Flow) + b
 }
