@@ -24,3 +24,5 @@ Imports:
     R6
 Suggests:
   hydrotools
+Remotes:
+  hydrotools=github::HARPgroup/hydro-tools 
