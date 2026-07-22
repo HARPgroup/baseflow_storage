@@ -23,25 +23,18 @@ export(make_event_regression_df)
 export(regressionLimitAGWRC)
 export(single_forecast)
 export(site_factors)
-<<<<<<< HEAD
-export(streamStats_Delineation)
-export(streamStats_Delineation_single)
-=======
 export(solve_agwrc_log)
 export(solve_agwrc_lookup)
 export(step_scq)
->>>>>>> 0afeaaf54b2d10b3247b6c33675ea55d66b1a270
+export(streamStats_Delineation)
+export(streamStats_Delineation_single)
 export(summarize_event)
 export(trim_event_mk)
 importFrom(Kendall,MannKendall)
 importFrom(R6,R6Class)
 importFrom(dplyr,case_when)
 importFrom(dplyr,mutate)
-<<<<<<< HEAD
 importFrom(geojsonsf,geojson_wkt)
-importFrom(hydrotools,WaterGageBase)
 importFrom(jsonlite,fromJSON)
 importFrom(jsonlite,toJSON)
-=======
->>>>>>> 0afeaaf54b2d10b3247b6c33675ea55d66b1a270
 importFrom(rlang,.data)

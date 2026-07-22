@@ -43,7 +43,9 @@ streamStats_Delineation_single <- function(state = "VA",
   }))
 
   # final df
-  WKT <- data.frame(monitoring_location_id = UID, gage_point = fcs_final[1], gage_drainage_polygon = fcs_final[2])
+  WKT <- data.frame(monitoring_location_id = UID,
+                    gage_point = fcs_final[1],
+                    gage_drainage_polygon = fcs_final[2])
 
   return(WKT)
 }
@@ -56,13 +58,9 @@ streamStats_Delineation_single <- function(state = "VA",
 #'Using USGS streamStats service API https://streamstats.usgs.gov/ss-delineate/docs#/
 #' Find "FeatureCollection" in JSON file, typically about 5 objects in bedded
 #' from input df
-#'@param state Character. Abbreviation of state of USGS gage, e.g. 'VA'
-#'@param longitude Numeric. longitude value of USGS gage
-#'@param latitude Numeric. latitude value of USGS gage
-#'@param UID Character. USGS monitoring_location_id for output df e.g. that
-#'  derived from \code{read_waterdata_monitoring_location()}
-#'@return A df with list columns of UID, POINT geometry and POLYGON geometry for
-#'  a USGS gage
+#'@param JSON JSON list that may contain featureCollections as derived in
+#'  \code{streamStats_Delineation_single()}
+#'@return List. The relevant data from the list.
 find_FeatureCollection <- function(JSON) {
   outData <- list()
 

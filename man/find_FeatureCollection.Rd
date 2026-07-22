@@ -7,18 +7,11 @@
 find_FeatureCollection(JSON)
 }
 \arguments{
-\item{state}{Character. Abbreviation of state of USGS gage, e.g. 'VA'}
-
-\item{longitude}{Numeric. longitude value of USGS gage}
-
-\item{latitude}{Numeric. latitude value of USGS gage}
-
-\item{UID}{Character. USGS monitoring_location_id for output df e.g. that
-derived from \code{read_waterdata_monitoring_location()}}
+\item{JSON}{JSON list that may contain featureCollections as derived in
+\code{streamStats_Delineation_single()}}
 }
 \value{
-A df with list columns of UID, POINT geometry and POLYGON geometry for
-a USGS gage
+List. The relevant data from the list.
 }
 \description{
 Get relevant features from a feature collection or other json

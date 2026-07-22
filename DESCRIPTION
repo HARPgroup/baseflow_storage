@@ -17,7 +17,6 @@ Imports:
     rlang,
     jsonlite,
     geojsonsf,
-    sf,
     dataRetrieval,
     nhdplusTools,
     stats,
