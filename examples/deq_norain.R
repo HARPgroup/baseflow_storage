@@ -194,6 +194,24 @@ for (gage_id in glist) {
     odf,
     odl
   )
+  # scenario is 
+  # norain_[yr]_[mo]_[da]
+  scenario = paste('norain', year(start_date), month(start_date), day(start_date), sep='_')
+  # GETTING SCENARIO PROPERTY FROM VA HYDRO
+  sceninfo <- list(
+    varkey = 'om_scenario',
+    propname = scenario,
+    featureid = model$pid,
+    entity_type = "dh_properties",
+    bundle = "dh_properties"
+  )
+  scenprop <- RomProperty$new( ds, sceninfo, TRUE)
+  scenprop$startdate <- start_date
+  scenprop$enddate <- end_date
+  scenprop$save(TRUE)
+  scenprop$set_prop(propname="is_emerg", propvalue=is_emerg)
+  scenprop$set_prop(propname="is_hist", propvalue=is_hist)
+  
 }
 
 
