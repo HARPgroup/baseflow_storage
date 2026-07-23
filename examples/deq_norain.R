@@ -7,7 +7,7 @@ source(paste(basepath,'config.R',sep='/'))
 
 argst <- commandArgs(trailingOnly=T)
 # Ex:
-# argst = c("02065500,02059500,02056000,02054530,02056900,02058400,02071000,02061500,02064000", '/tmp/test.csv', 'norain_roanoke')
+# argst = c("02065500,02059500,02056000,02054530,02056900,02058400,02071000,02061500,02064000", '/tmp', 'norain_roanoke')
 # argst = c("02065500,02059500,02056000,02054530,02056900", '/tmp/test.csv', "2002-07-10")
 # argst = c("03524000,03167000,01674500,01667500,01654000,01634000,02016000,02039500,02042500,02051500,02059500,02056650", '/tmp/test.csv')
 
@@ -151,16 +151,20 @@ for (gage_id in glist) {
   Q90 = fc[90,]$Forecast
   end_date <- fc[90,]$Date
   is_emerg = 'No' 
+  is_emerg_int = 0
   is_hist = 'No'
+  is_hist_int = 0
   Qmin = min(omgage$low_flows$n1Q10_annDate$minFlow)
   if (Q90 <= Qmin) {
     is_hist = 'Yes' # look up from percentile tables
+    is_hist_int = 1
   }
   ntab <- omgage$nep_table()
   emo <- month(end_date)
   emo_em <- ntab[emo,3]
   if (Q90 <= emo_em) {
     is_emerg = 'Yes'
+    is_emerg_int = 1
   }
   yscale = max(fc$Forecast,na.rm=TRUE)
   yinc = yscale / 10
@@ -211,8 +215,8 @@ for (gage_id in glist) {
   scenprop$startdate <- start_date
   scenprop$enddate <- end_date
   scenprop$save(TRUE)
-  scenprop$set_prop(propname="is_emerg", propvalue=is_emerg)
-  scenprop$set_prop(propname="is_hist", propvalue=is_hist)
+  scenprop$set_prop(propname="is_emerg", propvalue=is_emerg_int, propcode=is_emerg)
+  scenprop$set_prop(propname="is_hist", propvalue=is_hist_int, propcode=is_hist)
   
 }
 
