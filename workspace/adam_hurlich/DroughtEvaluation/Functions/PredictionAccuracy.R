@@ -1,31 +1,31 @@
-## Local Testing
-basepath <- "/var/www/R"
-source("/var/www/R/config.R")
-library(tidyverse)
-library(flextable)
-library(hydrotools)
-
-GageID = "02016000" #Cowpasture
-gage_obj <- hydrotools::WaterGageDaily$new(gage_id = GageID)
-
-flow_csv <- gage_obj$gage_data |>
-  select(time, value) |>
-  rename(Date = time, Observed = value)
-
-var <- gage_obj$baseflow_workflow_data(omsite)
-
-baseflow_csv <- var$trimmed_events_df |>
-  group_by(GroupID) |>
-  mutate(duration = as.numeric(max(as.Date(Date)) - min(as.Date(Date)))) |>
-  slice(1) |>
-  ungroup() |>
-  filter(duration >= 7) |>
-  select(GroupID, Date, Flow, AGWRC, duration)
-
-regression_csv <- var$lm_df
-
-m <- regression_csv$m
-b <- regression_csv$b
+### Local Testing
+#basepath <- "/var/www/R"
+#source("/var/www/R/config.R")
+#library(tidyverse)
+#library(flextable)
+#library(hydrotools)
+#
+#GageID = "02016000" #Cowpasture
+#gage_obj <- hydrotools::WaterGageDaily$new(gage_id = GageID)
+#
+#flow_csv <- gage_obj$gage_data |>
+#  select(time, value) |>
+#  rename(Date = time, Observed = value)
+#
+#var <- gage_obj$baseflow_workflow_data(omsite)
+#
+#baseflow_csv <- var$trimmed_events_df |>
+#  group_by(GroupID) |>
+#  mutate(duration = as.numeric(max(as.Date(Date)) - min(as.Date(Date)))) |>
+#  slice(1) |>
+#  ungroup() |>
+#  filter(duration >= 7) |>
+#  select(GroupID, Date, Flow, AGWRC, duration)
+#
+#regression_csv <- var$lm_df
+#
+#m <- regression_csv$m
+#b <- regression_csv$b
 
 #' @title PredictionAccuracy
 #' @name
@@ -139,6 +139,10 @@ PredictionAccuracy <- function(flow_csv, baseflow_csv, days = c(0:15), AGWRC, m,
 #' @export
 summary_stats <- function(df) {
 
+  if (!requireNamespace("flextable", quietly = TRUE)) {
+    stop("Package 'flextable' is required. Please install it using install.packages('flextable')")
+  }
+
   metrics <- c("MAE", "RMSE", "MAPE", "Bias", "r2")
 
   summary_table <- data.frame(
@@ -164,5 +168,5 @@ summary_stats <- function(df) {
 }
 
 
-## Local Testing
-Predict <- PredictionAccuracy(flow_csv, baseflow_csv, days = c(0:15), AGWRC = "lm_constant", m, b)
+### Local Testing
+#Predict <- PredictionAccuracy(flow_csv, baseflow_csv, days = c(0:15), AGWRC = "lm_constant", m, b)
