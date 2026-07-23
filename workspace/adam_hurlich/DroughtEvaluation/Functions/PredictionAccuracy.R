@@ -1,26 +1,31 @@
 ## Local Testing
-#library(tidyverse)
-#
-#GageID = "01634000" #Strasburg
-#flow_csv <- read_csv(paste0("https://deq1.bse.vt.edu/usgs/agws/", GageID, "-flow.csv"))
-#baseflow_csv <- read_csv(paste0("https://deq1.bse.vt.edu/usgs/agws/baseflow_trimmed_stats_", GageID, ".csv"))
-#regression_csv <- read_csv(paste0("https://deq1.bse.vt.edu/usgs/agws/baseflow_regression_df_", GageID, ".csv"))
-#m <- regression_csv$m
-#b <- regression_csv$b
-#
-#flow_csv <- flow_csv |>
-#  select(obs_date, obs_flow) |>
-#  rename(Date = obs_date, Observed = obs_flow)
-#
-#baseflow_csv <- baseflow_csv |>
-#  group_by(GroupID) |>
-#  mutate(duration = as.numeric(max(Date) - min(Date))) |>
-#  slice(1) |>
-#  ungroup() |>
-#  filter(duration >= 15) |>
-#  select(GroupID, Date, Flow, AGWRC, duration)
+basepath <- "/var/www/R"
+source("/var/www/R/config.R")
+library(tidyverse)
+library(flextable)
+library(hydrotools)
 
-source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/adam_bf_workflow/workspace/adam_hurlich/DroughtEvaluation/Functions/forwardForecast.R")
+GageID = "02016000" #Cowpasture
+gage_obj <- hydrotools::WaterGageDaily$new(gage_id = GageID)
+
+flow_csv <- gage_obj$gage_data |>
+  select(time, value) |>
+  rename(Date = time, Observed = value)
+
+var <- gage_obj$baseflow_workflow_data(omsite)
+
+baseflow_csv <- var$trimmed_events_df |>
+  group_by(GroupID) |>
+  mutate(duration = as.numeric(max(as.Date(Date)) - min(as.Date(Date)))) |>
+  slice(1) |>
+  ungroup() |>
+  filter(duration >= 7) |>
+  select(GroupID, Date, Flow, AGWRC, duration)
+
+regression_csv <- var$lm_df
+
+m <- regression_csv$m
+b <- regression_csv$b
 
 #' @title PredictionAccuracy
 #' @name
@@ -49,6 +54,7 @@ source("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/adam_bf_wor
 #' daily_stats: grouped by Day, provides MAE, RMSE, MAPE, Bias, R2 for all Days
 #' @importFrom dplyr filter mutate summarise group_by group_modify
 #' @importFrom tibble tibble
+#' @importFrom agws forwardForecast
 #' @export
 PredictionAccuracy <- function(flow_csv, baseflow_csv, days = c(0:15), AGWRC, m, b) {
 
@@ -58,7 +64,7 @@ PredictionAccuracy <- function(flow_csv, baseflow_csv, days = c(0:15), AGWRC, m,
   # Run forwardForecast for all baseflow events
   ResultsFinal <- lapply(1:nrow(baseflow_csv), function(i) {
     # df for forwardForecast function
-    out <- forwardForecast(
+    out <- agws::forwardForecast(
       Q0 = baseflow_csv$Flow[i],
       days = days,
       AGWRC = AGWRC,
@@ -85,16 +91,16 @@ PredictionAccuracy <- function(flow_csv, baseflow_csv, days = c(0:15), AGWRC, m,
   big$Residuals <- big$Forecast - big$Observed
 
   # df for overall event_stats, large df with all info
-  event_stats <- big %>%
-    group_by(GroupID, Day) %>%
+  event_stats <- big |>
+    group_by(GroupID, Day) |>
     summarise(Date, Forecast, Observed, AGWRC, Residuals, .groups = "drop")
 
   # df for group_stats by GroupID grouping, getting statistical metrics
-  group_stats <- big %>%
-    group_by(GroupID) %>%
+  group_stats <- big |>
+    group_by(GroupID) |>
     group_modify(~ {
       model <- lm(Forecast ~ Observed, data = .x)
-      tibble(
+      tibble::tibble(
         MAE = mean(abs(.x$Residuals), na.rm = TRUE),
         RMSE = sqrt(mean(.x$Residuals^2, na.rm = TRUE)),
         MAPE = mean(abs(.x$Residuals / .x$Observed)) * 100,
@@ -104,11 +110,11 @@ PredictionAccuracy <- function(flow_csv, baseflow_csv, days = c(0:15), AGWRC, m,
     })
 
   # df for daily_stats by Day grouping, getting statistical metrics
-  daily_stats <- big %>%
-    group_by(Day) %>%
+  daily_stats <- big |>
+    group_by(Day) |>
     group_modify(~ {
       model <- lm(Forecast ~ Observed, data = .x)
-      tibble(
+      tibble::tibble(
         MAE = mean(abs(.x$Residuals), na.rm = TRUE),
         RMSE = sqrt(mean(.x$Residuals^2, na.rm = TRUE)),
         MAPE = mean(abs(.x$Residuals / .x$Observed)) * 100,
@@ -116,30 +122,47 @@ PredictionAccuracy <- function(flow_csv, baseflow_csv, days = c(0:15), AGWRC, m,
         r2 = summary(model)$r.squared
       )
     })
+  summary_table <- summary_stats(Predict$group_stats)
 
-  return(list(event_stats = event_stats, group_stats = group_stats, daily_stats = daily_stats))
+  return(list(event_stats = event_stats, group_stats = group_stats, daily_stats = daily_stats, summary_table = summary_table))
 }
 
+#' @title summary_stats
+#' @name
+#'summary_stats
+#'  @description
+#'statistical significane of metrics
+#' @details creates a flextable object for mean, median, min, max, and std dev of MAE, RMSE, MAPE, Bias and r2
+#' @param df df with columns of MAE, RMSE, MAPE, Bias, r2
+#' @return flextable object
+#' @importFrom flextable flextable
+#' @export
+summary_stats <- function(df) {
+
+  metrics <- c("MAE", "RMSE", "MAPE", "Bias", "r2")
+
+  summary_table <- data.frame(
+    Statistic = c("Mean", "Median", "Min", "Max", "Std Dev"),
+    sapply(metrics, function(x) {
+      c(
+        mean(df[[x]], na.rm = T),
+        median(df[[x]], na.rm = T),
+        min(df[[x]], na.rm = T),
+        max(df[[x]], na.rm = T),
+        sd(df[[x]], na.rm = T)
+      )
+    }),
+    check.names = F
+  )
+
+  ft <- flextable::flextable(summary_table) |>
+    flextable::colformat_num(digits = 2) |>
+    flextable::theme_vanilla() |>
+    flextable::autofit()
+
+  return(ft)
+}
+
+
 ## Local Testing
-#Predict <- PredictionAccuracy(flow_csv, baseflow_csv, days = c(0:15), AGWRC = "lm_variable", m, b)
-#
-#df <- Predict$event_stats %>%
-#  filter(GroupID == 4, Day %in% 1:15)
-#
-#df_long <- df %>%
-#  select(Day, Observed, Forecast) %>%
-#  pivot_longer(
-#    cols = c(Observed, Forecast),
-#    names_to = "Type",
-#    values_to = "Value"
-#  )
-#
-#ggplot(df_long, aes(x = Day, y = Value, color = Type)) +
-#  geom_point(size = 1.5) +
-#  scale_x_continuous(breaks = 1:15) +
-#  labs(
-#    title = paste("Observed vs Predicted by Day for ID", 4),
-#    x = "Day",
-#    y = "Flow"
-#  ) +
-#  theme_minimal()
+Predict <- PredictionAccuracy(flow_csv, baseflow_csv, days = c(0:15), AGWRC = "lm_constant", m, b)
