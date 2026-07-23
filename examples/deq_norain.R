@@ -217,6 +217,8 @@ for (gage_id in glist) {
   scenprop$save(TRUE)
   scenprop$set_prop(propname="is_emerg", propvalue=is_emerg_int, propcode=is_emerg)
   scenprop$set_prop(propname="is_hist", propvalue=is_hist_int, propcode=is_hist)
+  scenprop$set_prop(propname="Q90", propvalue=Q90)
+  scenprop$set_prop(propname="Qmin", propvalue=Qmin)
   
 }
 
