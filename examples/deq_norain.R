@@ -222,4 +222,4 @@ for (gage_id in glist) {
 
 # other functions:
 # agws::fit_agwrc_regression(events)
-write.csv(odf,file=paste0(save_path, scenario, "_Q90_", yr, ".csv"))
+write.csv(odf,file=paste0(save_path, "/", scenario, "_Q90_", yr, ".csv"))
