@@ -133,7 +133,7 @@ for (gage_id in glist) {
     AGWRC = AGWRC
   )
   print(bff) # display ggplot
-  fpath = paste0(save_path, "/Q90_norain_log_", gage_id, yr, "_", ".png")
+  fpath = paste0(save_path, "/Q90_norain_log_", gage_id, '_', yr, ".png")
   ggplot2::ggsave(fpath)
   if (!is.na(Ce)) {
     if (method != 'regression_limit') {
@@ -170,7 +170,7 @@ for (gage_id in glist) {
   )
   text(as.Date(end_date - 10), Q90 + yinc * 2, paste("Q90 =", round(Q90,1), "cfs"))
   text(as.Date(end_date - 10), Q90 + yinc * 3, paste("Qmin =", round(Qmin,1), "cfs"))
-  fpath = paste0(save_path, "/Q90_norain_", gage_id, yr, "_", ".png")
+  fpath = paste0(save_path, "/Q90_norain_", gage_id, "_", yr, ".png")
   png(fpath)
   # now save the same thing
   plot(
