@@ -4,25 +4,27 @@
 \alias{site_factors}
 \title{site_factors}
 \usage{
-site_factors(da_sqmi, flow_vec, vec_for_reg = NULL, m, b)
+site_factors(da_sqmi, flow_vec, m, b)
 }
 \arguments{
-\item{da_sqmi}{numeric}
+\item{da_sqmi}{numeric value of the drainage area in square miles for a gage}
 
-\item{flow_vec}{numeric}
+\item{flow_vec}{numeric flow vector for a gage in cfs}
 
-\item{vec_for_reg}{numeric}
+\item{m}{Numeric. slope value for the gage in the relationship of AGWRC ~
+log(Q)}
 
-\item{m}{numeric}
-
-\item{b}{numeric}
+\item{b}{Numeric. intercept value for the gage in the relationship of AGWRC ~
+log(Q)}
 }
 \value{
-A data frame...
+A data frame of data that has a C, m, b, drainage area, flow vector,
+and a vector for regression that is ready a lookup table can be built from
 }
 \description{
 site_factors
 }
 \details{
-A function...
+A function that prepares data to be turned into a lookup table via
+\code{build_lookup()}
 }
