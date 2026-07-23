@@ -7,14 +7,16 @@ source(paste(basepath,'config.R',sep='/'))
 
 argst <- commandArgs(trailingOnly=T)
 # Ex:
-# argst = c("02065500,02059500,02056000,02054530,02056900,02058400,02071000,02061500,02064000", '/tmp/test.csv')
+# argst = c("02065500,02059500,02056000,02054530,02056900,02058400,02071000,02061500,02064000", '/tmp/test.csv', 'norain_roanoke')
 # argst = c("02065500,02059500,02056000,02054530,02056900", '/tmp/test.csv', "2002-07-10")
 # argst = c("03524000,03167000,01674500,01667500,01654000,01634000,02016000,02039500,02042500,02051500,02059500,02056650", '/tmp/test.csv')
 
 message(paste("length of argst = ", length(argst)))
 if (length(argst) < 3) {
-  message(paste("Use: deq_norain.R gages( \"02065500,02059500,...\") output_path scenario [start_date] [end_date]"))  q()
+  message(paste("Use: deq_norain.R gages( \"02065500,02059500,...\") output_path scenario [start_date] [end_date]"))
+  q()
 }
+gages <- as.character(argst[1])
 gages <- stringr::str_replace_all(gages,'"', '')
 glist <- stringr::str_split(gages,",",simplify=TRUE)
 # get or guess the date to aim for projection
@@ -196,7 +198,7 @@ for (gage_id in glist) {
   )
   # scenario is 
   # norain_[yr]_[mo]_[da]
-  scenario = paste('norain', year(start_date), month(start_date), day(start_date), sep='_')
+  #scenario = paste('norain', year(start_date), month(start_date), day(start_date), sep='_')
   # GETTING SCENARIO PROPERTY FROM VA HYDRO
   sceninfo <- list(
     varkey = 'om_scenario',
