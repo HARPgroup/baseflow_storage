@@ -26,7 +26,7 @@ scenario = as.character(argst[3])
 if (length(argst) > 3) {
   proj_start_date = argst[4]
 } else {
-  proj_start_date = format(Sys.time(), "%Y-%m-%d")
+  proj_start_date = as.Date(format(Sys.time(), "%Y-%m-%d")) - 1
 }
 if (length(argst) > 4) { 
   proj_end_date = argst[5]
@@ -91,7 +91,7 @@ for (gage_id in glist) {
     ylim=c(0, max(omgage$gage_data[omgage$gage_data$Date >= (as.Date(proj_start_date) - 30),]$Flow))
   )
   days = nrow(omgage$gage_data)
-  minus30 = which(omgage$gage_data$Date == (as.Date(proj_start_date) - 30))
+  minus30 = which(omgage$gage_data$Date == (as.Date(proj_start_date))) - 30
   last30 = omgage$gage_data[minus30:(minus30 + 30),]
   Q0 = min(last30$Flow)
   start_date = max(last30[last30$Flow == Q0,]$Date)
