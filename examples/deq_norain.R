@@ -7,9 +7,10 @@ source(paste(basepath,'config.R',sep='/'))
 
 argst <- commandArgs(trailingOnly=T)
 # Ex:
-# argst = c("02065500,02059500,02056000,02054530,02056900,02058400,02071000,02061500,02064000", '/tmp', 'norain_roanoke')
+# argst = c("02065500,02059500,02056000,02054530,02056900,02058400,02071000,02061500,02064000", '/tmp', 'norain_2026')
 # argst = c("02065500,02059500,02056000,02054530,02056900", '/tmp/test.csv', "2002-07-10")
 # argst = c("03524000,03167000,01674500,01667500,01654000,01634000,02016000,02039500,02042500,02051500,02059500,02056650", '/tmp/test.csv')
+# argst = c("02059500", '/tmp', "norain_2002", "2002-07-10")
 
 message(paste("length of argst = ", length(argst)))
 if (length(argst) < 3) {
@@ -68,6 +69,10 @@ for (gage_id in glist) {
   #l90_agwrc = simple_lm$get_prop('l90_agwrc')'
   # get bounds on relationship if set
   l90_agwrc = model$prop$get_prop('l90_agwrc')
+  # to set:
+  # l90_agwrc$varid = l90_agwrc$get_vardef(config = list(varkey='om_class_Constant'))$hydroid
+  # l90_agwrc$propvalue = 0.983
+  # l90_agwrc$save(TRUE)
   agwrc_reg_qlow = model$prop$get_prop('agwrc_reg_qlow')
   agwrc_reg_clow = model$prop$get_prop('agwrc_reg_clow')
   # to set these do:
@@ -86,7 +91,8 @@ for (gage_id in glist) {
     ylim=c(0, max(omgage$gage_data[omgage$gage_data$Date >= (as.Date(proj_start_date) - 30),]$Flow))
   )
   days = nrow(omgage$gage_data)
-  last30 = omgage$gage_data[(days - 30):days,]
+  minus30 = which(omgage$gage_data$Date == (as.Date(proj_start_date) - 30))
+  last30 = omgage$gage_data[minus30:(minus30 + 30),]
   Q0 = min(last30$Flow)
   start_date = max(last30[last30$Flow == Q0,]$Date)
   points(start_date, Q0, col="red", bg="red", pch = 21, cex = 2)
