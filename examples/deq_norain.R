@@ -8,6 +8,7 @@ source(paste(basepath,'config.R',sep='/'))
 argst <- commandArgs(trailingOnly=T)
 # Ex:
 # argst = c("02065500,02059500,02056000,02054530,02056900,02058400,02071000,02061500,02064000", '/tmp', 'norain_2026')
+# argst = c("02065500,02059500,02056000,02054530,02056900,02058400,02071000,02061500,02064000", '/tmp', 'norain_2008', '2008-07-01')
 # argst = c("02065500,02059500,02056000,02054530,02056900", '/tmp/test.csv', "2002-07-10")
 # argst = c("03524000,03167000,01674500,01667500,01654000,01634000,02016000,02039500,02042500,02051500,02059500,02056650", '/tmp/test.csv')
 # argst = c("02059500", '/tmp', "norain_2002", "2002-07-10")
@@ -113,7 +114,7 @@ for (gage_id in glist) {
     method = 'manual'
   }
   # now check for a minimum valid Q to regress against
-  if (!is.na(agwrc_reg_qlow$propvalue) && Q0 < agwrc_reg_qlow$propvalue) {
+  if (!(method == 'manual') && !is.na(agwrc_reg_qlow$propvalue) && Q0 < agwrc_reg_qlow$propvalue) {
     Ce = agwrc_reg_clow$propvalue
     method = 'regression_limit'
   }
@@ -160,7 +161,7 @@ for (gage_id in glist) {
     fc = bff[["plot_env"]][["all_forecasts"]][["lm_variable"]]
   }
   
-  fc$Date <- as.Date(start_date + fc$Day)
+  #fc$Date <- as.Date(start_date + fc$Day)
   Q90 = fc[90,]$Forecast
   end_date <- fc[90,]$Date
   is_emerg = 'No' 
@@ -197,7 +198,7 @@ for (gage_id in glist) {
   text(as.Date(end_date - 10), Q90 + yinc * 2, paste("Q90 =", round(Q90,1), "cfs"))
   text(as.Date(end_date - 10), Q90 + yinc * 3, paste("Qmin =", round(Qmin,1), "cfs"))
   dev.off()
-    Ce = median(fc$AGWRC)
+  Ce = median(fc$AGWRC)
   odl <- data.frame (
     hydroid = omgage$gage_feature$hydroid,
     gage_id = gage_id,
