@@ -88,10 +88,14 @@ for (gage_id in glist) {
     Flow ~ Date, 
     data=omgage$gage_data[omgage$gage_data$Date >= (as.Date(proj_start_date) - 30),],
     main=paste("Observed", model$feature$name),
-    ylim=c(0, max(omgage$gage_data[omgage$gage_data$Date >= (as.Date(proj_start_date) - 30),]$Flow))
+    ylim=c(0, max(omgage$gage_data[omgage$gage_data$Date >= (as.Date(proj_start_date) - 30),]$Flow, na.rm=TRUE))
   )
   days = nrow(omgage$gage_data)
   minus30 = which(omgage$gage_data$Date == (as.Date(proj_start_date))) - 30
+  if (length(minus30) == 0) {
+    # we are outside the date range of the gage, skip
+    next
+  }
   last30 = omgage$gage_data[minus30:(minus30 + 30),]
   Q0 = min(last30$Flow)
   start_date = max(last30[last30$Flow == Q0,]$Date)
@@ -196,6 +200,7 @@ for (gage_id in glist) {
     gage_id = gage_id,
     gage_name = model$feature$name,
     norain_90 = Q90,
+    hist_min = Qmin,
     proj_date = end_date,
     proj_emerg = is_emerg,
     record_low = is_hist,
