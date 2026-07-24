@@ -11,7 +11,7 @@ argst <- commandArgs(trailingOnly=T)
 # argst = c("02065500,02059500,02056000,02054530,02056900", '/tmp/test.csv', "2002-07-10")
 # argst = c("03524000,03167000,01674500,01667500,01654000,01634000,02016000,02039500,02042500,02051500,02059500,02056650", '/tmp/test.csv')
 # argst = c("02059500", '/tmp', "norain_2002", "2002-07-10")
-
+# argst = c("02054530", '/tmp', "norain_1981", "1981-07-10")
 message(paste("length of argst = ", length(argst)))
 if (length(argst) < 3) {
   message(paste("Use: deq_norain.R gages( \"02065500,02059500,...\") output_path scenario [start_date] [end_date]"))
@@ -55,6 +55,9 @@ for (gage_id in glist) {
   omgage <- hydrotools::WaterGageDaily$new(ds_in = ds, gage_id = gage_id)
   omgage$load_wshd_feat()
   omgage$get_gage_data_old(start_date = '1900-01-01', end_date=proj_end_date, approval_status = 'all')
+  if (nrow(omgage$gage_data) == 0) {
+    next
+  }
   omgage$plot_low_flows()
   omgage$low_flows
   # Load model object for retrieving BPJ AGWRC
