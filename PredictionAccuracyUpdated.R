@@ -1,32 +1,32 @@
-## Local Testing
-basepath <- "/var/www/R"
-source("/var/www/R/config.R")
-library(tidyverse)
-library(flextable)
-library(hydrotools)
-
-GageID = "02016000" #Cowpasture
-gage_obj <- hydrotools::WaterGageDaily$new(gage_id = GageID)
-
-flow_csv <- gage_obj$gage_data |>
- select(time, value) |>
- rename(Date = time, Observed = value)
-
-var <- gage_obj$baseflow_workflow_data(omsite)
-
-baseflow_csv <- var$trimmed_events_df |>
-  mutate(Date = as.Date(Date)) |>
-  group_by(GroupID) |>
-  mutate(duration = as.numeric(max(Date) - min(Date))) |>
-  slice(1) |>
-  ungroup() |>
-  filter(duration >= 7) |>
-  select(GroupID, Date, Flow, AGWRC, duration)
-
-regression_csv <- var$lm_df
-
-m <- regression_csv$m
-b <- regression_csv$b
+# ## Local Testing
+# basepath <- "/var/www/R"
+# source("/var/www/R/config.R")
+# library(tidyverse)
+# library(flextable)
+# library(hydrotools)
+# 
+# GageID = "02016000" #Cowpasture
+# gage_obj <- hydrotools::WaterGageDaily$new(gage_id = GageID)
+# 
+# flow_csv <- gage_obj$gage_data |>
+#  select(time, value) |>
+#  rename(Date = time, Observed = value)
+# 
+# var <- gage_obj$baseflow_workflow_data(omsite)
+# 
+# baseflow_csv <- var$trimmed_events_df |>
+#   mutate(Date = as.Date(Date)) |>
+#   group_by(GroupID) |>
+#   mutate(duration = as.numeric(max(Date) - min(Date))) |>
+#   slice(1) |>
+#   ungroup() |>
+#   filter(duration >= 7) |>
+#   select(GroupID, Date, Flow, AGWRC, duration)
+# 
+# regression_csv <- var$lm_df
+# 
+# m <- regression_csv$m
+# b <- regression_csv$b
 
 #' @title PredictionAccuracy
 #' @name
@@ -169,6 +169,5 @@ summary_stats <- function(df) {
 }
 
 
-## Local Testing
-Predict <- PredictionAccuracy(flow_csv, baseflow_csv, days = c(0:15), AGWRC = "lm_constant", m, b)
-summary_table <- Predict$summary_table
+# ## Local Testing
+# Predict <- PredictionAccuracy(flow_csv, baseflow_csv, days = c(0:15), AGWRC = "lm_constant", m, b)
