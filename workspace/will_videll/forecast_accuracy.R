@@ -101,14 +101,27 @@ min_flow_accuracy <- function(gage_obj, event_df, AGWRC = c("lm_constant", "lm_v
   return(event_df1)
 }
 
-test2 <- min_flow_accuracy(gage_obj, event_df, AGWRC = "lm_variable")
+#test2 <- min_flow_accuracy(gage_obj, event_df, AGWRC = "lm_variable")
 
+#' @title plot_event_minima
+#' @name plot_event_minima
+#' @description 
+#' plots target local minima on DEQ forecast graphs
+#' @param gage_obj an R6 gage object from VDEQ baseflow workflow
+#' @param start_date str of desired forecast start date (yyyy-mm-dd)
+#'
+#' @returns ggplot of forecasted flows and local minima
+#' @export plot_event_minima
 plot_event_minima <- function(gage_obj, start_date){
   forecast1 <- gage_obj$baseflow_forecast(start_date = start_date, AGWRC = "lm_variable",
                                           use_limits = TRUE)
+  # Select row with lowest flow value
   min_flow <- forecast1 |> dplyr::slice_min(obs_flow)
+  
+  # Preliminary local minima selection
   forecast1$troughs <- zoo::rollapply(forecast1$obs_flow, width = 7, function(x) x[4] <= min(x[-4]), fill = FALSE)  
   
+  # Trim local minima selection
   forecast_trimmed <- forecast1 |> 
     dplyr::filter(troughs) |> 
     dplyr::group_by(run_id = consecutive_id(obs_flow)) |> 
@@ -116,6 +129,7 @@ plot_event_minima <- function(gage_obj, start_date){
     dplyr::ungroup()|> 
     dplyr::filter(obs_flow == cummin(obs_flow)) 
   
+  # Create plot
   plot <- gage_obj$plot_baseflow_forecast(start_date = start_date, include_days_before = 60)+
     geom_point(aes(x = forecast_trimmed$Date, y = forecast_trimmed$obs_flow))+
     geom_point(aes(x = last(min_flow$Date), y = min_flow$obs_flow), color = "red")
