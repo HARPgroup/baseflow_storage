@@ -10,7 +10,7 @@ argst <- commandArgs(trailingOnly=T)
 # argst = c("02065500,02059500,02056000,02054530,02056900,02058400,02071000,02061500,02064000", '/tmp', 'norain_2026')
 # argst = c("02065500,02059500,02056000,02054530,02056900,02058400,02071000,02061500,02064000", '/tmp', 'norain_2008', '2008-07-01')
 # argst = c("02065500,02059500,02056000,02054530,02056900", '/tmp/test.csv', "2002-07-10")
-# argst = c("03524000,03167000,01674500,01667500,01654000,01634000,02016000,02039500,02042500,02051500,02059500,02056650", '/tmp/test.csv')
+# argst = c("03524000,03167000,01674500,01667500,01654000,01634000,02016000,02039500,02042500,02051500,02059500,02056650", '/tmp', "norain_2026")
 # argst = c("02059500", '/tmp', "norain_2002", "2002-07-10")
 # argst = c("02054530", '/tmp', "norain_1981", "1981-07-10")
 message(paste("length of argst = ", length(argst)))
@@ -86,21 +86,21 @@ for (gage_id in glist) {
   # agwrc_reg_clow$propvalue = 0.986
   # agwrc_reg_clow$varid = l90_agwrc$get_vardef(config = list(varkey='om_class_Constant'))$hydroid
   # agwrc_reg_clow$save(TRUE)
-  
+  clean_data <- omgage$gage_data[which(!is.na(omgage$gage_data$Flow)),]
   # inspect for start date
   plot(
     Flow ~ Date, 
-    data=omgage$gage_data[omgage$gage_data$Date >= (as.Date(proj_start_date) - 30),],
+    data=clean_data[clean_data$Date >= (as.Date(proj_start_date) - 30),],
     main=paste("Observed", model$feature$name),
-    ylim=c(0, max(omgage$gage_data[omgage$gage_data$Date >= (as.Date(proj_start_date) - 30),]$Flow, na.rm=TRUE))
+    ylim=c(0, max(clean_data[clean_data$Date >= (as.Date(proj_start_date) - 30),]$Flow, na.rm=TRUE))
   )
-  days = nrow(omgage$gage_data)
-  minus30 = which(omgage$gage_data$Date == (as.Date(proj_start_date))) - 30
+  days = nrow(clean_data)
+  minus30 = which(clean_data$Date == (as.Date(proj_start_date))) - 30
   if (length(minus30) == 0) {
     # we are outside the date range of the gage, skip
     next
   }
-  last30 = omgage$gage_data[minus30:(minus30 + 30),]
+  last30 = clean_data[minus30:(minus30 + 30),]
   Q0 = min(last30$Flow)
   start_date = max(last30[last30$Flow == Q0,]$Date)
   points(start_date, Q0, col="red", bg="red", pch = 21, cex = 2)
@@ -227,7 +227,7 @@ for (gage_id in glist) {
     bundle = "dh_properties"
   )
   scenprop <- RomProperty$new( ds, sceninfo, TRUE)
-  scenprop$startdate <- start_date
+  scenprop$startdate <- as.numeric(as.POSIXct(start_date,tz="America/New_York"))
   scenprop$enddate <- end_date
   scenprop$save(TRUE)
   scenprop$set_prop(propname="is_emerg", propvalue=is_emerg_int, propcode=is_emerg)
