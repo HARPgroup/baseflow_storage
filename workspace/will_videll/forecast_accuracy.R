@@ -7,38 +7,40 @@ gage_obj <- WaterGageDaily$new(gage_id = "02059500", ds_in = ds)
 var <- gage_obj$baseflow_workflow_data(omsite)
 event_df <- var$trimmed_events_df
 
-# Group event data by GroupID, 1 row per event. Create empty columns for data.
-df <- event_df |>
-  dplyr::group_by(GroupID) |>
-  dplyr::summarize(start_date = min(Date),
-                   new_start_date = NA,
-                   #local_min1_date = NA,
-                   days_overestimated = NA,
-                   trough_cnt = NA,
-                   min_obs_flow = NA,
-                   min_for_flow = NA,
-                   min_flow_date = NA,
-                   mean_weighted_error = NA)
+### How to get known event start dates ###
+# start_dates <- event_df |>
+#   group_by(Year) |>
+#   slice_min(Date) |>
+#   pull(Date)
 
+### How to get summer start dates ###
+# daily_flow <- gage_obj$gage_data
+#
+# summer_start_dates <- daily_flow |>
+#   mutate(Month = month(time),
+#          Year = year(time)) |>
+#   filter((month(time) == 6 & mday(time) >= 1) |
+#            (month(time) == 7 & mday(time) <= 15)) |>
+#   group_by(Year) |>
+#   filter(value == min(value)) |>
+#   slice_tail(n = 1) |>
+#   pull(time)
 
 #' @title min_flow_accuracy
 #' @name min_flow_accuracy
 #' @description
-#' uses agws::forwardForecast() to create a 90-day forecast for identified
-#' events at a given USGS gage location. Absolute error and absolute percent error
-#' are calculated at the minimum observed flow value from the 90-day forecast.
+#' uses agws::forwardForecast() to create a 90-day forecast for chosen start
+#' dates at a given USGS gage location. Accuracy is assessed at local minima,
+#' so ranks can be assigned based on normalized and weighted error.
 #'
 #' @param gage_obj an R6 gage object from VDEQ baseflow workflow
-#' @param event_df df of identified baseflow events from step 02 of VDEQ baseflow workflow.
-#' Requires `GroupID` and `Date` columns.
+#' @param start_dates vector of start dates in "yyyy-mm-dd" format.
+#' @param AGWRC str either "lm_constant" or "lm_variable". Used in forecast method.
+#' @param lookback boolean value used to toggle 30 day look back for start date selection. FALSE by default.
 #'
-#' @returns df with GroupID, start_date, obs_flow, proj_flow, abs_err, abs_pcnt_err.
+#' @returns df with start_date, trough_cnt, min_obs_flow, min_for_flow, min_flow_date, normalized_error,
+#' abs_err_90d, abs_pcnt_err90d.
 #' @export min_flow_accuracy
-start_dates <- c("2025-06-15", "2024-06-15")
-lookback <- FALSE
-i = 1
-AGWRC = "lm_variable"
-
 min_flow_accuracy <- function(gage_obj, start_dates, AGWRC = c("lm_constant", "lm_variable"), lookback = FALSE){
 
   start_dates <- start_dates
@@ -100,30 +102,24 @@ min_flow_accuracy <- function(gage_obj, start_dates, AGWRC = c("lm_constant", "l
                     weighted_error = abs_err * weight_factor)
 
     #fill empty data columns with values from sliced forecast
-    #df$local_min1_date[i] <- troughs$Date[1]
-    #df$local_min1_date <- as.Date(df$local_min1_date)
     df$start_date[i] <- start_dates[i]
-    #df$days_overestimated[i] <- sum(forecast$overestimate, na.rm = TRUE)
     df$trough_cnt[i] <- sum(forecast$trough)
-    #df$accurate_troughs[i] <- sum(forecast$is_accurate)
-    #df$longest_acc_streak[i] <- longest_streak
     df$min_obs_flow[i] <- obs_min_data$obs_flow[1]
     df$min_for_flow[i] <- obs_min_data$Forecast[1]
     df$min_flow_date[i] <- obs_min_data$Date[1]
-    #df$new_start_date[i] <- min30start_date
     df$normalized_error[i] <- sum(forecast$weighted_error) / sum(forecast$weight_factor[forecast$trough])
+    if(lookback == TRUE){
+      df$start_date[i] <- min30start_date
+    }
   }
   df <- df |>
     dplyr::mutate(abs_error_90d = abs(min_obs_flow - min_for_flow),
            abs_pcnt_err90d = (abs_error_90d / min_obs_flow) * 100)
 
   df$min_flow_date <- as.Date(df$min_flow_date)
-  #df$new_start_date <- as.Date(df$new_start_date)
 
   return(df)
 }
-
-test_summary <- min_flow_accuracy(gage_obj, start_dates, AGWRC = "lm_variable")
 
 #' @title plot_event_minima
 #' @name plot_event_minima
@@ -159,7 +155,9 @@ plot_event_minima <- function(gage_obj, start_date){
   return(plot)
 }
 
-start_date <- "1995-07-23"
-plot_event_minima(gage_obj, "2024-06-15")
+
+### Testing ###
+# gc_summary_lb <- min_flow_accuracy(gage_obj, start_dates, AGWRC = "lm_variable", lookback = TRUE)
+# plot_event_minima(gage_obj, "1986-07-09")
 
 
