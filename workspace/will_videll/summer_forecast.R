@@ -1,4 +1,4 @@
-gage_obj <- WaterGageDaily$new(gage_id = "02056900", ds_in = ds)
+gage_obj <- WaterGageDaily$new(gage_id = "02055000", ds_in = ds)
 daily_flow <- gage_obj$gage_data 
 
 summer_min_flows <- daily_flow |> 

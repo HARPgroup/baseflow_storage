@@ -7,6 +7,20 @@ gage_obj <- WaterGageDaily$new(gage_id = "02059500", ds_in = ds)
 var <- gage_obj$baseflow_workflow_data(omsite)
 event_df <- var$trimmed_events_df
 
+# Group event data by GroupID, 1 row per event. Create empty columns for data.
+df <- event_df |>
+  dplyr::group_by(GroupID) |>
+  dplyr::summarize(start_date = min(Date),
+                   new_start_date = NA,
+                   #local_min1_date = NA,
+                   days_overestimated = NA,
+                   trough_cnt = NA,
+                   min_obs_flow = NA,
+                   min_for_flow = NA,
+                   min_flow_date = NA,
+                   mean_weighted_error = NA)
+
+
 #' @title min_flow_accuracy
 #' @name min_flow_accuracy
 #' @description
@@ -20,39 +34,45 @@ event_df <- var$trimmed_events_df
 #'
 #' @returns df with GroupID, start_date, obs_flow, proj_flow, abs_err, abs_pcnt_err.
 #' @export min_flow_accuracy
+start_dates <- c("2025-06-15", "2024-06-15")
+lookback <- FALSE
+i = 1
+AGWRC = "lm_variable"
 
-min_flow_accuracy <- function(gage_obj, event_df, AGWRC = c("lm_constant", "lm_variable")){
+min_flow_accuracy <- function(gage_obj, start_dates, AGWRC = c("lm_constant", "lm_variable"), lookback = FALSE){
 
-  # Group event data by GroupID, 1 row per event. Create empty columns for data.
-  event_df1 <- event_df |>
-    dplyr::group_by(GroupID) |>
-    dplyr::summarize(start_date = min(Date),
-                     new_start_date = NA,
-                     #local_min1_date = NA,
-                     days_overestimated = NA,
-                     trough_cnt = NA,
-                     min_obs_flow = NA,
-                     min_for_flow = NA,
-                     min_flow_date = NA,
-                     mean_weighted_error = NA)
+  start_dates <- start_dates
+  n_rows <- length(start_dates)
+
+  df <- data.frame(start_date = as.Date(start_dates),
+                   trough_cnt = rep(NA_integer_, n_rows),
+                   min_obs_flow = rep(NA_integer_, n_rows),
+                   min_for_flow = rep(NA_integer_, n_rows),
+                   min_flow_date = as.Date(rep(NA, n_rows)),
+                   normalized_error = rep(NA_integer_, n_rows))
 
   # Loop through each event
-  for(i in 1:nrow(event_df1)){
+  for(i in 1:length(start_dates)){
+    if(lookback == TRUE){
 
-    # Find new start date, minimum flow from previous 30 days
-    minus30 = which(gage_obj$gage_data$time == (as.Date(event_df1$start_date[i]))) - 30
-    if (length(minus30) == 0) {
-      # we are outside the date range of the gage, skip
-      next
+      # Find new start date, minimum flow from previous 30 days
+      minus30 = which(gage_obj$gage_data$time == (as.Date(start_dates[i]))) - 30
+      if (length(minus30) == 0) {
+        # we are outside the date range of the gage, skip
+        next
+      }
+      last30 = gage_obj$gage_data[minus30:(minus30 + 30),]
+      Q0 = min(last30$value)
+      min30start_date = as.Date(max(last30[last30$value == Q0,]$time))
+
+      # Run agws::forwardForecast() at event start date and slice the day with the lowest observed flow.
+      forecast <- gage_obj$baseflow_forecast(start_date = min30start_date, AGWRC = AGWRC,
+                                             use_limits = TRUE)
     }
-    last30 = gage_obj$gage_data[minus30:(minus30 + 30),]
-    Q0 = min(last30$value)
-    min30start_date = as.Date(max(last30[last30$value == Q0,]$time))
-
-    # Run agws::forwardForecast() at event start date and slice the day with the lowest observed flow.
-    forecast <- gage_obj$baseflow_forecast(start_date = min30start_date, AGWRC = AGWRC,
-                                           use_limits = TRUE)
-
+    else {
+      forecast <- gage_obj$baseflow_forecast(start_date = start_dates[i], AGWRC = AGWRC,
+                                             use_limits = TRUE)
+    }
     # Pull row with lowest observed flow (90 day minimum)
     obs_min_data <- forecast |>
       dplyr::slice_min(obs_flow)
@@ -80,29 +100,30 @@ min_flow_accuracy <- function(gage_obj, event_df, AGWRC = c("lm_constant", "lm_v
                     weighted_error = abs_err * weight_factor)
 
     #fill empty data columns with values from sliced forecast
-    #event_df1$local_min1_date[i] <- troughs$Date[1]
-    #event_df1$local_min1_date <- as.Date(event_df1$local_min1_date)
-    event_df1$days_overestimated[i] <- sum(forecast$overestimate, na.rm = TRUE)
-    event_df1$trough_cnt[i] <- sum(forecast$trough)
-    #event_df1$accurate_troughs[i] <- sum(forecast$is_accurate)
-    #event_df1$longest_acc_streak[i] <- longest_streak
-    event_df1$min_obs_flow[i] <- obs_min_data$obs_flow[1]
-    event_df1$min_for_flow[i] <- obs_min_data$Forecast[1]
-    event_df1$min_flow_date[i] <- obs_min_data$Date[1]
-    event_df1$new_start_date[i] <- min30start_date
-    event_df1$mean_weighted_error[i] <- sum(forecast$weighted_error) / sum(forecast$trough)
+    #df$local_min1_date[i] <- troughs$Date[1]
+    #df$local_min1_date <- as.Date(df$local_min1_date)
+    df$start_date[i] <- start_dates[i]
+    #df$days_overestimated[i] <- sum(forecast$overestimate, na.rm = TRUE)
+    df$trough_cnt[i] <- sum(forecast$trough)
+    #df$accurate_troughs[i] <- sum(forecast$is_accurate)
+    #df$longest_acc_streak[i] <- longest_streak
+    df$min_obs_flow[i] <- obs_min_data$obs_flow[1]
+    df$min_for_flow[i] <- obs_min_data$Forecast[1]
+    df$min_flow_date[i] <- obs_min_data$Date[1]
+    #df$new_start_date[i] <- min30start_date
+    df$normalized_error[i] <- sum(forecast$weighted_error) / sum(forecast$weight_factor[forecast$trough])
   }
-  event_df1 <- event_df1 |>
+  df <- df |>
     dplyr::mutate(abs_error_90d = abs(min_obs_flow - min_for_flow),
            abs_pcnt_err90d = (abs_error_90d / min_obs_flow) * 100)
 
-  event_df1$min_flow_date <- as.Date(event_df1$min_flow_date)
-  event_df1$new_start_date <- as.Date(event_df1$new_start_date)
+  df$min_flow_date <- as.Date(df$min_flow_date)
+  #df$new_start_date <- as.Date(df$new_start_date)
 
-  return(event_df1)
+  return(df)
 }
 
-gc_summary <- min_flow_accuracy(gage_obj, event_df, AGWRC = "lm_variable")
+test_summary <- min_flow_accuracy(gage_obj, start_dates, AGWRC = "lm_variable")
 
 #' @title plot_event_minima
 #' @name plot_event_minima
@@ -139,6 +160,6 @@ plot_event_minima <- function(gage_obj, start_date){
 }
 
 start_date <- "1995-07-23"
-plot_event_minima(gage_obj, "1983-05-02")
+plot_event_minima(gage_obj, "2024-06-15")
 
 
