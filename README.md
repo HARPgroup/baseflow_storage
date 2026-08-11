@@ -38,6 +38,13 @@ devtools::install_github("HARPgroup/baseflow_storage", ref = "packageinitialize"
 <!-- badges: end -->
 
 ### Patch Notes:
+V 0.0.5 August 6, 2026
+1. Fixed a bug in forward forecast when using a vector of AGWRCs.
+
+V 0.0.4 July 22, 2026
+1. Added StreamStats API function to get watershed and point geometries for a
+given lat/long often from a USGS gage
+
 V 0.0.3 July 09, 2026
 1. Added slope and heteroscedasticity functions.
 
