@@ -156,7 +156,7 @@ forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b,
   # AGWRC argument must fit if length > 1, must be equal to maximum values in days vector
   if(length(AGWRC) > 1 & length(AGWRC) != length(full_data)){
     warning("AGWRC must be of length 1 or of same length as the full forecast days",
-            min(full_data),"to",max(full_date))
+            min(full_data),"to",max(full_data))
   }
 
   # Check for "lm_constant" argument, run RegressionAGWRC

@@ -4,8 +4,8 @@
 ^\.positai$
 ^\.claude$
 ^examples$
-^ForecastingApp$
 ^workflow$
+^rmd$
 ^workspace$
 ^.[^/]+\.R$
 ^FinalRegressionExample\.R$
