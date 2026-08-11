@@ -53,6 +53,7 @@ summarize_event <- function(analysis_data,
                              stringsAsFactors = FALSE)
 
     for(i in (1:max(data$GroupID))){
+      if (!(i %in% data$GroupID)) next
 
       new_row <- calc_event_stats(data, event_num = i, dAGWRmax, dAGWRmin)
 

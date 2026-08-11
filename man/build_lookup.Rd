@@ -4,27 +4,34 @@
 \alias{build_lookup}
 \title{build_lookup}
 \usage{
-build_lookup(df_clean, da_sqmi, m, b, n_steps = 25, vec_for_reg = NULL)
+build_lookup(obs_flow, da_sqmi, m, b, n_steps = 25)
 }
 \arguments{
-\item{df_clean}{data frame}
+\item{obs_flow}{Numeric. Vector of flow values to use as lookup column for
+AGWRC}
 
-\item{da_sqmi}{numeric}
+\item{da_sqmi}{Numeric. Value of the drainage area for the gage in square miles}
 
-\item{m}{numeric}
+\item{m}{Numeric. slope value for the gage in the relationship of AGWRC ~
+log(Q)}
 
-\item{b}{numeric}
+\item{b}{Numeric. intercept value for the gage in the relationship of AGWRC ~
+log(Q)}
 
-\item{n_steps}{numeric}
-
-\item{vec_for_reg}{numeric}
+\item{n_steps}{numeric. number of rows/steps required in the lookup table,
+ex. 25 is 25 steps, a larger value is more precise but has a longer compute
+time}
 }
 \value{
-A data frame...
+A data frame containing a lookup table based on AGWRC, m, b, and flow
+values that can be used to predict variables when missing some but having
+others
 }
 \description{
 build_lookup
 }
 \details{
-A function...
+A function that takes a vector of flows and create a lookup table to
+estimate AGWRC from flows using user provided log-linear regression
+coeffiicents (often provided by \code{fit_agwrc_regression()})
 }
