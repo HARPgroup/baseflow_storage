@@ -47,8 +47,8 @@ heteroscedasticity <- function(model) {
   )
 
   # output both messages in the console
-  message(bp_msg, "\n\n")
-  message(white_msg, "\n\n")
+  message(bp_msg)
+  message(white_msg)
 
   # Create data frame
   hetero_df <- data.frame(
