@@ -7,7 +7,7 @@ library(plotly)
 
 #####-DATA-#####
 
-gage_obj <- WaterGageDaily$new(gage_id = "02016000")
+gage_obj <- WaterGageDaily$new(gage_id = "01628500")
 
 step1 <- gage_obj$gage_data
 
@@ -47,7 +47,10 @@ step5 <- baseflow_groupID(df = step5, min_len = 14)
 step5 <- step5 |>
   filter(value != 0)
 
-step6 <- calc_AGWRC(df = step5)
+step6 <- calc_AGWRC(df = step5, value = "value", time = "time")
+
+step6 <- step6 |>
+  filter(event_AGWRC < 1)
 
 step6_model <- fit_agwrc_regression(step6)
 
@@ -333,10 +336,5 @@ plot_ly() %>%
   layout(
     xaxis = list(title = "Characteristic Event Flow (median, cfs)"),
     yaxis = list(title = "Event AGWRC"),
-    title = "AGWRC vs. Flow (Event-Level) - USGS-02016000"
-  )
-
-Q = 194
-y = m*log(Q) + b
-y
-
+    title = "AGWRC vs. Flow (Event-Level) - USGS-01628500"
+)

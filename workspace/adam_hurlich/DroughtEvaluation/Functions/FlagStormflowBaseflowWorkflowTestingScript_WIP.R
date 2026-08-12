@@ -2,7 +2,7 @@ library(dplyr)
 library(agws)
 library(plotly)
 
-step1 <- read.csv("C:/HARP/HARP - GitHub/baseflow_storage/adama/flag_stormflow/02016000/BaseflowWorkflow_02016000.csv")
+step1 <- read.csv("C:/HARP/HARP - GitHub/baseflow_storage/adama/flag_stormflow/01685000/BaseflowWorkflow_01628500.csv")
 
 step1$Date <- as.Date(step1$Date)
 
@@ -32,6 +32,9 @@ step5 <- baseflow_groupID(df = step5, value = step5$Flow, time = step5$Date)
 #####-STEP6-regression-#####
 
 step6 <- calc_AGWRC(df = step5, value = "Flow", time = "Date")
+
+step6 <- step6 |>
+  filter(event_AGWRC < 1)
 
 step6_model <- fit_agwrc_regression(step6)
 
@@ -78,5 +81,5 @@ plot_ly() %>%
   layout(
     xaxis = list(title = "Characteristic Event Flow (median, cfs)"),
     yaxis = list(title = "Event AGWRC"),
-    title = "AGWRC vs. Flow (Event-Level) - USGS-02016000"
+    title = "AGWRC vs. Flow (Event-Level) - USGS-01628500"
   )

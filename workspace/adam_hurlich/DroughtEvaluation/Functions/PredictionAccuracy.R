@@ -5,22 +5,23 @@
 #library(flextable)
 #library(hydrotools)
 #
-#GageID = "02016000" #Cowpasture
-#gage_obj <- hydrotools::WaterGageDaily$new(gage_id = GageID)
+#gage_obj <- hydrotools::WaterGageDaily$new(gage_id = "02016000")
 #
 #flow_csv <- gage_obj$gage_data |>
-#  select(time, value) |>
-#  rename(Date = time, Observed = value)
+#  dplyr::select(time, value) |>
+#  dplyr::rename(Date = time, Observed = value) |>
+#  dplyr::mutate(Date = as.Date(Date))
 #
 #var <- gage_obj$baseflow_workflow_data(omsite)
 #
 #baseflow_csv <- var$trimmed_events_df |>
-#  group_by(GroupID) |>
-#  mutate(duration = as.numeric(max(as.Date(Date)) - min(as.Date(Date)))) |>
-#  slice(1) |>
-#  ungroup() |>
-#  filter(duration >= 7) |>
-#  select(GroupID, Date, Flow, AGWRC, duration)
+#  dplyr::group_by(GroupID) |>
+#  dplyr::mutate(duration = as.numeric(max(as.Date(Date)) - min(as.Date(Date)))) |>
+#  dplyr::slice(1) |>
+#  dplyr::ungroup() |>
+#  dplyr::filter(duration >= 7) |>
+#  dplyr::select(GroupID, Date, Flow, AGWRC, duration) |>
+#  dplyr::mutate(Date = as.Date(Date))
 #
 #regression_csv <- var$lm_df
 #
@@ -56,7 +57,7 @@
 #' @importFrom tibble tibble
 #' @importFrom agws forwardForecast
 #' @export
-PredictionAccuracy <- function(flow_csv, baseflow_csv, days = c(0:15), AGWRC, m, b) {
+PredictionAccuracy <- function(flow_csv, baseflow_csv, days = 0:15, AGWRC, m, b) {
 
   # Remove scientific notation
   options(scipen = 999)
@@ -101,10 +102,10 @@ PredictionAccuracy <- function(flow_csv, baseflow_csv, days = c(0:15), AGWRC, m,
     group_modify(~ {
       model <- lm(Forecast ~ Observed, data = .x)
       tibble::tibble(
-        MAE = mean(abs(.x$Residuals), na.rm = TRUE),
-        RMSE = sqrt(mean(.x$Residuals^2, na.rm = TRUE)),
+        MAE = mean(abs(.x$Residuals), na.rm = T),
+        RMSE = sqrt(mean(.x$Residuals^2, na.rm = T)),
         MAPE = mean(abs(.x$Residuals / .x$Observed)) * 100,
-        Bias = mean(.x$Residuals, na.rm = TRUE),
+        Bias = mean(.x$Residuals, na.rm = T),
         r2 = summary(model)$r.squared
       )
     })
@@ -115,14 +116,14 @@ PredictionAccuracy <- function(flow_csv, baseflow_csv, days = c(0:15), AGWRC, m,
     group_modify(~ {
       model <- lm(Forecast ~ Observed, data = .x)
       tibble::tibble(
-        MAE = mean(abs(.x$Residuals), na.rm = TRUE),
-        RMSE = sqrt(mean(.x$Residuals^2, na.rm = TRUE)),
+        MAE = mean(abs(.x$Residuals), na.rm = T),
+        RMSE = sqrt(mean(.x$Residuals^2, na.rm = T)),
         MAPE = mean(abs(.x$Residuals / .x$Observed)) * 100,
-        Bias = mean(.x$Residuals, na.rm = TRUE),
+        Bias = mean(.x$Residuals, na.rm = T),
         r2 = summary(model)$r.squared
       )
     })
-  summary_table <- summary_stats(Predict$group_stats)
+  summary_table <- summary_stats(group_stats)
 
   return(list(event_stats = event_stats, group_stats = group_stats, daily_stats = daily_stats, summary_table = summary_table))
 }
@@ -135,11 +136,11 @@ PredictionAccuracy <- function(flow_csv, baseflow_csv, days = c(0:15), AGWRC, m,
 #' @details creates a flextable object for mean, median, min, max, and std dev of MAE, RMSE, MAPE, Bias and r2
 #' @param df df with columns of MAE, RMSE, MAPE, Bias, r2
 #' @return flextable object
-#' @importFrom flextable flextable
+#' @importFrom flextable flextable colformat_num theme_vanilla autofit
 #' @export
 summary_stats <- function(df) {
 
-  if (!requireNamespace("flextable", quietly = TRUE)) {
+  if (!requireNamespace("flextable", quietly = T)) {
     stop("Package 'flextable' is required. Please install it using install.packages('flextable')")
   }
 
@@ -169,4 +170,5 @@ summary_stats <- function(df) {
 
 
 ### Local Testing
-#Predict <- PredictionAccuracy(flow_csv, baseflow_csv, days = c(0:15), AGWRC = "lm_constant", m, b)
+#Predict <- PredictionAccuracy(flow_csv, baseflow_csv, days = 0:15, AGWRC = "lm_constant", m, b)
+
