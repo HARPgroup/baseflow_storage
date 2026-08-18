@@ -38,6 +38,9 @@ devtools::install_github("HARPgroup/baseflow_storage", ref = "packageinitialize"
 <!-- badges: end -->
 
 ### Patch Notes:
+V 0.0.6 August 18, 2026
+1. Minor bug fixes to workflow functions.
+
 V 0.0.5 August 6, 2026
 1. Fixed a bug in forward forecast when using a vector of AGWRCs.
 
