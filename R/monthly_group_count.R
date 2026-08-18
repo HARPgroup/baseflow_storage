@@ -19,7 +19,7 @@ monthly_group_count <- function(event_df,
       month = as.numeric(format(as.Date(!!dplyr::sym(date_col)), "%m"))
     ) |>
     dplyr::group_by(.data$month) |>
-    dplyr::summarise(event_cnt = .data$n_distinct(!!dplyr::sym(group_col))) |>
+    dplyr::summarise(event_cnt = dplyr::n_distinct(!!dplyr::sym(group_col))) |>
     dplyr::mutate(gage_total = gage_total) |>
     as.data.frame()
 
