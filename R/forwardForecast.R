@@ -188,7 +188,12 @@ forwardForecast <- function(Q0, days = 0:90, AGWRC, m, b,
   }else if(is.character(AGWRC) && AGWRC == "lm_variable") {
 
     # Initial values for AGWRC and Qi in index 1
-    AGWRCi[1] <- RegressionAGWRC(Q0, m, b)
+    AGWRCi[1] <- regressionLimitAGWRC(Flow = Q0, m = m, b = b,
+                         low_flow_limit = low_flow_limit,
+                         low_agwrc_limit = low_agwrc_limit,
+                         high_flow_limit = high_flow_limit,
+                         high_agwrc_limit = high_agwrc_limit)
+
     Qi[1] <- Q0
 
     # Iterative loop for Qi and AGWRCi
