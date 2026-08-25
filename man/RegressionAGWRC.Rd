@@ -20,7 +20,7 @@ relationship of Q and AGWRC}
 An AGWR coefficient calculated from the log-linear regression for Flow
 }
 \description{
-RegressionAGWRC
+Log-linear AGWR
 }
 \details{
 Calculate AGWRC based on a log linear relationship of flow, m,

@@ -61,7 +61,7 @@ A data frame containing the days, forecast flows and AGWRCs used in
 the forecast
 }
 \description{
-forwardForecast
+Baseflow forecast based on static/dynamic decay
 }
 \details{
 A function to calculate a forcast days in the future based on Q0. Allows for

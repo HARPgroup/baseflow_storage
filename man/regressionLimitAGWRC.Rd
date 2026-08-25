@@ -42,7 +42,7 @@ function will return this value}
 An AGWR coefficient calculated from the log-linear regression for Flow
 }
 \description{
-regressionLimitAGWRC
+Log-linear AGWRC without extrapolation
 }
 \details{
 Calculate AGWRC based on a log linear relationship of flow, m,

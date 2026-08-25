@@ -17,7 +17,7 @@ single_forecast(Q0, AGWRC, days)
 numeric vector containing forecasted flows
 }
 \description{
-single_forecast
+Exponential Decay
 }
 \details{
 Calculate flow prediction based on initial flow, AGWRC, and days

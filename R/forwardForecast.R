@@ -1,5 +1,6 @@
 #'@title RegressionAGWRC
 #'@name RegressionAGWRC
+#'@description Log-linear AGWR
 #' @details Calculate AGWRC based on a log linear relationship of flow, m,
 #' and b e.g. AGWRC = m * log(Flow) + b
 #' @param Flow numeric of length 1. Flow to calculate AGWRC from in log-linear
@@ -18,6 +19,7 @@ RegressionAGWRC <- function(Flow, m, b) {
 
 #'@title regressionLimitAGWRC
 #'@name regressionLimitAGWRC
+#'@description Log-linear AGWRC without extrapolation
 #' @details Calculate AGWRC based on a log linear relationship of flow, m,
 #' and b e.g. AGWRC = m * log(Flow) + b
 #' @param Flow numeric of length 1. Flow to calculate AGWRC from in log-linear
@@ -70,6 +72,7 @@ regressionLimitAGWRC <- function(Flow, m, b,
 
 #'@title single_forecast
 #'@name single_forecast
+#'@description Exponential Decay
 #' @details Calculate flow prediction based on initial flow, AGWRC, and days
 #'   using the exponential decay function of Q = Q0 * (AGWRC^days)
 #' @param Q0 numeric of length 1 for initial flow
@@ -86,6 +89,7 @@ single_forecast <- function(Q0, AGWRC, days){
 
 #'@title forwardForecast
 #'@name forwardForecast
+#'@description Baseflow forecast based on static/dynamic decay
 #' @details A function to calculate a forcast days in the future based on Q0. Allows for
 #'vector inputs of days and AGWRC. Alternatively, allows for calculation of AGWRC
 #'via AGWRC = "lm_constant" or AGWRC = "lm_variable"
