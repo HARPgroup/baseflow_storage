@@ -19,16 +19,24 @@ agwo_hspf <- function(S, C, dthr) {
 
 #' AGWdouble
 #' @description Object for calculating flows from a 2-compartment AGWS/hsp style surficial aquifer
-#' @details Provides all variables and equations to perform simulatio nand keep track of mass balance
+#' @details This object creates two storage compartments with user defined
+#'   initial vlaues and maximums. Provides all variables and equations to
+#'   perform simulation and keep track of mass balance as water flows out of or
+#'   between compartments based on user defined decay coefficients
 #' @importFrom R6 R6Class
-#' @param agws1 Initial Storage in AGW compartment 1
-#' @param agws2 Initial Storage in AGW compartment 1
-#' @param c1 recession coeffiecent compartment 1 (def=0.99)
-#' @param c2 recession coefficient in compartment 2 (def=0.99)
-#' @param agwsmax1 maximum storage compartment 1 (default=1.0)
-#' @param agwsmax2 maximum storage in compartment 2 (default=1.0)
-#' @param tmethod transfer method from 1 to 2 ("all", "trans")
-#' @return reference class of type AGWdouble.
+#' @param agws1 Numeric, Initial Storage in AGW compartment 1
+#' @param agws2 Numeric, Initial Storage in AGW compartment 1
+#' @param c1 Numeric, default of 0.99. The constant AGWRC (recession decay
+#'   coefficient) in compartment 1 across all timesteps
+#' @param c2 Numeric, default of 0.99. The constant AGWRC (recession decay
+#'   coefficient) in compartment 2 across all timesteps
+#' @param agwsmax1 Numeric, default 1 (inch). Maximum storage compartment 1
+#' @param agwsmax2 Numeric, default 1 (inch). Maximum storage compartment 2
+#' @param tmethod Character, either "all" or "trans" representing the transfer
+#'   method from compartment 1 to 2. "all" indicates all remaining water from
+#'   the upper compartment may flow to the lower, but "trans" indicates that the
+#'   rate of flow is related to the decay coefficient of the bin
+#' @return R6 object of class AGWdouble.
 #' @examples \dontrun{
 #' agwhilo = AGWdouble$new(
 #'    agws1=5, agwsmax1 = 5,
@@ -42,13 +50,26 @@ agwo_hspf <- function(S, C, dthr) {
 #'}
 AGWdouble <- R6::R6Class(
   public = list(
-    #' @field agws1 Initial Storage in AGW compartment 1
-    #' @field agws2 Initial Storage in AGW compartment 2
-    #' @field c1 recession coeffiecent compartment 1 (def=0.99)
-    #' @field c2 recession coefficient in compartment 2 (def=0.99)
-    #' @field agwsmax1 maximum storage compartment 1 (default=1.0)
-    #' @field agwsmax2 maximum storage in compartment 2 (default=1.0)
-    #' @field tmethod transfer method from 1 to 2 ("all", "trans")
+    #' @field agws1 Numeric, Initial Storage in AGW compartment 1
+    #' @field agws2 Numeric, Initial Storage in AGW compartment 1
+    #' @param c1 Numeric, default of 0.99. The constant AGWRC (recession decay
+    #'   coefficient) in compartment 1 across all timesteps
+    #' @param c2 Numeric, default of 0.99. The constant AGWRC (recession decay
+    #'   coefficient) in compartment 2 across all timesteps
+    #' @field agwsmax1 Numeric, default 1 (inch). Maximum storage compartment 1
+    #' @field agwsmax2 Numeric, default 1 (inch). Maximum storage compartment 2
+    #' @field tmethod Character, either "all" or "trans" representing the transfer
+    #'   method from compartment 1 to 2. "all" indicates all remaining water from
+    #'   the upper compartment may flow to the lower, but "trans" indicates that the
+    #'   rate of flow is related to the decay coefficient of the bin
+    #' @field agwo1 Numeric, defaults to 0 inches. Outflow from compartment 1.
+    #' @field agwo2 Numeric, defaults to 0 inches. Outflow from compartment 2.
+    #' @field agwin1 Numeric, defaults to 0 inches. Inflow from compartment 1.
+    #' @field agwin2Numeric, defaults to 0 inches. Inflow from compartment 2.
+    #' @field agwo Numeric, total outflow from all compartments.
+    #' @field agws Numeric, total storage across all compartments
+    #' @field log data.frame, the current state of all fields
+    #' @field dthr Numeric, default to 24.0 (hours). The timestep of the model.
     tmethod="all",
     agws1 = 0.0,
     agws2 = 0.0,
@@ -65,6 +86,19 @@ AGWdouble <- R6::R6Class(
     agwsmax2 = 1.0,
     log = NA,
     dthr = 24.0,
+    #' @details Initialize an AGWdouble object by providing inital model state
+    #'   variables. These will be set to the relevant fields.
+    #' @param agws1 Numeric, Initial Storage in AGW compartment 1
+    #' @param agws2 Numeric, Initial Storage in AGW compartment 1
+    #' @param c1 Numeric, default of 0.99. The AGWRC (recession decay coefficient) in compartment 1
+    #' @param c2 Numeric, default of 0.99. The AGWRC (recession decay coefficient) in compartment 2
+    #' @param agwsmax1 Numeric, default 1 (inch). Maximum storage compartment 1
+    #' @param agwsmax2 Numeric, default 1 (inch). Maximum storage compartment 2
+    #' @param tmethod Character, either "all" or "trans" representing the transfer
+    #'   method from compartment 1 to 2. "all" indicates all remaining water from
+    #'   the upper compartment may flow to the lower, but "trans" indicates that the
+    #'   rate of flow is related to the decay coefficient of the bin
+    #' @return Nothing, but all fields are now set on the object
     initialize = function(
         agws1=0.0, agws2=0.0, c1=0.99, c2=0.99,
         agwsmax1=1.0, agwsmax2=1.0, tmethod="all"
@@ -77,7 +111,7 @@ AGWdouble <- R6::R6Class(
       self$agwsmax2=agwsmax2
       self$tmethod=tmethod
       self$agws = self$agws1 + self$agws2
-      log = data.frame(
+      self$log = data.frame(
         timestamp = integer(),
         agws1 = numeric(),
         agws2 = numeric(),
@@ -92,7 +126,32 @@ AGWdouble <- R6::R6Class(
         ce = numeric()
       )
     },
-    solve_double_C = function(agws1, agws2, c1, c2, agwsmax1, agwsmax2, agwin1=0.0, tmethod="all", dthr=24) {
+    #' @details Initialize an AGWdouble object by providing inital model state
+    #'   variables. These will be set to the relevant fields.
+    #' @param agws1 Numeric, Initial Storage in AGW compartment 1
+    #' @param agws2 Numeric, Initial Storage in AGW compartment 2
+    #' @param c1 Numeric. The constant AGWRC (recession decay coefficient) in
+    #'   compartment 1 across all timesteps
+    #' @param c2 Numeric. The constant AGWRC (recession decay coefficient) in
+    #'   compartment 2 across all timesteps
+    #' @param agwsmax1 Numeric. Constant maximum storage compartment 1 across
+    #'   all timesteps.
+    #' @param agwsmax2 Numeric. Constant maximum storage compartment 2 across
+    #'   all timesteps.
+    #' @param agwin1 Numeric, default 0 inches. Inflow to the first compartment
+    #'   for this timestep.
+    #' @param dthr Numeric, default 24 (hours). Model timestep.
+    #' @param tmethod Character, either "all" or "trans" representing the transfer
+    #'   method from compartment 1 to 2. "all" indicates all remaining water from
+    #'   the upper compartment may flow to the lower, but "trans" indicates that the
+    #'   rate of flow is related to the decay coefficient of the bin
+    #' @return A data frame with all relevant state variables to include:
+    #' agwo (total outflow), agws1 (storage in compartment 1), agws2 (storage in
+    #' compartment 2), agwo2 (outflow from compartment 2),
+    #' agwo1 (outflow from compartment 1), agwin1  (inflow to compartment 1),
+    #' agwin2 (inflow to compartment 2), ce (effective AGWRC across compartments)
+    solve_double_C = function(agws1, agws2, c1, c2, agwsmax1, agwsmax2,
+                              agwin1=0.0, tmethod="all", dthr=24) {
       # calculate agwo1 = flow out of agws1 (top layer of GW)
       # calculate agwin2 = amount of agwo1 that goes into agws2 from agws1
       # - this cannot exceed storage available in agws2

@@ -38,6 +38,9 @@ devtools::install_github("HARPgroup/baseflow_storage", ref = "packageinitialize"
 <!-- badges: end -->
 
 ### Patch Notes:
+V 0.0.8 August 31, 2026
+1. Export `AGWdouble` object
+
 V 0.0.7 August 24, 2026
 1. Fixed a bug in the `AGWRC = lm_variable` method for `forwardForecast` that
 was causing the AGWRC to ignore the regression limits on day 0
