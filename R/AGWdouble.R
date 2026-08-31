@@ -29,12 +29,21 @@ agwo_hspf <- function(S, C, dthr) {
 #' @param agwsmax2 maximum storage in compartment 2 (default=1.0)
 #' @param tmethod transfer method from 1 to 2 ("all", "trans")
 #' @return reference class of type AGWdouble.
-#' @seealso NA
-#' @examples NA
+#' @examples \dontrun{
+#' agwhilo = AGWdouble$new(
+#'    agws1=5, agwsmax1 = 5,
+#'    agws2=2.0, agwsmax2 = 1.0,
+#'    c1=0.95, c2=0.98, tmethod = "tmax"
+#')
+#'agwhilo$solve_double_C(2.5, 0.5, 0.95, 0.99, 5, 2.5, agwin1=0.0, tmethod="tmax", dthr=24)$agwin2
+#'agwhilo$solve_double_C(2.5, 0.5, 0.95, 0.99, 5, 2.5, agwin1=0.0, tmethod="all", dthr=24)$agwin2
+#'agw2$eval()
+#'agw2$show_state()
+#'}
 AGWdouble <- R6::R6Class(
   public = list(
     #' @field agws1 Initial Storage in AGW compartment 1
-    #' @field agws2 Initial Storage in AGW compartment 1
+    #' @field agws2 Initial Storage in AGW compartment 2
     #' @field c1 recession coeffiecent compartment 1 (def=0.99)
     #' @field c2 recession coefficient in compartment 2 (def=0.99)
     #' @field agwsmax1 maximum storage compartment 1 (default=1.0)

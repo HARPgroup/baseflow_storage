@@ -23,7 +23,7 @@ NA
   \describe{
     \item{\code{agws1}}{Initial Storage in AGW compartment 1}
 
-    \item{\code{agws2}}{Initial Storage in AGW compartment 1}
+    \item{\code{agws2}}{Initial Storage in AGW compartment 2}
 
     \item{\code{c1}}{recession coeffiecent compartment 1 (def=0.99)}
 
