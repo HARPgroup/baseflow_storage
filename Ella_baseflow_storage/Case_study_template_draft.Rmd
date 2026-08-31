@@ -3,11 +3,11 @@ title: "Case Study Template (Rough Draft)"
 output: word_document
 date: "2026-07-17"
 params:
-  gageid: "02039500"
+  gageid: "03524000"
   location: "Appomattox River at Farmville, VA"
-  startdates: !r as.Date(c("2026-04-21", "2017-06-12", "2002-06-24", "1966-05-18"))
+  startdates: !r as.Date(c("1988-06-08", "1998-06-29", "2002-06-24", "1966-05-18"))
   enddate: "2026-07-20"
-  iterative_AGWRC: 0.98
+  iterative_AGWRC: 0.969
 ---
 
 ```{r setup, include=FALSE}
@@ -42,11 +42,11 @@ for (i in seq_along(params$startdates)) {
                                             AGWRC = "lm_constant",
                                             use_limits = TRUE)
   
-  Iterative_AGWRC <- gage_obj$baseflow_forecast(start_date = sd, 
+  Iterative_AGWRC <- gage_obj$baseflow_forecast(start_date = sd,
                                            AGWRC = params$iterative_AGWRC) %>%
     rename(Iterative_AGWRC = AGWRC) %>%
     rename(Itr_AGWRC_Flow = Forecast)
-  
+
   Constant_AGWRC <- gage_obj$baseflow_forecast(start_date = sd, 
                                      AGWRC = "lm_constant") %>%
     rename(Constant_AGWRC = AGWRC) %>%
@@ -78,20 +78,20 @@ for (i in seq_along(params$startdates)) {
     )
   
 # create forecast table
-all_flow <- forecast_data %>%
-  full_join(Constant_AGWRC, by = c("Day", "Date", "obs_flow" )) %>%
-  full_join(Iterative_AGWRC, by = c("Day", "Date", "obs_flow" )) %>%
-  full_join(Variable_AGWRC, by = c("Day", "Date", "obs_flow" ))
-
-final_flow_df <- all_flow %>%
-  select(Day, Date, obs_flow, Con_AGWRC_Flow, Var_AGWRC_Flow, Itr_AGWRC_Flow) %>%
-  rename(Obs_Flow = obs_flow)
-
-Forecast_df <- final_flow_df %>%
-  filter(Day %in% c(15, 30, 45, 90))
-
-forecast_table[[as.character(sd)]] <- flextable(Forecast_df) %>%
-  autofit()
+# all_flow <- forecast_data %>%
+#   full_join(Constant_AGWRC, by = c("Day", "Date", "obs_flow" )) %>%
+#   full_join(Iterative_AGWRC, by = c("Day", "Date", "obs_flow" )) %>%
+#   full_join(Variable_AGWRC, by = c("Day", "Date", "obs_flow" ))
+# 
+# final_flow_df <- all_flow %>%
+#   select(Day, Date, obs_flow, Con_AGWRC_Flow, Var_AGWRC_Flow, Itr_AGWRC_Flow) %>%
+#   rename(Obs_Flow = obs_flow)
+# 
+# Forecast_df <- final_flow_df %>%
+#   filter(Day %in% c(15, 30, 45, 90))
+# 
+# forecast_table[[as.character(sd)]] <- flextable(Forecast_df) %>%
+#   autofit()
 }
 
 ```

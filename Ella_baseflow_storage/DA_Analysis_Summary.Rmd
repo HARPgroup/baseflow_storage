@@ -1,0 +1,760 @@
+---
+title: "DA Analysis Summary"
+output: 
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    toc_depth: 4
+date: "2026-08-04"
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+basepath <- "/var/www/R"
+source("/var/www/R/config.R")
+```
+
+```{r code, include = FALSE}
+library(knitr)
+library(flextable)
+library(ggplot2)
+library(hydrotools)
+library(agws)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+
+#Query R2 and p-value from database
+my_results <- sqldf::sqldf(
+  connection = ds$connection,
+  "SELECT ws.hydrocode,props.propname, props.propvalue
+  FROM dh_feature as ws
+  
+  LEFT JOIN dh_properties as models
+  ON models.featureid = ws.hydroid
+  
+  LEFT JOIN dh_properties as props
+  ON props.featureid = models.pid
+  
+  WHERE ws.bundle = 'watershed'
+  AND ws.ftype = 'usgs_full_drainage'
+  AND models.propcode = 'AGWRC-1.0'"
+)
+
+#Remove usgs_ws_ from the hydrocode column to leave just gageid
+my_results$hydrocode <- sub("^usgs_ws_", "", my_results$hydrocode)
+
+my_results_wide <- pivot_wider(
+  my_results,
+  names_from = propname,
+  values_from = propvalue
+)
+
+filtered_df <- my_results_wide |>
+  select(hydrocode, regression_Rsq, regression_m_pvalue, regression_m) |>
+  rename(gageid = hydrocode)
+
+df <- read.csv("C:\\HARP\\GitHub_HARP\\baseflow_storage\\Ella_baseflow_storage\\DAdata.csv")
+
+#Query QC data from database
+qc_data <- DBI::dbGetQuery(
+  conn = ds$connection,
+  "SELECT
+     feat.name, feat.hydrocode, 
+     props.propname, props.propvalue,
+     props.propcode, slope.propvalue as watershed_slope
+  FROM dh_feature as feat
+  LEFT JOIN dh_properties as model
+     ON model.featureid = feat.hydroid
+     AND model.propcode = 'AGWRC-1.0'
+  LEFT JOIN dh_properties as props
+     ON props.featureid = model.pid
+  LEFT JOIN dh_properties as slope
+     ON slope.featureid = feat.hydroid
+     AND slope.propname = 'wshd_slope'
+  WHERE feat.bundle = 'watershed'
+     AND feat.ftype = 'usgs_full_drainage'
+  "
+)
+#Filter by propname to find only our QC fields
+agws_qc <- qc_data[qc_data$propname %in% c(
+  "white_test_p",  "breusch_pagan_p",
+  "non_na_flow_count", "total_bf_events",
+  "jan_bf_events", "feb_bf_events", "mar_bf_events",
+   "apr_bf_events", "may_bf_events", "jun_bf_events",   
+   "jul_bf_events", "aug_bf_events", "sep_bf_events",       
+   "oct_bf_events", "dec_bf_events", "nov_bf_events",       
+   "regression_m", "regression_b", "regression_Rsq",      
+   "regression_m_pvalue", "regression_b_pvalue"
+),]
+
+#Filter for just total baseflow events
+total_bf <- agws_qc |>
+  filter(propname == "total_bf_events") |>
+  rename(total_bf_events = propvalue) |>
+  rename(gageid = hydrocode)
+
+#Remove unwanted columns
+total_bf_trimmed <- total_bf[ , -c(1, 3, 5, 6)]
+
+#Remove usgs_ws_ from the hydrocode column to leave just gageid
+total_bf_trimmed$gageid <- sub("^usgs_ws_", "", total_bf_trimmed$gageid)
+
+#Add total_bf to df
+df <- df |>
+  left_join(total_bf_trimmed, by = "gageid")
+
+df_final <- df |>
+  filter(total_bf_events > 10 | is.na(total_bf_events))
+```
+
+## 1 Introduction
+
+Preliminary analysis found some smaller drainage area gages to have a very small number of baseflow events, despite a record length comparable to some other gages with many events. These observations lead to this question: do other "small gages" (those with a drainage area less than 50 square miles) have limited baseflow events? Furthermore, does the current model work at smaller gages, or are there aspects to the baseflow workflow that need to be modified to address the flashy behavior often seen at these small gages?
+
+This report explores the methodology, results, and conclusions of two drainage area analyses for Virginia gages. The first analysis addresses the previous question regarding the effectiveness of the regression model in predicting flow at small gages. The second analysis is a continuation of the first analysis and investigates the relationship between drainage area and model summary statistics for all gages. Additionally, this analysis explores if there is evidence for upper and lower DA limits in the regression model as well as an investigation of the magnitude and direction of the slope of the regression line and how this relates to DA.
+
+#### Key Terms:
+
+**Regression AGWRC:** the AGWRC calculated by imputing starting flow from manually selected flow event into AGWRC vs Flow Regression
+
+**Event AGWRC:** the AGWRC from a known baseflow event identified by the workflow
+
+**Iterative AGWRC:** the manually selected AGWRC that provides the "best fit" for the manually selected baseflow event
+
+**Starting Flow:** the observed flow at the first day of the manually selected baseflow event
+
+## 2 Methods
+
+### 2.1 Analysis 1: Small Gage Investigation
+
+Virginia gages with similar DA and date range to previously studied gages (see [Case Study: 01654000 Accotink Creek near Annandale, VA](https://github.com/HARPgroup/baseflow_storage/issues/130))
+
+**Table 1**. List of small gages in Virginia with available flow dates and drainage areas similar to previously studied small gages
+
+| Gage Location | Gage ID | DA ($mi^2$) | Start Date | End Date | \# BF Events | Land Use |
+|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|
+| S F Quantico Creek near Independent Hill, VA | 01658500 | 7.62 | 1951 | 2026 | 5 | National Forest, limited urbanization |
+| Tinker Creek near Daleville, VA | 02055100 | 11.70 | 1956 | 2026 | 78 | Mostly urbanized |
+| Fourmile Run at Alexandria, VA | 01652500 | 12.60 | 1951 | 2026 | No gage file found | Dense urbanization |
+| Fine Creek at Fine Creek Mills, VA | 02036500 | 22.4 | 1944 | 2026 | 5 | Some farmland and forest, some urbanization |
+| Battle Run near Laurel Mills, VA | 01662800 | 25.8 | 1958 | 2026 | 25 | Mostly farmland, some forest, limited urbanization |
+| Beaver Creek at Bristol, VA | 03478400 | 26.9 | 1957 | 2026 | 83 | Some farmland, some urbanization |
+| Piscataway Creek near Tappahannock, VA | 01669000 | 27.9 | 1951 | 2026 | 19 | Mostly farmland and forest, limited urbanization |
+| Catawba Creek near Catawba, VA | 02018500 | 34.3 | 1943 | 2026 | 43 | Mostly farmland and forest, limited urbanization |
+| Kerrs Creek near Lexington, VA | 02022500 | 35.1 | 1927 | 2026 | 47 | Mostly farmland and forest, limited urbanization |
+| Chestnut Creek at Galax, VA | 03165000 | 39.4 | 1944 | 2026 | 44 | Mostly farmland and forest, limited urbanization |
+
+Since several of the gages have a very small number of baseflow events, specifically Fine Creek at Fine Creek Mills, VA, and S F Quantico Creek near Independent Hill, VA, they were excluded from the analysis. The statistical confidence in the results of this study were dependent on both the sample size (number of baseflow events) and the strength of the effect ($R^2$ in the linear regression between event AGWRC and log median flow). Because observed $R^2$ have historically been low in preliminary analyses, larger sample sizes were necessary to improve the validity of the results. As such, it was reasonable to assume than anything below 10 baseflow events was too low; thus, these gages were excluded.
+
+After the gages of interest were identified, this analysis was broken down into three distinct investigations and methodologies for each gage: regression analysis, evaluation of historical baseflow events, and investigation of manually selected baseflow events. For the regression analysis, the AGWRC vs Flow Regression Plot was created and inspected, and the $R^2$ was recorded and interpreted.
+
+The historical baseflow event evaluation was intended to assess the effectiveness of the gap-fill function and of the Mann-Kendall test in identifying baseflow events at small gages. Each baseflow event identified by the model was visually inspected, and inaccurately identified baseflow events were recorded. Accurately identified baseflow events contain reasonable start and end dates with no large peaks suggesting extended stormflow or recharge. Events that failed to meet that criteria were flagged and recorded as being inaccurately identified.
+
+The evaluation of manually selected baseflow events was intended to test this question:  is baseflow forecast accuracy maintained in the face of short storm-flow events? Due to the flashy nature of small gages, forecasts that can extend past storm-flow events are especially important at small gages. This was tested by visually inspecting the historical flow data and by identifying a period of flow that appeared to be baseflow; in many cases, this was not a baseflow event identified by the model. After some trial and error, a start date was selected and 15-, 30-, 45-, and 90-day predictions were made from the selected start date using different AGWRC values: regression AGWRC, variable AGWRC, and iterative AGWRC. The projected flows from these different AGWRC values were recorded and compared to the observed flow to identify the best prediction. Special attention was directed to assessing how well the different AGWRC values performed in predicting the trough, or low flow, succeeding a small storm or inflow event.
+
+### 2.2 Analysis 2: Drainage Area Relationships
+
+A database query of the model summary statistics for all Virginia gages was performed. A query from the dataRetrieval library was performed to call the drainage areas of all Virginia gages. These two query results were combined and consolidated in a final dataframe to include just the variables of interest: Gage ID, drainage area ($mi^2$), regression $R^2$, regression slope, regression slope p-value, start date, end date, and location name.
+
+Five drainage area relationships were investigated: log DA vs regression $R^2$, log DA vs regression slope p-value, log DA vs log regression slope p-value, log DA vs regression slope, and DA vs number of baseflow events. A linear regression model was constructed between each of the previously listed relationships, and the model summary statistics for these relationship were computed and recorded. A scatter plot displaying each relationship was constructed as well.
+
+## 3 Results
+
+### 3.1 Analysis 1: Small Gage Investigation
+
+The results below are the key takeaways from the study. See [Small Gage Analysis](https://github.com/HARPgroup/baseflow_storage/issues/133) for the full investigation including all tables, figures, and comments. 
+
+#### 3.1.1 Catawba Creek
+
+02018500: Catawba Creek near Catawba, VA was investigated, but additional analysis revealed that flow at this gage is greatly impacted by upstream discharges into Carvins Cove through underground tunnels. This gage was removed from further study and any initial findings were considered inapplicable. 
+
+#### 3.1.2 Kerrs Creek
+
+```{r Kerrs Regression, warning = FALSE, echo = FALSE, message = FALSE}
+library(hydrotools)
+
+gage_obj_02022500 <- WaterGageDaily$new(gage_id = "02022500", ds_in = ds)
+
+#Plot forecasts as plotly or ggplot
+forecast_data_02022500 <- gage_obj_02022500$baseflow_forecast(start_date = "2023-07-01",
+                                            AGWRC = "lm_variable",
+                                            use_limits = TRUE)
+#Plot AGWRC vs med Q
+gage_obj_02022500$plot_baseflow_agwrc(CI = TRUE, omsite = omsite, return_plotly = FALSE)
+ 
+```
+
+**Figure 1.** AGWRC vs Flow Regression for 02022500: Kerrs Creek near Lexington, VA
+
+```{r Kerrs BF Event, warning = FALSE, echo = FALSE, message = FALSE}
+library(hydrotools)
+
+forecast_plot_Kerrs <- gage_obj_02022500$plot_baseflow_forecast(
+  start_date = "2001/04/26",
+  forecast_days = 0:90,
+  AGWRC = list(Constant_AGWRC = "lm_constant",
+               Variable_AGWRC = "lm_variable"),
+  return_plotly = FALSE,
+  include_days_before = 30,
+  use_limits = TRUE
+)
+
+forecast_plot_Kerrs
+
+```
+
+**Figure 2.** Projected flows from 4/26/2001 for Kerrs Creek
+
+**Table 2.** 15-, 30-, 45-, and 90-Day Predictions from 4/26/2001 for Kerrs Creek 
+
+```{r Kerrs forecast, warning = FALSE, echo = FALSE, message = FALSE}
+library(knitr)
+library(kableExtra)
+# Define different AGWRC forecast methods
+forecast_data_02022500 <- gage_obj_02022500$baseflow_forecast(start_date = "2001/04/26",
+                                            AGWRC = "lm_constant",
+                                            use_limits = TRUE)
+
+Constant_AGWRC_02022500 <- gage_obj_02022500$baseflow_forecast(start_date = "2001/04/26", 
+                                     AGWRC = "lm_constant") %>%
+    rename(Constant_AGWRC = AGWRC) %>%
+    rename(Con_AGWRC_Flow = Forecast)
+
+Variable_AGWRC_02022500 <- gage_obj_02022500$baseflow_forecast(start_date = "2001/04/26",
+                                     AGWRC = "lm_variable") %>%
+    rename(Variable_AGWRC = AGWRC) %>%
+    rename(Var_AGWRC_Flow = Forecast)
+  
+# create forecast table
+all_flow_02022500 <- forecast_data_02022500 %>%
+  full_join(Constant_AGWRC_02022500, by = c("Day", "Date", "obs_flow" )) %>%
+  full_join(Variable_AGWRC_02022500, by = c("Day", "Date", "obs_flow" ))
+
+final_flow_02022500 <- all_flow_02022500 %>%
+  select(Day, Date, obs_flow, Con_AGWRC_Flow, Var_AGWRC_Flow) %>%
+  rename(Obs_Flow = obs_flow)
+
+Forecast_02022500 <- final_flow_02022500 %>%
+  filter(Day %in% c(15, 30, 45, 90))
+
+kable(Forecast_02022500, digits = 3) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE
+  )
+
+```
+
+#### 3.1.3 Beaver Creek 
+
+```{r Beaver Regression, warning = FALSE, echo = FALSE, message = FALSE}
+library(hydrotools)
+
+gage_obj_03478400 <- WaterGageDaily$new(gage_id = "03478400", ds_in = ds)
+
+#Plot forecasts as plotly or ggplot
+forecast_data_03478400 <- gage_obj_02022500$baseflow_forecast(start_date = "2023-07-01",
+                                            AGWRC = "lm_variable",
+                                            use_limits = TRUE)
+#Plot AGWRC vs med Q
+gage_obj_03478400$plot_baseflow_agwrc(CI = TRUE, omsite = omsite, return_plotly = FALSE)
+ 
+```
+
+**Figure 3.** AGWRC vs Flow Regression for 03478400: Beaver Creek at Bristol, VA
+
+```{r Beaver BF Event, warning = FALSE, echo = FALSE, message = FALSE}
+library(hydrotools)
+
+forecast_plot_Beaver <- gage_obj_03478400$plot_baseflow_forecast(
+  start_date = "2024/04/29",
+  forecast_days = 0:90,
+  AGWRC = list(Constant_AGWRC = "lm_constant",
+               Variable_AGWRC = "lm_variable"),
+  return_plotly = FALSE,
+  include_days_before = 30,
+  use_limits = FALSE
+)
+
+forecast_plot_Beaver
+
+```
+
+**Figure 4.** Projected flows from 4/29/2024 for Beaver Creek
+
+**Table 3.** 15-, 30-, 45-, and 90-Day Predictions from 4/29/2024 for Beaver Creek 
+
+```{r Beaver forecast, warning = FALSE, echo = FALSE, message = FALSE}
+library(knitr)
+library(kableExtra)
+# Define different AGWRC forecast methods
+forecast_data_03478400 <- gage_obj_03478400$baseflow_forecast(start_date = "2024/04/29",
+                                            AGWRC = "lm_constant",
+                                            use_limits = FALSE)
+
+Constant_AGWRC_03478400 <- gage_obj_03478400$baseflow_forecast(start_date = "2024/04/29", 
+                                     AGWRC = "lm_constant",
+                                     use_limits = FALSE) %>%
+    rename(Constant_AGWRC = AGWRC) %>%
+    rename(Con_AGWRC_Flow = Forecast)
+
+Variable_AGWRC_03478400 <- gage_obj_03478400$baseflow_forecast(start_date = "2024/04/29",
+                                     AGWRC = "lm_variable", 
+                                     use_limits = FALSE) %>%
+    rename(Variable_AGWRC = AGWRC) %>%
+    rename(Var_AGWRC_Flow = Forecast)
+  
+# create forecast table
+all_flow_03478400 <- forecast_data_03478400 %>%
+  full_join(Constant_AGWRC_03478400, by = c("Day", "Date", "obs_flow" )) %>%
+  full_join(Variable_AGWRC_03478400, by = c("Day", "Date", "obs_flow" ))
+
+final_flow_03478400 <- all_flow_03478400 %>%
+  select(Day, Date, obs_flow, Con_AGWRC_Flow, Var_AGWRC_Flow) %>%
+  rename(Obs_Flow = obs_flow)
+
+Forecast_03478400 <- final_flow_03478400 %>%
+  filter(Day %in% c(15, 30, 45, 90))
+
+kable(Forecast_03478400, digits = 3) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE
+  )
+
+```
+
+#### 3.1.4 Tinker Creek
+
+```{r Tinker Regression, warning = FALSE, echo = FALSE, message = FALSE}
+library(hydrotools)
+
+gage_obj_02055100 <- WaterGageDaily$new(gage_id = "02055100", ds_in = ds)
+
+#Plot forecasts as plotly or ggplot
+forecast_data_02055100 <- gage_obj_02022500$baseflow_forecast(start_date = "2023-07-01",
+                                            AGWRC = "lm_variable",
+                                            use_limits = TRUE)
+#Plot AGWRC vs med Q
+gage_obj_02055100$plot_baseflow_agwrc(CI = TRUE, omsite = omsite, return_plotly = FALSE)
+ 
+```
+
+**Figure 5.** AGWRC vs Flow Regression for 02055100: Tinker Creek near Daleville, VA
+
+```{r Tinker BF Event, warning = FALSE, echo = FALSE, message = FALSE}
+library(hydrotools)
+
+forecast_plot_Kerrs <- gage_obj_02055100$plot_baseflow_forecast(
+  start_date = "2001/06/21",
+  forecast_days = 0:90,
+  AGWRC = list(Constant_AGWRC = "lm_constant",
+               Variable_AGWRC = "lm_variable"),
+  return_plotly = FALSE,
+  include_days_before = 30,
+  use_limits = FALSE
+)
+
+forecast_plot_Kerrs
+
+```
+
+**Figure 6.** Projected flows from 6/21/2001
+
+**Table 4.** 15-, 30-, 45-, and 90-Day Predictions from 6/21/2001 for Tinker Creek 
+
+```{r Tinker forecast, warning = FALSE, echo = FALSE, message = FALSE}
+library(knitr)
+library(kableExtra)
+# Define different AGWRC forecast methods
+forecast_data_02055100 <- gage_obj_02055100$baseflow_forecast(start_date = "2001/06/21",
+                                            AGWRC = "lm_constant",
+                                            use_limits = FALSE)
+
+Constant_AGWRC_02055100 <- gage_obj_02055100$baseflow_forecast(start_date = "2001/06/21", 
+                                     AGWRC = "lm_constant",
+                                     use_limits = FALSE) %>%
+    rename(Constant_AGWRC = AGWRC) %>%
+    rename(Con_AGWRC_Flow = Forecast)
+
+Variable_AGWRC_02055100 <- gage_obj_02055100$baseflow_forecast(start_date = "2001/06/21",
+                                     AGWRC = "lm_variable", 
+                                     use_limits = FALSE) %>%
+    rename(Variable_AGWRC = AGWRC) %>%
+    rename(Var_AGWRC_Flow = Forecast)
+  
+# create forecast table
+all_flow_02055100 <- forecast_data_02055100 %>%
+  full_join(Constant_AGWRC_02055100, by = c("Day", "Date", "obs_flow" )) %>%
+  full_join(Variable_AGWRC_02055100, by = c("Day", "Date", "obs_flow" ))
+
+final_flow_02055100 <- all_flow_02055100 %>%
+  select(Day, Date, obs_flow, Con_AGWRC_Flow, Var_AGWRC_Flow) %>%
+  rename(Obs_Flow = obs_flow)
+
+Forecast_02055100 <- final_flow_02055100 %>%
+  filter(Day %in% c(15, 30, 45, 90))
+
+kable(Forecast_02055100, digits = 3) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE
+  )
+
+```
+
+### 3.2 Analysis 2: Drainage Area Relationships
+
+The results below are the key takeaways from the study. See [DA Relationships](https://github.com/HARPgroup/baseflow_storage/issues/165) for the full investigation including all tables, figures, and comments. 
+
+#### 3.2.1 Regression Summaries
+
+Due to missing drainage area data and/or missing regression summary values, numerous other gage locations were not considered in the table and plots below. The model summaries for each of the eight relationships were recorded below in Table 3:
+
+**Table 5.** Linear regression model summaries for drainage area relationships. _Note: the p-values are listed in parentheses_.
+
+```{r lm summaries, warning = FALSE, echo = FALSE, message = FALSE}
+library(modelsummary)
+
+log_DA_vs_R2 <- lm(regression_Rsq ~ log(drainage_area), data = df_final)
+
+log_DA_vs_p <- lm(regression_m_pvalue ~ log(drainage_area), data = df_final)
+
+log_DA_vs_log_p <- lm(log(regression_m_pvalue) ~ log(drainage_area), data = df_final)
+
+log_DA_vs_m <- lm(regression_m ~ log(drainage_area), data = df_final)
+
+log_DA_vs_bf <- lm(total_bf_events ~ log(drainage_area), data = df_final)
+
+
+#create table
+modelsummary(
+  list(
+    "log DA vs R2" = log_DA_vs_R2,
+    "log DA vs p-value" = log_DA_vs_p,
+    "log DA vs log p-value" = log_DA_vs_log_p,
+    "log DA vs slope" = log_DA_vs_m,
+    "log DA vs bf events" = log_DA_vs_bf
+  ),
+  gof_map = c("nobs", "r.squared", "adj.r.squared"),
+    statistic = "p.value"
+)
+```
+
+#### 3.2.2 Drainage Area vs Regression R-Squared
+
+```{r DA vs R2, warning = FALSE, echo = FALSE, message = FALSE}
+#create plot of log DA vs R2
+ggplot(data = df_final, aes(x = log(drainage_area), y = regression_Rsq)) +
+  geom_point() +
+  theme_classic() +
+  geom_smooth(method = "lm") +
+  labs(x = "Log Drainage Area (square miles)",
+       y = "R-squared",
+       title = "Log DA vs Regression R-squared") 
+
+```
+
+**Figure 7.** Relationship between log drainage area and regression $R^2$
+
+#### 3.2.3 Drainage Area vs Regression Slope p-value
+
+```{r DA vs p-value, warning = FALSE, echo = FALSE, message = FALSE}
+#create plot of log DA vs p-value
+DA_p_p1 <- ggplot(data = df_final, aes(x = log(drainage_area), y = regression_m_pvalue)) +
+  geom_point() +
+  theme_classic() +
+  geom_smooth(method = "lm") +
+  labs(x = "Log Drainage Area (square miles)",
+       y = "Regression Slope p-value",
+       title = "Log DA vs Regression Slope p-value") +
+  xlim(0, NA) +
+  ylim(0, NA)
+
+#create plot of log DA vs Log Regression Slope p-value
+DA_p_p2 <- ggplot(data = df_final, aes(x = log(drainage_area), y = log(regression_m_pvalue))) +
+  geom_point() +
+  theme_classic() +
+  geom_smooth(method = "lm") +
+  labs(x = "Log Drainage Area (square miles)",
+       y = "Log Regression Slope p-value",
+       title = "Log DA vs Log Reg. Slope p-value")
+
+DA_p_p1 | DA_p_p2
+```
+
+**Figure 8.** Relationship between log drainage area and regression slope p-value (left) and relationship between log drainage area and log regression slope p-value (right)
+
+#### 3.2.4 Drainage Area vs Regression Slope
+
+```{r DA vs slope, warning = FALSE, echo = FALSE, message = FALSE}
+#create plot of log DA vs slope
+ggplot(data = df_final, aes(x = log(drainage_area), y = regression_m)) +
+  geom_point() +
+  theme_classic() +
+  geom_smooth(method = "lm") +
+  labs(x = "Log Drainage Area (square miles)",
+       y = "Regression Slope",
+       title = "Log DA vs Regression Slope") +
+  geom_hline(yintercept=0, linetype = "dashed")
+
+#calculate the number of gages with positive slopes
+slope_above_zero <- sum(df_final$regression_m > 0, na.rm = TRUE)
+slope_below_zero <- sum(df_final$regression_m < 0, na.rm = TRUE)
+```
+
+**Figure 9.** Relationship between log drainage area and regression slope
+
+#### 3.2.5 Drainage Area vs Number of Baseflow Events
+
+```{r DA vs bf events, warning = FALSE, echo = FALSE, message = FALSE}
+#create plot of log DA vs slope
+ggplot(data = df_final, aes(x = log(drainage_area), y = total_bf_events)) +
+  geom_point() +
+  theme_classic() +
+  geom_smooth(method = "lm") +
+  labs(x = "Log Drainage Area (square miles)",
+       y = "Number of Baseflow Events",
+       title = "Log DA vs Number of Baseflow Events") 
+```
+
+**Figure 10.** Relationship between log drainage area and number of baseflow events
+
+## 4 Discussion
+
+### 4.1 Analysis 1: Small Gage Investigation
+
+#### 4.1.1 Kerrs Creek 
+
+02022500: Kerrs Creek near Lexington, VA has an $R^2$ of 0.5062. Considering the reasonable number of baseflow events (47), there is a considerably strong relationship between AGWRC and median flow; the regression appears to be a good fit at this gage. 
+
+Group ID 1, 2, 22, 24, 31, and 33 are inaccurately identified baseflow events due the flow being storm recession rather than baseflow and/or flow continuing to decrease beyond the end date. Several days of steady flow did not meet the model's criteria for baseflow; for instance, there was a baseflow event (Group ID 24) where flow decreased overall for seven days following the identified end date, but flow was steady at 19 cfs for the first four days and steady at 18 cfs for the following three days. Group ID 41 is an example of an exceptionally accurate identified baseflow event where the model did well in capturing the small ups and downs of flow that are expected during the baseflow of a small gage.
+
+As seen in the projected flow graph and table, the variable AGWRC provided a better 90-day forecast than the regression AGWRC. This observation was consistent across four observed events (3/13/2006, 4/26/2001 as shown previously, 6/18/2002, and 5/24/2023). The variable AGWRC was effective in producing baseflow forecasts that maintained accuracy in the face of short storm-flow events. 
+
+#### 4.1.2 Beaver Creek
+
+03478400: Beaver Creek at Bristol, VA has an $R^2$ of 0.3029, which is very good. From this relationship, it appears that the regression is a good fit for the data at this gage. The model identified 83 baseflow events.
+
+This is a very flashy gage (frequent ups and downs of flow even during baseflow conditions), and the model inaccurately identified many storm recession periods as baseflow. Group ID 2, 3, 6, 9, 13, 27, 31, 35, 40, 45, 49, 52, 54, 60, and 105 are inaccurately identified baseflow events. As seen with Kerrs Creek, flow continued to decrease for many days beyond the end date for multiple baseflow events at this gage (e.g. flow decreased for 14 days after the end date in Group ID 60).
+
+As seen in the projected flow graph and table, the variable AGWRC provided a better 90-day forecast than the regression AGWRC. This observation was consistent across four observed events (5/01/1962, 4/29/2024 as shown previously, 5/20/2002, and 8/03/1998). The variable AGWRC was effective in producing baseflow forecasts that maintained accuracy in the face of short storm-flow events. It is notable that predictions at this gage are extremely sensitive to start date changes due to the flashy flow behavior.
+
+#### 4.1.3 Tinker Creek 
+
+02055100: Tinker Creek near Daleville, VA has an $R^2$ of 0.1033. This suggests a poor relationship between AGWRC and median flow. The model identified 78 baseflow events.
+
+Group ID 21, 22, 25, 28, 37, 60, and 83 are inaccurately identified baseflow events. Early start dates (capturing storm recession rather than baseflow) and early end dates followed by an overall decrease in flow with several days of steady flow were the reasons for these events being flagged as inaccurately identified baseflow events. 
+
+As seen in the projected flow graph and table, the variable AGWRC provided a better 90-day forecast than the regression AGWRC. This observation was consistent across five observed events (9/02/2025, 5/22/2023, 4/18/2022, 6/21/2001 as shown previously, and 6/11/1964). These projections were made at very low flows where slight differences in flow were easily amplified. For instance, the variable AGWRC was seen to slightly over predict flow at the end of June in 2001; however, the difference with the observed flow was only 0.1 cfs. Considering the error in the sensors at each gage, it is reasonable to assume that this small difference in flow is insignificant. Overall, the variable AGWRC was effective in producing baseflow forecasts that maintained accuracy in the face of short storm-flow events.    
+
+### 4.2 Analysis 2: Drainage Area Relationships
+
+#### 4.2.1 Drainage Area vs Regression R-Squared
+
+As seen in **Figure 7.**, there is no clear relationship between the drainage area and the regression $R^2$. The summary statistics in **Table 5.** indicate that log drainage area is not a statistically significant predictor of the regression $R^2$. The low $R^2$ of 0.002 suggests that very little of the variability in the data is explained by the log drainage area alone; there are likely other variables impacting the observed variability in the regression $R^2$. While there is slightly more variation in $R^2$ values at lower drainage areas, there is not sufficient evidence to suggest a maximum drainage area for the model. The $R^2$ values at high drainage areas show reasonable scatter and do not display asymptotic behavior (e.i. approaching an $R^2$ of 0). Likewise, the graphs and the results from the case studies in Analysis 1 demonstrate that there is not sufficient evidence to suggest a minimum drainage area for the model as the regression produces effective forecasts at small gages. 
+
+#### 4.2.2 Drainage Area vs Regression Slope p-value
+
+As seen in **Figure 8.**, there is a slight, negative relationship between drainage area and the regression slope p-value. It appears that more negative slope p-values are prevalent at gages with higher drainage areas. As seen in the summary statistics in **Table 5.**, log drainage area is a statistically significant predictor of the log regression slope p-value. The low $R^2$ of 0.048 suggests that very little of the variability in the data is explained by the log drainage area alone; there are other variables impacting the observed variability in the slope p-value.
+
+#### 4.2.3 Drainage Area vs Regression Slope
+
+As seen in **Figure 9.**, there is a higher number of gages with negative slopes (`r slope_below_zero`) than positive slopes (`r slope_above_zero`). There is a slight, negative relationship between log drainage area and regression slope; as drainage area increases, it appears that the regression slope is more likely to be negative. The summary statistics in **Table 5.** indicate that drainage area is a statistically significant predictor of the regression slope. The low $R^2$ of 0.039 suggests that very little of the variability in the data is explained by the log drainage area alone; there are other variables impacting the observed variability in the magnitude and direction of the regression slope. These variables could include the prevalence and frequency of intense storms and precipitation events at each gage, the geology, etc. Further research and analysis would be necessary to explain the causes for this observed variation.
+
+#### 4.2.4 Drainage Area vs Number of Baseflow Events
+
+As seen in **Figure 10.**, there appears to be a positive, linear relationship between log drainage area and the number of identified baseflow events. The summary statistics in **Table 5.** indicate that log drainage area is a significant predictor of the number of identified baseflow events. The graph and p-value alone suggest that as the drainage area increases, more identified baseflow events are expected. However, there are multiple confounding variables in this analysis, most notably the years of data collection. Smaller gages are newer and have fewer years of data collection; less data means fewer identified baseflow events.  
+
+#### 4.2.5 Slope Direction Interpretation
+
+A positive regression slope indicates that AGWRC increases with increasing flow whereas a negative regression slope indicates that AGWRC decreases with increasing flows.
+
+```{r positive slope, warning = FALSE, echo = FALSE, message = FALSE}
+library(hydrotools)
+library(agws)
+library(patchwork)
+
+#Call Appomattox River near Farmville, VA (02039500)
+gage_obj_02039500 <- WaterGageDaily$new(gage_id = "02039500", ds_in = ds)
+
+#Plot forecasts as plotly or ggplot
+forecast_data <- gage_obj_02039500$baseflow_forecast(start_date = "2023-06-01",
+                                            AGWRC = "lm_variable",
+                                            use_limits = TRUE)
+#Plot AGWRC vs med Q
+positive <- gage_obj_02039500$plot_baseflow_agwrc(CI = TRUE, omsite = omsite, return_plotly = FALSE)
+positive <- positive + labs(
+  x = "Median Event Flow (cfs)",
+  title = "Positive Slope"
+)
+
+positive
+```
+
+**Figure 11.** The Appomattox River near Farmville, VA (02039500) is an example of a gage with a positive slope where the AGWRC increases with higher flows.
+
+```{r negative slope,  warning = FALSE, echo = FALSE, message = FALSE}
+library(hydrotools)
+library(agws)
+library(patchwork)
+
+#Call S F Shenandoah River near Lynnwood, VA (01628500)
+gage_obj_01629500 <- WaterGageDaily$new(gage_id = "01628500", ds_in = ds)
+
+#Plot forecasts as plotly or ggplot
+forecast_data <- gage_obj_01629500$baseflow_forecast(start_date = "2023-06-01",
+                                            AGWRC = "lm_variable",
+                                            use_limits = TRUE)
+#Plot AGWRC vs med Q
+negative <- gage_obj_01629500$plot_baseflow_agwrc(CI = TRUE, omsite = omsite, return_plotly = FALSE)
+negative <- negative + labs(
+  x = "Median Event Flow (cfs)",
+  title = "Negative Slope"
+)
+
+negative
+
+```
+
+**Figure 12.** The S F Shenandoah River near Lynnwood, VA (01628500) is an example of a gage with a negative slope where the AGWRC decreases with increasing flows.
+
+#### 4.2.6 Slope Characteristics vs Latitude/Longitude
+
+The variations in geology and weather patterns across the different regions of Virginia likely impact model performance. Few case studies have been performed at gages in the Coastal Plain, and the frequency of high rainfall and thunderstorms in this region has warranted concern in forecast efficiency at these gages. The analysis in section 4.2.3 prompted the question of whether gages with positive slopes are more prevalent in certain regions of Virginia, specifically in the Coastal Plain. 
+
+```{r slope map, warning = FALSE, echo = FALSE, message = FALSE}
+library(leaflet)
+library(leaflet.providers)
+library(dplyr)
+
+#Get all USGS gages from database
+all_gages <- DBI::dbGetQuery(conn = ds$connection,
+                "SELECT *
+                FROM dh_feature_fielded
+                WHERE bundle = 'usgsgage'
+                AND ftype = 'flowgage'"
+                )
+#Create a spatial dataframe from the well known text GIS info
+all_gages_sf <- sf::st_as_sf(all_gages, wkt = 'dh_geofield', crs = 4326)
+
+#Remove usgs_ws_ from the hydrocode column to leave just gageid and rename
+all_gages_sf$hydrocode <- sub("^usgs_", "", all_gages_sf$hydrocode)
+
+all_gages_sf <- all_gages_sf |>
+  rename(gageid = hydrocode)
+
+#Join slope data to all_gages_sf
+
+leaflet_df <- all_gages_sf |>
+  left_join(df_final, by = "gageid")
+  
+
+#Static ggplot of data
+# ggplot2::ggplot() + ggplot2::geom_sf(data = leaflet_df$dh_geofield)
+#Static base R plot of data
+# plot(leaflet_df$dh_geofield, axes =TRUE)
+
+#Define a color palette
+leaflet_df$color <- ifelse(
+  is.na(leaflet_df$regression_m),
+  "transparent",
+  ifelse(leaflet_df$regression_m < 0, "red", "blue")
+)
+
+#Leaflet showing positive or negative slope
+leaflet::leaflet() |> 
+  leaflet::addProviderTiles(leaflet::providers$Esri.WorldTopoMap, group = "topo") |> 
+  leaflet::addProviderTiles(leaflet::providers$Esri.NatGeoWorldMap, group = "nattopo") |> 
+  leaflet::addProviderTiles(leaflet::providers$Esri.WorldImagery, group = "imagery") |> 
+  leaflet::addCircleMarkers(data = leaflet_df, 
+                            popup = ~name,
+                            color = ~color) |> 
+  leaflet::addLayersControl(baseGroups = c("topo","nattopo","imagery")) |>
+  addLegend(
+    position = "topleft",
+    colors = c("red", "blue"),
+    labels = c("Negative", "Positive"),
+    title = "Slope Direction"
+  )
+
+```
+
+**Figure 13.** Slope direction by location
+
+As seen above in **Figure 13**, gages with positive slopes appear to be more prevalent in the Coastal Plain and Piedmont regions of Virginia while gages with negative slopes are more prevalent in the mountains and valleys regions. 
+
+```{r slope magnitude map,  warning = FALSE, echo = FALSE, message = FALSE}
+library(leaflet)
+#Leaflet showing slope magnitudes
+
+slope_map <- leaflet_df %>%
+  mutate(
+    slope_category = case_when(
+      regression_m > 0 & regression_m_pvalue < 0.05 ~ "Significant (positive slope)",
+      regression_m < 0 & regression_m_pvalue < 0.05 ~ "Significant (negative slope)",
+      regression_m > 0 & regression_m_pvalue >= 0.05 ~ "Insignificant (positive slope)",
+      regression_m < 0 & regression_m_pvalue >= 0.05 ~ "Insignificant (negative slope)",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(slope_category))
+
+leaflet::leaflet() |> 
+  leaflet::addProviderTiles(leaflet::providers$Esri.WorldTopoMap, group = "topo") |> 
+  leaflet::addProviderTiles(leaflet::providers$Esri.NatGeoWorldMap, group = "nattopo") |> 
+  leaflet::addProviderTiles(leaflet::providers$Esri.WorldImagery, group = "imagery") |> 
+  leaflet::addCircleMarkers(data = slope_map, 
+                            popup = ~paste0(
+  "<b>", name, "</b><br>",
+  "Regression Slope: ", round(regression_m, 3), "<br>",
+  "Regression Slope p-value: ", formatC(regression_m_pvalue, 
+                                        digits = 2)),
+                            color = ~case_when(
+                              slope_category == "Significant (positive slope)"
+                              ~ "navy",
+                              slope_category == "Significant (negative slope)"
+                              ~ "darkred",
+                              slope_category == "Insignificant (positive slope)"
+                              ~ "lightblue",
+                              slope_category == "Insignificant (negative slope)"
+                              ~ "pink"), 
+                          #Scale abs val of slope magnitude (3 to 15 pixels)
+                          radius = ~scales::rescale(abs(regression_m), 
+                                                    to = c(3, 15))
+  ) |> 
+  leaflet::addLayersControl(baseGroups = c("topo","nattopo","imagery")) |>
+  addLegend(
+    position = "topleft",
+    colors = c("navy", "darkred", "lightblue", "pink"),
+    labels = c("Significant (positive slope)", 
+               "Significant (negative slope)",
+               "Insignificant (positive slope)",
+               "Insignificant (negative slope)"
+               ),
+    title = "Slope p-value (slope direction)"
+  )
+```
+
+**Figure 14.** Slope significance and direction by location
+
+In regards to slope, there appears to be decent strength in the Shenandoah region and a gap in significant gages in the northern Piedmont. This suggests that the model may be slightly biased towards gages in the mountains and valleys region in Virginia as significant, positive gages are more prevalent there. However, the Coastal Plain and Piedmont regions are not entirely void of gages with significant slopes; there is still a considerable quantity of significant gages which suggests that the model is applicable in these regions but potentially not as effective. Additional analysis would be necessary to confirm the significance of this finding and to identify other factors contributing to slope direction, magnitude, and significance. 
+
+## 5 Conclusion
+
+### 5.1 Analysis 1: Small Gage Investigation
+
+Inaccurately identified baseflow events were consistently observed throughout the identified baseflow events of the small gages. The causes of these baseflow events being flagged included the event beginning high on the tail of a storm recession and/or continuing to experience decreasing flows beyond the end date. The criteria and thresholds set for the gap-fill function and the Mann-Kendall test were constructed with reference to the characteristics of larger gages; it is likely that the observed issues were the result of these standards not applying well to the flashy, low-flow characteristics of the small gages. While there were inaccurately identified baseflow events at each small gage, the number of accurately identified baseflow events exceeded the prior; the baseflow workflow model proved to be applicable at the small gages.   
+
+Across the numerous case studies, the flashy behavior at these gages combined with exceptionally low flows added difficulty in making flow predictions. Predictions at these gages were also very sensitive to start date selection. The variable AGWRC from the regression model was effective in producing baseflow forecasts that maintained accuracy in the face of short storm-flow events. The variable AGWRC was better than the regression AGWRC in predicting flow at the small gages. For gages less than 50 $mi^2$, it is recommended that the variable AGWRC be used when making flow predictions. 
+
+### 5.2 Analysis 2: Drainage Area Relationships
+
+Five drainage area relationships were investigated: log DA vs regression $R^2$, log DA vs regression slope p-value, log DA vs log regression slope p-value, log DA vs regression slope, and DA vs number of baseflow events. Log DA was a statistically significant predictor for log regression slope p-value, regression slope, and the number of baseflow events. These linear relationships were very weak suggesting that DA alone could only explain a very small proportion of observed variation in the data. Record length was the main confounding variable in the relationship between DA and the number of identified baseflow events since smaller gages are newer and have less available flow data. There was not sufficient evidence to suggest a maximum or minimum DA for the model; the model appeared to perform effectively overall despite DA.       
+
+The relationship between DA and slope produced some insightful takeaways and potential next steps: negative slopes appeared to be more prevalent at higher drainage areas and in the mountains and valleys regions in Virginia. Positive slopes, which make up about 33% of gages with available slope data, were more prevalent in the Coastal Plain and Piedmont regions of Virginia. Significant slopes were present in all regions with a greater incidence in the mountains and valleys region. Additional analysis in these regions where positive slopes are prevalent would be valuable in further assessing the effectiveness of the model in areas that have more intense weather patterns and geological differences from the standard gages in Shenandoah.
+
+
+
+
