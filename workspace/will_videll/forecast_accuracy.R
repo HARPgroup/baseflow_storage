@@ -3,28 +3,63 @@ source("/var/www/R/config.R")
 library(hydrotools)
 library(agws)
 library(tidyverse)
-gage_obj <- WaterGageDaily$new(gage_id = "02059500", ds_in = ds)
+library(SLmetrics)
+gage_obj <- WaterGageDaily$new(gage_id = "02055000", ds_in = ds)
 var <- gage_obj$baseflow_workflow_data(omsite)
 event_df <- var$trimmed_events_df
 
 ### How to get known event start dates ###
-# start_dates <- event_df |>
-#   group_by(Year) |>
-#   slice_min(Date) |>
-#   pull(Date)
+ start_dates <- event_df |>
+   group_by(Year) |>
+   slice_min(Date) |>
+   pull(Date)
 
 ### How to get summer start dates ###
-# daily_flow <- gage_obj$gage_data
-#
-# summer_start_dates <- daily_flow |>
-#   mutate(Month = month(time),
-#          Year = year(time)) |>
-#   filter((month(time) == 6 & mday(time) >= 1) |
-#            (month(time) == 7 & mday(time) <= 15)) |>
-#   group_by(Year) |>
-#   filter(value == min(value)) |>
-#   slice_tail(n = 1) |>
-#   pull(time)
+daily_flow <- gage_obj$gage_data
+
+summer_start_dates <- daily_flow |>
+  mutate(Month = month(time),
+         Year = year(time)) |>
+  filter((month(time) == 6 & mday(time) >= 1) |
+           (month(time) == 7 & mday(time) <= 15)) |>
+  group_by(Year) |>
+  filter(value == min(value)) |>
+  slice_tail(n = 1) |>
+  pull(time)
+
+forecast_helper <- function(forecast){
+  # Pull row with lowest observed flow (90 day minimum)
+  obs_min_data <- forecast |>
+    dplyr::slice_min(obs_flow)
+
+  # Set overestimates to TRUE
+  forecast$overestimate[forecast$Forecast > forecast$obs_flow] <- TRUE
+
+  # Initial trough selection
+  forecast$trough <- zoo::rollapply(forecast$obs_flow, width = 7, function(x) x[4] <= min(x[-4]), fill = FALSE)
+
+  # Filter troughs with cumulative min
+  troughs <- forecast |>
+    dplyr::filter(trough) |>
+    dplyr::group_by(run_id = consecutive_id(obs_flow)) |>
+    dplyr::slice_tail(n = 1) |>
+    dplyr::ungroup() |>
+    dplyr::filter(obs_flow == cummin(obs_flow)) |>
+    dplyr::select(Date, trough)
+
+  forecast$trough <- FALSE # reset trough column
+  forecast <- forecast |>
+    dplyr::rows_update(troughs, by = "Date") |> # update trough column with filtered troughs
+    dplyr::mutate(error = Forecast - obs_flow,
+                  log_error = log(abs(error)),
+                  time_weight = 1-(Day / max(Day)),
+                  # else value must be > 1 (or it becomes multiplicative)
+                  asym_weight = if_else(error > 0, 1.0 , 1),
+                  total_weight = trough * time_weight * asym_weight,
+                  normalized_weight = total_weight / sum(total_weight),
+                  weighted_error = trough * (log_error * normalized_weight))
+  return(forecast)
+}
 
 #' @title min_flow_accuracy
 #' @name min_flow_accuracy
@@ -75,31 +110,9 @@ min_flow_accuracy <- function(gage_obj, start_dates, AGWRC = c("lm_constant", "l
       forecast <- gage_obj$baseflow_forecast(start_date = start_dates[i], AGWRC = AGWRC,
                                              use_limits = TRUE)
     }
-    # Pull row with lowest observed flow (90 day minimum)
-    obs_min_data <- forecast |>
-      dplyr::slice_min(obs_flow)
 
-    # Set overestimates to TRUE
-    forecast$overestimate[forecast$Forecast > forecast$obs_flow] <- TRUE
-
-    # Initial trough selection
-    forecast$trough <- zoo::rollapply(forecast$obs_flow, width = 7, function(x) x[4] <= min(x[-4]), fill = FALSE)
-
-    # Filter troughs with cumulative min
-    troughs <- forecast |>
-      dplyr::filter(trough) |>
-      dplyr::group_by(run_id = consecutive_id(obs_flow)) |>
-      dplyr::slice_tail(n = 1) |>
-      dplyr::ungroup() |>
-      dplyr::filter(obs_flow == cummin(obs_flow)) |>
-      dplyr::select(Date, trough)
-
-    forecast$trough <- FALSE # reset trough column
-    forecast <- forecast |>
-      dplyr::rows_update(troughs, by = "Date") |> # update trough column with filtered troughs
-      dplyr::mutate(abs_err = trough * abs(obs_flow - Forecast),
-                    weight_factor = Day / 90,
-                    weighted_error = abs_err * weight_factor)
+    # Identify troughs and create analysis columns
+    forecast <- forecast_helper(forecast)
 
     #fill empty data columns with values from sliced forecast
     df$start_date[i] <- start_dates[i]
@@ -107,11 +120,12 @@ min_flow_accuracy <- function(gage_obj, start_dates, AGWRC = c("lm_constant", "l
     df$min_obs_flow[i] <- obs_min_data$obs_flow[1]
     df$min_for_flow[i] <- obs_min_data$Forecast[1]
     df$min_flow_date[i] <- obs_min_data$Date[1]
-    df$normalized_error[i] <- sum(forecast$weighted_error) / sum(forecast$weight_factor[forecast$trough])
+    df$normalized_error[i] <- mean(abs(forecast$weighted_error[forecast$trough]))
     if(lookback == TRUE){
       df$start_date[i] <- min30start_date
     }
   }
+
   df <- df |>
     dplyr::mutate(abs_error_90d = abs(min_obs_flow - min_for_flow),
            abs_pcnt_err90d = (abs_error_90d / min_obs_flow) * 100)
@@ -157,7 +171,8 @@ plot_event_minima <- function(gage_obj, start_date){
 
 
 ### Testing ###
-# gc_summary_lb <- min_flow_accuracy(gage_obj, start_dates, AGWRC = "lm_variable", lookback = TRUE)
-# plot_event_minima(gage_obj, "1986-07-09")
+ test_summer <- min_flow_accuracy(gage_obj, summer_start_dates, AGWRC = "lm_variable", lookback = FALSE)
+ plot_event_minima(gage_obj, "1971-07-15")
+   scale_y_continuous()
 
 

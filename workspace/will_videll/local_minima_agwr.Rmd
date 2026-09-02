@@ -1,0 +1,110 @@
+---
+title: "AGWR at Local Minima"
+output: html_document
+date: "2026-08-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = FALSE}
+basepath <- "/var/www/R"
+source("/var/www/R/config.R")
+library(hydrotools)
+library(agws)
+library(tidyverse)
+
+gage_obj <- WaterGageDaily$new(gage_id = "01634000", ds_in = ds)
+#var <- gage_obj$baseflow_workflow_data(omsite) 
+nep <- gage_obj$nep_table() |> 
+  mutate(month_num = match(Month, month.abb))
+
+# Read in daily flows and join with NEP table
+daily_flow <- gage_obj$gage_data |> 
+  mutate(month_num = month(time)) |> 
+  left_join(nep, by = "month_num", multiple = "all") #|> 
+  #mutate(value = value + rnorm(n = nrow(daily_flow), sd = 0.1))
+
+# Create trough column and calculate AGWR
+daily_flow$trough <- zoo::rollapply(daily_flow$value, width = 7, function(x) x[4] <= min(x[-4]), fill = FALSE)
+daily_flow <- daily_flow |> 
+  mutate(AGWR = value / lag(value))
+```
+
+## 1. Introduction
+
+United States Geological Survey (USGS) stream flow gages are used to track stream flow at hundreds of locations across the state of Virginia. These flow values are used by agencies like the USGS and VA DEQ to conduct analyses like drought forecasts and calculate annual flow statistics.
+
+When using this data to compare AGWR (today's flow / yesterdays flow) at local minima, a stripe-like pattern emerges in the data. This analysis provides evidence that these stripes may be caused by gauge rounding error.
+
+## 2. Methods
+
+This study used historical daily average stream flows (cfs) from the USGS, specifically gage 01634000 near Strausburg, VA.
+
+The USGS data was joined to the NEP table obtained from the DEQ nep_table() method in order to determine historical monthly percentile flows for each day. Then, local minima were identified using a 7 day rolling window approach. For example, if the fourth value in the window is smaller than the three entries before or after it, it is labeled a trough. The data set was then filtered to these troughs. A new AGWR variable was then calculated by dividing the current days flow by the previous days flow.
+
+The scatter plot in Figure 2 below displays flow on the x-axis and AGWR on the y-axis. Each point is representative of a local minima that occurred at flows below the historical 25th percentile (low flows). These stripes appear as arches that converge at AGWR = 1. To test the sensitivity of the artifact to random measurement error, artificial normally distributed noise with a mean of zero and a standard deviation of 0.1 ($\sigma = 0.1$) was added to the observed daily discharge values. 
+
+**Figure 1.** Example local minima selection.
+
+```{r, echo = FALSE}
+daily_flow1 <- daily_flow |> 
+  filter(time < time[90])
+
+  ggplot(daily_flow1)+
+  geom_line(aes(time, value))+
+  theme_minimal()+
+  labs(x = "Date", y = "Flow (cfs)")+
+  geom_point(data = subset(daily_flow1, trough == TRUE), aes(time, value), col = "red")
+```
+
+**Figure 2.** Example plot showing stripe pattern at AGWR \> .8
+
+```{r, echo = FALSE}
+# Plot
+plotly::ggplotly(daily_flow |> 
+  filter(trough & month(time) %in% c(1:12) & value < `25%` & AGWR > .8) |> 
+  ggplot(aes(value, AGWR, text = paste("Date:", time), col = Month))+
+    geom_point()+
+  scale_x_log10()+
+  theme_minimal()+
+  labs(x = "Flow (CFS)", title = "Local Minima (25% Monthly Flow)"))
+```
+
+## 3. Results
+
+The addition of artificial noise had a noticeable visual impact on the artifact. By introducing more specific flow values, there were more possible AGWR values, dissolving these stripes.
+
+**Figure 3.** Flow vs AGWR plot with artificial noise.
+```{r, echo = FALSE}
+# Read in daily flows and join with NEP table
+daily_flow <- gage_obj$gage_data |> 
+  mutate(month_num = month(time)) |> 
+  left_join(nep, by = "month_num", multiple = "all") |> 
+  mutate(value = value + rnorm(n = nrow(daily_flow), sd = 0.1))
+
+# Create trough column and calculate AGWR
+daily_flow$trough <- zoo::rollapply(daily_flow$value, width = 7, function(x) x[4] <= min(x[-4]), fill = FALSE)
+daily_flow <- daily_flow |> 
+  mutate(AGWR = value / lag(value))
+
+# Plot
+plotly::ggplotly(daily_flow |> 
+  filter(trough & month(time) %in% c(1:12) & value < `25%` & AGWR > .8) |> 
+  ggplot(aes(value, AGWR, text = paste("Date:", time), col = Month))+
+    geom_point()+
+  scale_x_log10()+
+  theme_minimal()+
+  labs(x = "Flow (CFS)", title = "Local Minima (25% Monthly Flow)"))
+
+```
+
+## 4. Discussion
+
+Due to the fact that these stripes go away with the introduction of noise, it is highly likely that they are due to a gauge rounding error. Knowing that this pattern occurs is very important in conducting analysis, as it has the potential to invalidate specific methodologies. 
+
+## 5. Conclusion
+
+How should this be taken into account for future analyses?
+Does this change the way we interpret USGS data?
