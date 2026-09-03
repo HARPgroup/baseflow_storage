@@ -48,14 +48,17 @@ agwo_hspf <- function(S, C, dthr) {
 #'agw2$eval()
 #'agw2$show_state()
 #'}
+#'@export AGWdouble
 AGWdouble <- R6::R6Class(
   public = list(
     #' @field agws1 Numeric, Initial Storage in AGW compartment 1
     #' @field agws2 Numeric, Initial Storage in AGW compartment 1
-    #' @param c1 Numeric, default of 0.99. The constant AGWRC (recession decay
+    #' @field c1 Numeric, default of 0.99. The constant AGWRC (recession decay
     #'   coefficient) in compartment 1 across all timesteps
-    #' @param c2 Numeric, default of 0.99. The constant AGWRC (recession decay
+    #' @field c2 Numeric, default of 0.99. The constant AGWRC (recession decay
     #'   coefficient) in compartment 2 across all timesteps
+    #' @field ce Numeric, default 0.99. The effective AGWRC of the entire system
+    #'   as represented by $1.0 - (agwo / (agws1 + agws2))$
     #' @field agwsmax1 Numeric, default 1 (inch). Maximum storage compartment 1
     #' @field agwsmax2 Numeric, default 1 (inch). Maximum storage compartment 2
     #' @field tmethod Character, either "all" or "trans" representing the transfer
@@ -65,7 +68,7 @@ AGWdouble <- R6::R6Class(
     #' @field agwo1 Numeric, defaults to 0 inches. Outflow from compartment 1.
     #' @field agwo2 Numeric, defaults to 0 inches. Outflow from compartment 2.
     #' @field agwin1 Numeric, defaults to 0 inches. Inflow from compartment 1.
-    #' @field agwin2Numeric, defaults to 0 inches. Inflow from compartment 2.
+    #' @field agwin2 Numeric, defaults to 0 inches. Inflow from compartment 2.
     #' @field agwo Numeric, total outflow from all compartments.
     #' @field agws Numeric, total storage across all compartments
     #' @field log data.frame, the current state of all fields
@@ -200,6 +203,11 @@ AGWdouble <- R6::R6Class(
         )
       )
     },
+    #'@description Compute double compartment groundwater step
+    #'@details Use \code{self$solve_double_C()} to compute storage and outflow
+    #'  from each bin using the data set on the object. This method will set
+    #'  agws, agws1, agws2, agwo, agwo1, agwo2, agwin1, agwin2, ce
+    #'@return Nothing, but sets all variables on object with updated values
     eval = function() {
       outlist = self$solve_double_C(
         agws1=self$agws1, agws2=self$agws2, c1=self$c1, c2=self$c2, agwsmax1=self$agwsmax1,
@@ -215,26 +223,36 @@ AGWdouble <- R6::R6Class(
       self$agwin2 = outlist$agwin2
       self$ce = outlist$ce
     },
-    show_state = function(format="markdown") {
-      output = as.data.frame(
-        list(
-          AGWS1 = self$agws1,
-          AGWS2 = self$agws2,
-          AGWIN1 = self$agwin1,
-          AGWO1 = self$agwo1,
-          AGWIN2 = self$agwin2,
-          AGWO2 = self$agwo2,
-          AGWO = self$agwo
-        )
+    #'@description Show all relevant model data
+    #'@details output a data frame with
+    #'  agws1, agws2, agwo, agwo1, agwo2, agwin1, agwin2, ce  or a
+    #'  \code{kableExtra::kable()} by specifying format as "dataframe" or some
+    #'  format to pass to \code{kableExtra::kable()}
+    #'@param format Character, default "data.frame". Either "data.frame" or a
+    #'  character vector to pass to \code{kableExtra::kable()}
+    #'@return Either a data frame of model parameters or a kable to display the
+    #'  data
+    show_state = function(format = "data.frame") {
+      output <- data.frame(
+        AGWS1 = self$agws1,
+        AGWS2 = self$agws2,
+        AGWIN1 = self$agwin1,
+        AGWO1 = self$agwo1,
+        AGWIN2 = self$agwin2,
+        AGWO2 = self$agwo2,
+        AGWO = self$agwo
       )
-      if (format != "dataframe") {
-        output = kableExtra::kable(
+      if (format != "data.frame") {
+        output <- kableExtra::kable(
           output,
-          format=format
+          format = format
         )
       }
       return(output)
     },
+    #'@description Add current model parameters to log
+    #'@param ts The timestep that represents the current model parameters
+    #'@return Nothing, but updates the log field on this object
     log_state = function(ts) {
       self$log = rbind(
         self$log,
@@ -254,8 +272,21 @@ AGWdouble <- R6::R6Class(
         )
       )
     },
+    #'@description Plot
+    #'@param type Character, default cfq. Creates a base R plot based on user input:
+    #' * "cfq" plot effective Ce vs total outflow.
+    #' * "cfs" plot effective ce vs total storage.
+    #' * "cft" plot effective Ce vs timestep.
+    #' * "qfs" plot total outflow vs total storage.
+    #' * "storage" plot total storage, storage in each compartment, an
+    #'  outflow vs timestep.
+    #'@param warmup Numeric, default 0. The number of timesteps to ignore a the
+    #'  start of \code{self$log}
+    #'@param ylim logical, default TRUE. Should a custom y-axis limiter be used
+    #'  that is between 0.9/minimu Ce and 1.0?
+    #'@return nothing, but writes r plot to device
     plot = function(type="cfq", warmup=0, ylim=TRUE) {
-      wts = self$log[(warmup + 1):nrow(self$log),]
+      wts <- self$log[(warmup + 1):nrow(self$log),]
       if (type == "cfq") {
         if (is.logical(ylim)) {
           ylim=c(min(0.9, min(wts$ce)), 1.0)

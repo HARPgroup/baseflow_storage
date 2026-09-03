@@ -21,6 +21,7 @@ Imports:
     lmtest,
     R6
 Suggests:
-  hydrotools
+  hydrotools,
+  kableExtra
 Remotes:
   hydrotools=github::HARPgroup/hydro-tools 

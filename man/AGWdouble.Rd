@@ -4,36 +4,70 @@
 \alias{AGWdouble}
 \title{AGWdouble}
 \value{
-reference class of type AGWdouble.
+R6 object of class AGWdouble.
 }
 \description{
 Object for calculating flows from a 2-compartment AGWS/hsp style surficial aquifer
 }
 \details{
-Provides all variables and equations to perform simulatio nand keep track of mass balance
+This object creates two storage compartments with user defined
+initial vlaues and maximums. Provides all variables and equations to
+perform simulation and keep track of mass balance as water flows out of or
+between compartments based on user defined decay coefficients
 }
 \examples{
-NA
+\dontrun{
+agwhilo = AGWdouble$new(
+   agws1=5, agwsmax1 = 5,
+   agws2=2.0, agwsmax2 = 1.0,
+   c1=0.95, c2=0.98, tmethod = "tmax"
+)
+agwhilo$solve_double_C(2.5, 0.5, 0.95, 0.99, 5, 2.5, agwin1=0.0, tmethod="tmax", dthr=24)$agwin2
+agwhilo$solve_double_C(2.5, 0.5, 0.95, 0.99, 5, 2.5, agwin1=0.0, tmethod="all", dthr=24)$agwin2
+agw2$eval()
+agw2$show_state()
 }
-\seealso{
-NA
 }
 \section{Public fields}{
   \if{html}{\out{<div class="r6-fields">}}
   \describe{
-    \item{\code{agws1}}{Initial Storage in AGW compartment 1}
+    \item{\code{agws1}}{Numeric, Initial Storage in AGW compartment 1}
 
-    \item{\code{agws2}}{Initial Storage in AGW compartment 2}
+    \item{\code{agws2}}{Numeric, Initial Storage in AGW compartment 1}
 
-    \item{\code{c1}}{recession coeffiecent compartment 1 (def=0.99)}
+    \item{\code{c1}}{Numeric, default of 0.99. The constant AGWRC (recession decay
+coefficient) in compartment 1 across all timesteps}
 
-    \item{\code{c2}}{recession coefficient in compartment 2 (def=0.99)}
+    \item{\code{c2}}{Numeric, default of 0.99. The constant AGWRC (recession decay
+coefficient) in compartment 2 across all timesteps}
 
-    \item{\code{agwsmax1}}{maximum storage compartment 1 (default=1.0)}
+    \item{\code{ce}}{Numeric, default 0.99. The effective AGWRC of the entire system
+as represented by $1.0 - (agwo / (agws1 + agws2))$}
 
-    \item{\code{agwsmax2}}{maximum storage in compartment 2 (default=1.0)}
+    \item{\code{agwsmax1}}{Numeric, default 1 (inch). Maximum storage compartment 1}
 
-    \item{\code{tmethod}}{transfer method from 1 to 2 ("all", "trans")}
+    \item{\code{agwsmax2}}{Numeric, default 1 (inch). Maximum storage compartment 2}
+
+    \item{\code{tmethod}}{Character, either "all" or "trans" representing the transfer
+method from compartment 1 to 2. "all" indicates all remaining water from
+the upper compartment may flow to the lower, but "trans" indicates that the
+rate of flow is related to the decay coefficient of the bin}
+
+    \item{\code{agwo1}}{Numeric, defaults to 0 inches. Outflow from compartment 1.}
+
+    \item{\code{agwo2}}{Numeric, defaults to 0 inches. Outflow from compartment 2.}
+
+    \item{\code{agwin1}}{Numeric, defaults to 0 inches. Inflow from compartment 1.}
+
+    \item{\code{agwin2}}{Numeric, defaults to 0 inches. Inflow from compartment 2.}
+
+    \item{\code{agwo}}{Numeric, total outflow from all compartments.}
+
+    \item{\code{agws}}{Numeric, total storage across all compartments}
+
+    \item{\code{log}}{data.frame, the current state of all fields}
+
+    \item{\code{dthr}}{Numeric, default to 24.0 (hours). The timestep of the model.}
   }
   \if{html}{\out{</div>}}
 }
@@ -69,15 +103,25 @@ NA
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{agws1}}{Initial Storage in AGW compartment 1}
-      \item{\code{agws2}}{Initial Storage in AGW compartment 1}
-      \item{\code{c1}}{recession coeffiecent compartment 1 (def=0.99)}
-      \item{\code{c2}}{recession coefficient in compartment 2 (def=0.99)}
-      \item{\code{agwsmax1}}{maximum storage compartment 1 (default=1.0)}
-      \item{\code{agwsmax2}}{maximum storage in compartment 2 (default=1.0)}
-      \item{\code{tmethod}}{transfer method from 1 to 2 ("all", "trans")}
+      \item{\code{agws1}}{Numeric, Initial Storage in AGW compartment 1}
+      \item{\code{agws2}}{Numeric, Initial Storage in AGW compartment 1}
+      \item{\code{c1}}{Numeric, default of 0.99. The AGWRC (recession decay coefficient) in compartment 1}
+      \item{\code{c2}}{Numeric, default of 0.99. The AGWRC (recession decay coefficient) in compartment 2}
+      \item{\code{agwsmax1}}{Numeric, default 1 (inch). Maximum storage compartment 1}
+      \item{\code{agwsmax2}}{Numeric, default 1 (inch). Maximum storage compartment 2}
+      \item{\code{tmethod}}{Character, either "all" or "trans" representing the transfer
+method from compartment 1 to 2. "all" indicates all remaining water from
+the upper compartment may flow to the lower, but "trans" indicates that the
+rate of flow is related to the decay coefficient of the bin}
     }
     \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    Initialize an AGWdouble object by providing inital model state
+variables. These will be set to the relevant fields.
+  }
+  \subsection{Returns}{
+    Nothing, but all fields are now set on the object
   }
 }
 
@@ -103,15 +147,36 @@ NA
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{agws1}}{Initial Storage in AGW compartment 1}
-      \item{\code{agws2}}{Initial Storage in AGW compartment 1}
-      \item{\code{c1}}{recession coeffiecent compartment 1 (def=0.99)}
-      \item{\code{c2}}{recession coefficient in compartment 2 (def=0.99)}
-      \item{\code{agwsmax1}}{maximum storage compartment 1 (default=1.0)}
-      \item{\code{agwsmax2}}{maximum storage in compartment 2 (default=1.0)}
-      \item{\code{tmethod}}{transfer method from 1 to 2 ("all", "trans")}
+      \item{\code{agws1}}{Numeric, Initial Storage in AGW compartment 1}
+      \item{\code{agws2}}{Numeric, Initial Storage in AGW compartment 2}
+      \item{\code{c1}}{Numeric. The constant AGWRC (recession decay coefficient) in
+compartment 1 across all timesteps}
+      \item{\code{c2}}{Numeric. The constant AGWRC (recession decay coefficient) in
+compartment 2 across all timesteps}
+      \item{\code{agwsmax1}}{Numeric. Constant maximum storage compartment 1 across
+all timesteps.}
+      \item{\code{agwsmax2}}{Numeric. Constant maximum storage compartment 2 across
+all timesteps.}
+      \item{\code{agwin1}}{Numeric, default 0 inches. Inflow to the first compartment
+for this timestep.}
+      \item{\code{tmethod}}{Character, either "all" or "trans" representing the transfer
+method from compartment 1 to 2. "all" indicates all remaining water from
+the upper compartment may flow to the lower, but "trans" indicates that the
+rate of flow is related to the decay coefficient of the bin}
+      \item{\code{dthr}}{Numeric, default 24 (hours). Model timestep.}
     }
     \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    Initialize an AGWdouble object by providing inital model state
+variables. These will be set to the relevant fields.
+  }
+  \subsection{Returns}{
+    A data frame with all relevant state variables to include:
+agwo (total outflow), agws1 (storage in compartment 1), agws2 (storage in
+compartment 2), agwo2 (outflow from compartment 2),
+agwo1 (outflow from compartment 1), agwin1  (inflow to compartment 1),
+agwin2 (inflow to compartment 2), ce (effective AGWRC across compartments)
   }
 }
 
@@ -119,10 +184,19 @@ NA
 \if{html}{\out{<a id="method-NA-eval"></a>}}
 \if{latex}{\out{\hypertarget{method-NA-eval}{}}}
 \subsection{\code{NA$eval()}}{
+  Compute double compartment groundwater step
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{NA$eval()}
     \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    Use \code{self$solve_double_C()} to compute storage and outflow
+from each bin using the data set on the object. This method will set
+agws, agws1, agws2, agwo, agwo1, agwo2, agwin1, agwin2, ce
+  }
+  \subsection{Returns}{
+    Nothing, but sets all variables on object with updated values
   }
 }
 
@@ -130,10 +204,29 @@ NA
 \if{html}{\out{<a id="method-NA-show_state"></a>}}
 \if{latex}{\out{\hypertarget{method-NA-show_state}{}}}
 \subsection{\code{NA$show_state()}}{
+  Show all relevant model data
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{NA$show_state(format = "markdown")}
+    \preformatted{NA$show_state(format = "data.frame")}
     \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{format}}{Character, default "data.frame". Either "data.frame" or a
+character vector to pass to \code{kableExtra::kable()}}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    output a data frame with
+agws1, agws2, agwo, agwo1, agwo2, agwin1, agwin2, ce  or a
+\code{kableExtra::kable()} by specifying format as "dataframe" or some
+format to pass to \code{kableExtra::kable()}
+  }
+  \subsection{Returns}{
+    Either a data frame of model parameters or a kable to display the
+data
   }
 }
 
@@ -141,10 +234,21 @@ NA
 \if{html}{\out{<a id="method-NA-log_state"></a>}}
 \if{latex}{\out{\hypertarget{method-NA-log_state}{}}}
 \subsection{\code{NA$log_state()}}{
+  Add current model parameters to log
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{NA$log_state(ts)}
     \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{ts}}{The timestep that represents the current model parameters}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Nothing, but updates the log field on this object
   }
 }
 
@@ -152,10 +256,33 @@ NA
 \if{html}{\out{<a id="method-NA-plot"></a>}}
 \if{latex}{\out{\hypertarget{method-NA-plot}{}}}
 \subsection{\code{NA$plot()}}{
+  Plot
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{NA$plot(type = "cfq", warmup = 0, ylim = TRUE)}
     \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{type}}{Character, default cfq. Creates a base R plot based on user input:
+\itemize{
+\item "cfq" plot effective Ce vs total outflow.
+\item "cfs" plot effective ce vs total storage.
+\item "cft" plot effective Ce vs timestep.
+\item "qfs" plot total outflow vs total storage.
+\item "storage" plot total storage, storage in each compartment, an
+outflow vs timestep.
+}}
+      \item{\code{warmup}}{Numeric, default 0. The number of timesteps to ignore a the
+start of \code{self$log}}
+      \item{\code{ylim}}{logical, default TRUE. Should a custom y-axis limiter be used
+that is between 0.9/minimu Ce and 1.0?}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    nothing, but writes r plot to device
   }
 }
 
