@@ -158,11 +158,53 @@ AGWRC analysis for USGS **`r params$gageid`: `r gage_obj$gage_data_sf$monitoring
 
 ```{r regression plot, warning = FALSE, echo = FALSE}
 gage_obj$plot_baseflow_agwrc(CI = TRUE, omsite = omsite, return_plotly = FALSE)
+
+# R-squared interpretation based on value
+
+rsqr <- all_data$lm_df$Rsq
+
+interpret_rsqr <- function(rsqr) {
+  if (rsqr < 0.01) {
+    "Very little of the observed variation in the data can be   
+    explained by the regression model. Historically, the regression has not performed   
+    well at other gages with similar R-squared values."
+    } else if (rsqr < 0.1) {
+      "Little of the observed variation in the data can be 
+      explained by the regression model. Historically, the regression has not consistenty
+      performed well at other gages with similar R-squared values."
+      } else if (rsqr < 0.2) {
+        "Some of the observed variation in the data can be 
+        explained by the regression model. Historically, the regression has performed 
+        decently well at other gages with similar R-squared values."
+        } else if (rsqr < 0.35) {
+          "A considerable amount of the observed variation in the 
+          data can be explained by the regression model. Historically, the regression has
+          performed well at other gages with similar R-squared values."
+          } else {
+            "An exceptional amount of the observed variation in the
+            data can be explained by the regression model (relative to other gages). 
+            Historically, the regression has performed well at other gages with similar 
+            R-squared values."
+          }
+}
+
+rsqr_interpretation <- interpret_rsqr(rsqr)
+
 ```
 
 **Image 1.** AGWRC vs Flow Regression
 
-The R-squared value is: `r all_data$lm_df$Rsq`. This small value suggests that very little of the observed variation in the data can be explained by the regression model.
+The R-squared value is: `r all_data$lm_df$Rsq`. `r rsqr_interpretation`
+
+## Annual Low Flow Plot
+
+```{r low flow plot, warning = FALSE, echo = FALSE, message = FALSE}
+gage_obj$plot_low_flows()
+```
+
+**Image 2.** Annual low flow plot for 1-day, 7-day, 30-day, and 90-day low flows
+
+## Baseflow Analysis
 
 ### First Baseflow Event Investigation
 
@@ -384,7 +426,15 @@ for(i in 1:nrow(cs_df)) {
   include_days_before = 60,
   use_limits = TRUE) + 
     labs(caption = cs_text) +
-    theme(plot.caption = element_text(hjust = 0.5))
+    theme(plot.caption = element_text(hjust = 0.5)) +
+  scale_color_discrete(
+    name = NULL,
+    labels = c(
+      "Constant_AGWRC" = "Constant AGWRC",
+      "Variable_AGWRC" = "Variable AGWRC",
+      "Iterative_AGWRC" = paste0("BPJ AGWRC = ", BPJ_AGWRC)
+    )
+  )
   
   cs_plot[[i]] <- p
   
