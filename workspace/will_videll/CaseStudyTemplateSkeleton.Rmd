@@ -9,6 +9,7 @@ params:
   today: !r as.Date(Sys.Date())
   iterative_AGWRC: 0.97
   digits: 2
+  daterange: 
 ---
 
 ```{r setup, include=FALSE}
@@ -192,13 +193,17 @@ AGWRC analysis for USGS **`r params$gageid`: `r gage_obj$gage_data_sf$monitoring
 
 ## Current Forecast
 
+The current forecast begins at the the lowest flow that occurs in the month of 
+
 ```{r current forecast plot, warning = FALSE, echo = FALSE}
 current_forecast
 ```
+**Image ?.** Current forecast plot
 
 ```{r current forecast table, warning = FALSE, echo = FALSE}
 current_forecast_table
 ```
+**Table ?.** Current forecast table
 
 ## Regression Analysis
 
