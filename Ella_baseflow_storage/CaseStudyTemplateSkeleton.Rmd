@@ -6,8 +6,10 @@ params:
   gageid: "02056900"
   startdates: !r as.Date(c("2008-06-11", "2007-06-10", "2002-05-01", "1986-05-12"))
   enddate: "2026-08-28"
+  today: !r as.Date(Sys.Date())
   iterative_AGWRC: 0.97
   digits: 2
+  daterange: !R as.Date("2000-05-01","2000-07-31")
 ---
 
 ```{r setup, include=FALSE}
@@ -99,6 +101,41 @@ forecast_table[[as.character(sd)]] <- flextable(Forecast_df) %>%
 
 ```
 
+```{r current forecast, warning = FALSE, echo = FALSE, message = FALSE, results = "hide"}
+library(lubridate)
+
+today <- params$today
+date_range <- c(paste0(year(today), "-05-01"), paste0(year(today), "-07-31"))
+
+adj_start <- hydrotools::bf_forecast_start_date(start_date = today,
+                                                adjust_start_date = date_range,
+                                                gage_data = gage_obj$gage_data,
+                                                flow_col = gage_obj$flow_col,
+                                                date_col = gage_obj$date_col)
+
+current_forecast_data <- gage_obj$baseflow_forecast(adj_start,
+                                                    AGWRC = "lm_constant",
+                                                    use_limits = TRUE) |> 
+  filter(Day %in% c(15, 30, 45, 90)) |> 
+  select(Day, Date, AGWRC, Forecast, obs_flow)
+
+current_forecast <- gage_obj$plot_baseflow_forecast(start_date = adj_start,
+                                                    forecast_days = 0:90,
+                                                    AGWRC = list(Constant_AGWRC =
+                                                                   "lm_constant",
+                                                            Variable_AGWRC = "lm_variable",
+                                                            Iterative_AGWRC =
+                                                                    params$iterative_AGWRC),
+                                                    return_plotly = FALSE,
+                                                    include_days_before = 60,
+                                                    use_limits = TRUE)
+
+# create forecast table
+current_forecast_table <- flextable(current_forecast_data) |> 
+  set_header_labels(obs_flow = "Observed")
+
+```
+
 ```{r case study data, warning = FALSE, echo = FALSE, message = FALSE, results = "hide"}
 library(dplyr)
 
@@ -153,6 +190,21 @@ AGWRC analysis for USGS **`r params$gageid`: `r gage_obj$gage_data_sf$monitoring
 **RMSE**: Root Mean Square Error
 
 **MAPE**: Mean Absolute Percentage Error
+
+## Current Forecast
+
+The current forecast begins at the the lowest flow that occurs in the month of 
+
+```{r current forecast plot, warning = FALSE, echo = FALSE}
+current_forecast
+```
+**Image ?.** Current forecast plot
+
+```{r current forecast table, warning = FALSE, echo = FALSE}
+current_forecast_table
+```
+**Table ?.** Current forecast table
+
 
 ## Regression Analysis
 
