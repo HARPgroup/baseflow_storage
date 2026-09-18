@@ -1,0 +1,611 @@
+---
+title: "Case Study Template (Rough Draft)"
+output: html_document
+date: "2026-07-28"
+params:
+  gageid: "02056900"
+  startdates: !r as.Date(c("2008-06-11", "2007-06-10", "2002-05-01", "1986-05-12"))
+  enddate: "2026-08-28"
+  today: !r as.Date(Sys.Date())
+  iterative_AGWRC: 0.97
+  digits: 2
+  daterange: !R as.Date("2000-05-01","2000-07-31")
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#Libraries
+library(knitr)
+library(flextable)
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(lubridate)
+library(patchwork)
+#dbase connections
+basepath <- "/var/www/R"
+source("/var/www/R/config.R")
+
+# create gage object environment for specified gage
+gage_obj <- hydrotools::WaterGageDaily$new(gage_id = params$gageid,
+                                           ds_in = ds)
+gage_obj$load_wshd_feat()
+# get gage data
+all_data <- gage_obj$baseflow_workflow_data(omsite = omsite)
+agwrc <- gage_obj$agwrc_fun(TRUE)
+```
+
+
+```{r local_func, include=FALSE}
+interpret_rsqr <- function(rsqr) {
+  if (rsqr < 0.01) {
+    "Very little of the observed variation in the data can be   
+    explained by the regression model. Historically, the regression has not performed   
+    well at other gages with similar R-squared values."
+    } else if (rsqr < 0.1) {
+      "Little of the observed variation in the data can be 
+      explained by the regression model. Historically, the regression has not consistenty
+      performed well at other gages with similar R-squared values."
+      } else if (rsqr < 0.2) {
+        "Some of the observed variation in the data can be 
+        explained by the regression model. Historically, the regression has performed 
+        decently well at other gages with similar R-squared values."
+        } else if (rsqr < 0.35) {
+          "A considerable amount of the observed variation in the 
+          data can be explained by the regression model. Historically, the regression has
+          performed well at other gages with similar R-squared values."
+          } else {
+            "An exceptional amount of the observed variation in the
+            data can be explained by the regression model (relative to other gages). 
+            Historically, the regression has performed well at other gages with similar 
+            R-squared values."
+          }
+}
+```
+
+```{r loop, warning = FALSE, echo = FALSE, message = FALSE}
+# Create forecast graphs loop for the given start dates
+forecast_plot <- list()
+forecast_table <- list()
+
+for (i in seq_along(params$startdates)) {
+  sd <- params$startdates[i]
+  
+  # Define different AGWRC forecast methods
+  forecast_data <- gage_obj$baseflow_forecast(start_date = sd,
+                                            AGWRC = "lm_constant",
+                                            use_limits = TRUE)
+  
+  Iterative_AGWRC <- gage_obj$baseflow_forecast(start_date = sd, 
+                                           AGWRC = params$iterative_AGWRC) %>%
+    rename(Iterative_AGWRC = AGWRC) %>%
+    rename(Itr_AGWRC_Flow = Forecast)
+  
+  Constant_AGWRC <- gage_obj$baseflow_forecast(start_date = sd, 
+                                     AGWRC = "lm_constant") %>%
+    rename(Constant_AGWRC = AGWRC) %>%
+    rename(Con_AGWRC_Flow = Forecast)
+  
+  Variable_AGWRC <- gage_obj$baseflow_forecast(start_date = sd,
+                                     AGWRC = "lm_variable") %>%
+    rename(Variable_AGWRC = AGWRC) %>%
+    rename(Var_AGWRC_Flow = Forecast)
+  
+  # Plot the forecast data
+  forecast_plot[[as.character(sd)]] <- gage_obj$plot_baseflow_forecast(
+  start_date = sd,
+  forecast_days = 0:90,
+  AGWRC = list(Constant_AGWRC = "lm_constant",
+               Variable_AGWRC = "lm_variable",
+               Iterative_AGWRC = params$iterative_AGWRC),
+  return_plotly = FALSE,
+  include_days_before = 60,
+  use_limits = TRUE
+)
+  
+  forecast_plot[[as.character(sd)]] <- forecast_plot[[as.character(sd)]] + 
+    theme_minimal() +
+    labs(
+      x = "Date",
+      y = "Flow (cfs)",
+      title = "Observed and Projected Flows"
+    )
+  
+# create forecast table
+all_flow <- forecast_data %>%
+  full_join(Constant_AGWRC, by = c("Day", "Date", "obs_flow" )) %>%
+  full_join(Iterative_AGWRC, by = c("Day", "Date", "obs_flow" )) %>%
+  full_join(Variable_AGWRC, by = c("Day", "Date", "obs_flow" ))
+
+final_flow_df <- all_flow %>%
+  select(Day, Date, obs_flow, Con_AGWRC_Flow, Var_AGWRC_Flow, Itr_AGWRC_Flow) %>%
+  rename(Obs_Flow = obs_flow)
+
+Forecast_df <- final_flow_df %>%
+  filter(Day %in% c(15, 30, 45, 90)) %>% 
+  mutate(across(c(Obs_Flow, Con_AGWRC_Flow, Var_AGWRC_Flow, Itr_AGWRC_Flow),
+  ~ round(.x, params$digits)))
+
+forecast_table[[as.character(sd)]] <- flextable(Forecast_df) %>%
+  autofit()
+
+}
+
+```
+
+```{r current forecast, warning = FALSE, echo = FALSE, message = FALSE}
+today <- params$today
+date_range <- c(paste0(year(today), "-05-01"), paste0(year(today), "-07-31"))
+
+adj_start <- hydrotools::bf_forecast_start_date(start_date = today,
+                                                adjust_start_date = date_range,
+                                                gage_data = gage_obj$gage_data,
+                                                flow_col = gage_obj$flow_col,
+                                                date_col = gage_obj$date_col)
+
+current_forecast_data <- gage_obj$baseflow_forecast(adj_start,
+                                                    AGWRC = "lm_constant",
+                                                    use_limits = TRUE) |> 
+  filter(Day %in% c(15, 30, 45, 90)) |> 
+  select(Day, Date, AGWRC, Forecast, obs_flow)
+
+current_forecast <- gage_obj$plot_baseflow_forecast(
+  start_date = adj_start,
+  forecast_days = 0:90,
+  AGWRC = list(Constant_AGWRC = "lm_constant",
+               Variable_AGWRC = "lm_variable",
+               Iterative_AGWRC = params$iterative_AGWRC),
+  return_plotly = FALSE,
+  include_days_before = 60,
+  use_limits = TRUE
+)
+
+# create forecast table
+current_forecast_table <- flextable(current_forecast_data) |> 
+  set_header_labels(obs_flow = "Observed")
+
+```
+
+```{r case study data, include = FALSE}
+# load in case study data from database
+gage_props <- gage_obj$get_model_or_scenario_props(model_prop_code = "AGWRC-1.0",
+                                                   include_proptext = TRUE)
+
+cs_df <- gage_obj$get_model_or_scenario_props(model_prop_code = "AGWRC-1.0",
+                                                     scenario_prop_code = "case_studies",
+                                                     include_proptext = TRUE)
+
+# convert the epoch start dates to yyyy-mm-dd format
+cs_df$startdate <- as.Date(as.POSIXct(cs_df$startdate,
+                                             origin = "1970-01-01",
+                                             tz = "UTC"))
+
+cs_df$enddate <- as.Date(as.POSIXct(cs_df$enddate,
+                                             origin = "1970-01-01",
+                                             tz = "UTC"))
+
+# extract just the case study conclusion text from gage_props
+cs_conclusion <- gage_props$proptext[gage_props$propname == "rating_class"]
+if(length(cs_conclusion) == 0){
+  cs_conclusion <- "No conclusions for this gage have been saved."
+}
+
+```
+
+## Overview and Recommended AGWRC
+
+AGWRC analysis for USGS **`r params$gageid`: `r gage_obj$station_name`**. `r cs_conclusion` 
+
+## Terminology
+
+**Regression AGWRC**: the AGWRC calculated by imputing starting flow from manually selected flow event into AGWRC vs Flow Regression
+
+**Event AGWRC**: the AGWRC from a known baseflow event identified by the workflow
+
+**Iterative AGWRC**: the manually selected AGWRC that provides the "best fit" for the manually selected baseflow event
+
+**Starting flow**: the observed flow at the first day of the manually selected baseflow event
+
+**MAE**: Mean Absolute Error
+
+**RMSE**: Root Mean Square Error
+
+**MAPE**: Mean Absolute Percentage Error
+
+## Current Forecast
+
+The current forecast begins at the the lowest flow that occurs in the month of 
+
+```{r current forecast plot, warning = FALSE, echo = FALSE}
+current_forecast
+```
+**Image ?.** Current forecast plot
+
+```{r current forecast table, warning = FALSE, echo = FALSE}
+current_forecast_table
+```
+**Table ?.** Current forecast table
+
+
+## Regression Analysis
+
+```{r regression plot, warning = FALSE, echo = FALSE}
+gage_obj$plot_baseflow_agwrc(CI = TRUE, omsite = omsite, return_plotly = FALSE)
+
+# R-squared interpretation based on value from database props
+rsqr <- gage_props$propvalue[gage_props$propname == "regression_Rsq"]
+
+rsqr_interpretation <- interpret_rsqr(rsqr)
+
+```
+
+**Image 1.** AGWRC vs Flow Regression
+
+The R-squared value is: `r rsqr`. `r rsqr_interpretation`
+
+## Annual Low Flow Plot
+
+```{r low flow plot, warning = FALSE, echo = FALSE, message = FALSE}
+gage_obj$plot_low_flows(plot_type = "lineplot")
+```
+
+**Image 2.** Annual low flow plot for 1-day, 7-day, 30-day, and 90-day low flows
+
+## Baseflow Analysis
+
+### First Baseflow Event Investigation
+
+```{r baseflow plot 1, warning = FALSE, echo = FALSE, message = FALSE}
+print(forecast_plot[[1]])
+```
+
+**Image 2.** Observed and Projected Flows from `r params$startdates[1]`
+
+Although none of the AGWRC values were very effective in surviving the storms and catching the "troughs" following the peaks in flow, the iterative AGWRC performed the best of the three.
+
+**Table 1.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[1]`
+
+```{r table 1, warning = FALSE, echo = FALSE, message = FALSE}
+forecast_table[[1]]
+```
+
+### Second Baseflow Event Investigation
+
+```{r baseflow plot 2, warning = FALSE, echo = FALSE, message = FALSE}
+print(forecast_plot[[2]])
+```
+
+**Image 3.** Observed and Projected Flows from `r params$startdates[2]`
+
+The iterative AGWRC overpredicted the first trough, but predicted the subsequent three troughs well. The iterative and variable AGWRC predictions were effective in surviving the first storm and predicting the first trough, but they greatly underpredicted the remaining flows.
+
+**Table 2.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[2]`
+
+```{r table 2, warning = FALSE, echo = FALSE, message = FALSE}
+forecast_table[[2]]
+```
+
+### Third Baseflow Event Investigation
+
+```{r baseflow plot3, warning = FALSE, echo = FALSE, message = FALSE}
+print(forecast_plot[[3]])
+```
+
+**Image 4.** Observed and Projected Flows from `r params$startdates[3]`
+
+The iterative AGWRC was effective in the predicting the first trough, but overpredicted flow in the second trough where the flow approached 0 cfs. The iterative AGWRC and constant AGWRC produced very similar predictions and also overpredicted flow in mid August.
+
+**Table 3.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[3]`
+
+```{r table 3, warning = FALSE, echo = FALSE, message = FALSE}
+forecast_table[[3]]
+```
+
+### Fourth Baseflow Event Investigation
+
+```{r baseflow plot 4, warning = FALSE, echo = FALSE, message = FALSE}
+print(forecast_plot[[4]])
+```
+
+**Image 5.** Observed and Projected Flows from `r params$startdates[4]`
+
+Of the three AGWRC predictions, the iterative AGWRC was the most effective in surviving the storms. The precipitation events at the end of July and the start of August impacted the accuracy of the 90-day prediction.
+
+**Table 4.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[4]`
+
+```{r table 4, warning = FALSE, echo = FALSE, message = FALSE}
+forecast_table[[4]]
+```
+
+```{r 4 plots w/ patchwork, warning = FALSE, echo = FALSE, message = FALSE}
+if (length(forecast_plot) == 4) {
+forecast_plot <- lapply(forecast_plot, function(p) {
+  p + labs(title = NULL)
+})
+
+(forecast_plot[[1]] | forecast_plot[[2]]) /
+  (forecast_plot[[3]] | forecast_plot[[4]]) +
+  patchwork::plot_annotation(
+    title = "Forecast Comparison") +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face = "bold", size = 16)
+  )
+
+} else {
+  message("Forecast comparison plot skipped: need 4 forecasts, found ", length(forecast_plot))
+}
+```
+
+**Image 5.** Observed and Projected Flows for All Four Start Dates
+
+## Prediction Accuracy Analysis
+
+### MAE, RMSE, MAPE, Bias, and $R^2$ Analysis 
+
+**Table 5.** Calculations of the MAE, RMSE, MAPE, Bias, and $R^2$ values for all group IDs for **`r params$gageid`: `r gage_obj$station_name`**
+
+```{r error calculations, warning = FALSE, echo = FALSE, message = FALSE}
+devtools::source_url("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/Emily_bf_workflow/PredictionAccuracyUpdated.R")
+
+flow_csv <- gage_obj$gage_data |>
+ select(time, value) |>
+ rename(Date = time, Observed = value)
+
+baseflow_csv <- all_data$trimmed_events_df |>
+  mutate(Date = as.Date(Date)) |>
+  group_by(GroupID) |>
+  mutate(duration = as.numeric(max(Date) - min(Date))) |>
+  slice(1) |>
+  ungroup() |>
+  filter(duration >= 7) |>
+  select(GroupID, Date, Flow, AGWRC, duration)
+
+regression_csv <- all_data$lm_df
+
+m <- regression_csv$m
+b <- regression_csv$b
+
+Results <- PredictionAccuracy(flow_csv, baseflow_csv, days = c(0:15), AGWRC = "lm_constant", m, b)
+
+Results$summary_table <- Results$summary_table %>%
+  colformat_double(
+    j = c("MAPE", "MAE", "RMSE", "Bias", "r2"),
+    digits = params$digits
+  )
+Results$summary_table
+```
+
+**Table 6.** All GroupIDs with an MAPE over 20%
+
+```{r high MAPE, warning = FALSE, echo = FALSE, message = FALSE}
+filtered_group_stats <- Results$group_stats %>%
+  filter(MAPE > 20) %>% 
+   mutate(across(c(MAPE, MAE, RMSE, Bias, r2),~round(.x, params$digits)))
+
+flextable(filtered_group_stats) %>%
+  theme_vanilla() %>%
+  autofit()
+```
+
+The following GroupIDs in table 6 present a list of event that did not preform well and should be treated with caution.
+
+### Minimum Flow Forecast Accuracy
+
+Determines accurate of a forecast. More text to come as function is changed.
+
+```{r accuracy analysis, warning = FALSE, echo = FALSE, message = FALSE, include=FALSE}
+# devtools::source_url("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/workspace/will_videll/min_flow_forecast_accuracy.R")
+# 
+# min_flow_df <- min_flow_accuracy(gage_obj, event_df = all_data$trimmed_events_df, AGWRC = c("lm_variable"))
+# 
+# min_flow_df$eventdf1
+# 
+# plot_gage_event_minima <- lapply(params$startdates, function(start_date) {
+# 
+#   plot_event_minima(
+#    gage_obj,
+#    start_date
+#    )
+# 
+#  })
+```
+
+```{r first minima plot, warning = FALSE, echo = FALSE, message = FALSE}
+# plot_gage_event_minima[[1]]
+```
+
+**Image 6.** Observed and Projected Flows from `r params$startdates[1]`
+
+```{r second minima plot, warning = FALSE, echo = FALSE, message = FALSE}
+# plot_gage_event_minima[[2]]
+```
+
+**Image 7.** Observed and Projected Flows from `r params$startdates[2]`
+
+```{r third minima plot, warning = FALSE, echo = FALSE, message = FALSE}
+# plot_gage_event_minima[[3]]
+```
+
+**Image 8.** Observed and Projected Flows from `r params$startdates[3]`
+
+```{r fourth minima plot, warning = FALSE, echo = FALSE, message = FALSE}
+# plot_gage_event_minima[[4]]
+```
+
+**Image 9.** Observed and Projected Flows from `r params$startdates[4]`
+
+## Case Studies
+
+```{r case study graph, warning = FALSE, echo = FALSE, message = FALSE}
+cs_plot <- list()
+
+for(i in 1:nrow(cs_df)) {
+  
+  cs_sd <- cs_df$startdate[i]
+  
+  BPJ_AGWRC <- as.numeric(cs_df$propcode[i])
+  
+  cs_text <- str_wrap(cs_df$proptext[i])
+  
+  p_label <- paste0("Interpretation: ", cs_text)
+  
+  p <- gage_obj$plot_baseflow_forecast(
+  start_date = cs_sd,
+  forecast_days = 0:90,
+  AGWRC = list(Constant_AGWRC = "lm_constant",
+               Variable_AGWRC = "lm_variable",
+               Iterative_AGWRC = BPJ_AGWRC),
+  return_plotly = FALSE,
+  include_days_before = 60,
+  use_limits = TRUE) + 
+    labs(caption = cs_text) +
+    theme(plot.caption = element_text(hjust = 0.5)) +
+  scale_color_discrete(
+    name = NULL,
+    labels = c(
+      "Constant_AGWRC" = "Constant AGWRC",
+      "Variable_AGWRC" = "Variable AGWRC",
+      "Iterative_AGWRC" = paste0("BPJ AGWRC = ", BPJ_AGWRC)
+    )
+  )
+  
+  cs_plot[[i]] <- p
+  
+  print(p)
+}
+
+```
+
+## QC Metrics
+
+```{r QC metrics code, warning = FALSE, echo = FALSE, message = FALSE}
+#Query QC data from database
+qc_data <- DBI::dbGetQuery(
+  conn = ds$connection,
+  paste0(
+    "SELECT
+     feat.name, feat.hydrocode, 
+     props.propname, props.propvalue,
+     props.propcode, slope.propvalue as watershed_slope
+  FROM dh_feature as feat
+  LEFT JOIN dh_properties as model
+     ON model.featureid = feat.hydroid
+     AND model.propcode = 'AGWRC-1.0'
+  LEFT JOIN dh_properties as props
+     ON props.featureid = model.pid
+  LEFT JOIN dh_properties as slope
+     ON slope.featureid = feat.hydroid
+     AND slope.propname = 'wshd_slope'
+  WHERE feat.bundle = 'watershed'
+     AND feat.ftype = 'usgs_full_drainage'
+     AND feat.hydrocode = '",
+  gage_obj$gage_feature$hydrocode,"'"
+  )
+)
+
+#Filter by propname to find only our QC fields
+qc_df <- qc_data[qc_data$propname %in% c(
+  "white_test_p",  "breusch_pagan_p",
+  "non_na_flow_count", "total_bf_events",
+  "jan_bf_events", "feb_bf_events", "mar_bf_events",
+   "apr_bf_events", "may_bf_events", "jun_bf_events",   
+   "jul_bf_events", "aug_bf_events", "sep_bf_events",       
+   "oct_bf_events", "dec_bf_events", "nov_bf_events",       
+   "regression_m", "regression_b", "regression_Rsq",      
+   "regression_m_pvalue", "regression_b_pvalue"
+),]
+
+#Filter for monthly bf values
+monthly_bf <- qc_df %>%
+  filter(propname %in% c (
+    "jan_bf_events", "feb_bf_events", "mar_bf_events",
+   "apr_bf_events", "may_bf_events", "jun_bf_events",   
+   "jul_bf_events", "aug_bf_events", "sep_bf_events",       
+   "oct_bf_events", "nov_bf_events", "dec_bf_events"
+  ))
+
+#Remove unwanted columns
+monthly_bf <- monthly_bf[ , -c(1,2,5,6)]
+
+#Rename values
+monthly_bf$propname[monthly_bf$propname == "jan_bf_events"] <- "January"
+monthly_bf$propname[monthly_bf$propname == "feb_bf_events"] <- "February"
+monthly_bf$propname[monthly_bf$propname == "mar_bf_events"] <- "March"
+monthly_bf$propname[monthly_bf$propname == "apr_bf_events"] <- "April"
+monthly_bf$propname[monthly_bf$propname == "may_bf_events"] <- "May"
+monthly_bf$propname[monthly_bf$propname == "jun_bf_events"] <- "June"
+monthly_bf$propname[monthly_bf$propname == "jul_bf_events"] <- "July"
+monthly_bf$propname[monthly_bf$propname == "aug_bf_events"] <- "August"
+monthly_bf$propname[monthly_bf$propname == "sep_bf_events"] <- "September"
+monthly_bf$propname[monthly_bf$propname == "oct_bf_events"] <- "October"
+monthly_bf$propname[monthly_bf$propname == "nov_bf_events"] <- "November"
+monthly_bf$propname[monthly_bf$propname == "dec_bf_events"] <- "December"
+
+#Order the months correctly
+monthly_bf <- monthly_bf %>%
+  arrange(match(propname, month.name))
+```
+
+There are **`r qc_df$propvalue[qc_df$propname == "total_bf_events"]`** identified baseflow events at this gage. As discussed further in the _DA Analysis Summary_ in Appendix A, the number of identified baseflow events is dependent on the record length of the gage; older gages have more identified baseflow events. Additionally, ten baseflow events has been deemed the appropriate number of baseflow events to perform reasonable analysis.        
+
+**Table ?.** Number of baseflow events per month 
+
+```{r QC bf table, warning = FALSE, echo = FALSE, message = FALSE}
+#print table
+monthly_bf_table <- flextable(monthly_bf) %>%
+  set_header_labels(
+    propname = "Month",
+    propvalue = "Number of BF Events"
+  ) %>%
+  autofit()
+
+monthly_bf_table
+```
+
+```{r bf bar chart, warning = FALSE, echo = FALSE, message = FALSE}
+ggplot(monthly_bf, aes(x = factor(propname, levels = month.name), y = propvalue)) +
+  geom_col() +
+  labs(title = "Number of Identified Baseflow Events per Month",
+       x = "Month",
+       y = "Identified Baseflow Events") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+**Figure ?.** Number of identified baseflow events per month
+
+**Table ?.** Other relevant QC metrics. The Breusch–Pagan test and the White test are statistical methods to quantify heteroscedasticity (when the variability of the dependent variable is not constant). Both tests check for heteroskedasticity; the Breusch–Pagan test assumes normal residuals and detects linear heteroscedasticity while the White test is more general and detects both linear and nonlinear heteroskedasticity. A significant p-value (less than 0.05) suggests sufficient evidence for heteroskedasticity in the flow data. The recorded flow values indicate the gage length, or the total number of non-NA flow values recorded over the entire date range of data collection. The watershed slope is the average slope in the entire drainage basin expressed as a percentage of the vertical rise over the the horizontal distance. 
+
+```{r misc QC metrics, warning = FALSE, echo = FALSE, message = FALSE}
+#filter for values of interest
+misc_qc <- qc_df %>%
+  filter(propname %in% c ("breusch_pagan_p", "white_test_p", "non_na_flow_count"))
+
+#remove unwanted columns
+misc_qc <- misc_qc[ , -c(1, 2, 5)]
+
+#add watershed slope as a row
+misc_qc_table <- rbind(
+  misc_qc[, 1:2],
+  c(names(misc_qc)[3], misc_qc[1, 3])
+)
+
+#transpose the data into an easier to read format
+misc_qc_table_t <- setNames(as.data.frame(t(misc_qc_table$propvalue)), misc_qc_table$propname)
+
+
+#print table
+misc_qc_table_ft <- flextable(misc_qc_table_t) %>% 
+  set_header_labels(
+    white_test_p = "White Test p-value",
+    breusch_pagan_p = "Breush-Pagan p-value",
+    non_na_flow_count = "Recorded Flow Values",
+    watershed_slope = "Watershed Slope (%)"
+  ) %>%
+  autofit()
+
+misc_qc_table_ft
+```
