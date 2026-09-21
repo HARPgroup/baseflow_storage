@@ -194,6 +194,74 @@ if(length(cs_conclusion) == 0){
 
 ```
 
+```{r QC metrics code, warning = FALSE, echo = FALSE, message = FALSE}
+#Query QC data from database
+qc_data <- DBI::dbGetQuery(
+  conn = ds$connection,
+  paste0(
+    "SELECT
+     feat.name, feat.hydrocode, 
+     props.propname, props.propvalue,
+     props.propcode, slope.propvalue as watershed_slope
+  FROM dh_feature as feat
+  LEFT JOIN dh_properties as model
+     ON model.featureid = feat.hydroid
+     AND model.propcode = 'AGWRC-1.0'
+  LEFT JOIN dh_properties as props
+     ON props.featureid = model.pid
+  LEFT JOIN dh_properties as slope
+     ON slope.featureid = feat.hydroid
+     AND slope.propname = 'wshd_slope'
+  WHERE feat.bundle = 'watershed'
+     AND feat.ftype = 'usgs_full_drainage'
+     AND feat.hydrocode = '",
+  gage_obj$gage_feature$hydrocode,"'"
+  )
+)
+
+#Filter by propname to find only our QC fields
+qc_df <- qc_data[qc_data$propname %in% c(
+  "white_test_p",  "breusch_pagan_p",
+  "non_na_flow_count", "total_bf_events",
+  "jan_bf_events", "feb_bf_events", "mar_bf_events",
+   "apr_bf_events", "may_bf_events", "jun_bf_events",   
+   "jul_bf_events", "aug_bf_events", "sep_bf_events",       
+   "oct_bf_events", "dec_bf_events", "nov_bf_events",       
+   "regression_m", "regression_b", "regression_Rsq",      
+   "regression_m_pvalue", "regression_b_pvalue"
+),]
+
+#Filter for monthly bf values
+monthly_bf <- qc_df %>%
+  filter(propname %in% c (
+    "jan_bf_events", "feb_bf_events", "mar_bf_events",
+   "apr_bf_events", "may_bf_events", "jun_bf_events",   
+   "jul_bf_events", "aug_bf_events", "sep_bf_events",       
+   "oct_bf_events", "nov_bf_events", "dec_bf_events"
+  ))
+
+#Remove unwanted columns
+monthly_bf <- monthly_bf[ , -c(1,2,5,6)]
+
+#Rename values
+monthly_bf$propname[monthly_bf$propname == "jan_bf_events"] <- "January"
+monthly_bf$propname[monthly_bf$propname == "feb_bf_events"] <- "February"
+monthly_bf$propname[monthly_bf$propname == "mar_bf_events"] <- "March"
+monthly_bf$propname[monthly_bf$propname == "apr_bf_events"] <- "April"
+monthly_bf$propname[monthly_bf$propname == "may_bf_events"] <- "May"
+monthly_bf$propname[monthly_bf$propname == "jun_bf_events"] <- "June"
+monthly_bf$propname[monthly_bf$propname == "jul_bf_events"] <- "July"
+monthly_bf$propname[monthly_bf$propname == "aug_bf_events"] <- "August"
+monthly_bf$propname[monthly_bf$propname == "sep_bf_events"] <- "September"
+monthly_bf$propname[monthly_bf$propname == "oct_bf_events"] <- "October"
+monthly_bf$propname[monthly_bf$propname == "nov_bf_events"] <- "November"
+monthly_bf$propname[monthly_bf$propname == "dec_bf_events"] <- "December"
+
+#Order the months correctly
+monthly_bf <- monthly_bf %>%
+  arrange(match(propname, month.name))
+```
+
 ## Overview and Recommended AGWRC
 
 AGWRC analysis for USGS **`r params$gageid`: `r gage_obj$station_name`**. `r cs_conclusion` 
@@ -243,7 +311,7 @@ rsqr_interpretation <- interpret_rsqr(rsqr)
 
 **Image 1.** AGWRC vs Flow Regression
 
-The R-squared value is: `r rsqr`. `r rsqr_interpretation`
+AGWRC vs Median Flow Regression. **`r qc_df$propvalue[qc_df$propname == "total_bf_events"]`** baseflow events were identified at USGS 01638500. An AGWRC value was calculated for each event based on the exponential decay of flow during the identified baseflow event. The R-squared value is: `r rsqr`. `r rsqr_interpretation`
 
 ## Annual Low Flow Plot
 
@@ -444,6 +512,7 @@ cs_plot <- list()
 for(i in 1:nrow(cs_df)) {
   
   cs_sd <- cs_df$startdate[i]
+  cs_fl <- cs_df$enddate[i] - cs_sd
   
   BPJ_AGWRC <- as.numeric(cs_df$propcode[i])
   
@@ -453,10 +522,11 @@ for(i in 1:nrow(cs_df)) {
   
   p <- gage_obj$plot_baseflow_forecast(
   start_date = cs_sd,
-  forecast_days = 0:90,
+  forecast_days = 0:cs_fl,
   AGWRC = list(Constant_AGWRC = "lm_constant",
                Variable_AGWRC = "lm_variable",
-               Iterative_AGWRC = BPJ_AGWRC),
+               Iterative_AGWRC = BPJ_AGWRC
+  ),
   return_plotly = FALSE,
   include_days_before = 60,
   use_limits = TRUE) + 
@@ -479,74 +549,6 @@ for(i in 1:nrow(cs_df)) {
 ```
 
 ## QC Metrics
-
-```{r QC metrics code, warning = FALSE, echo = FALSE, message = FALSE}
-#Query QC data from database
-qc_data <- DBI::dbGetQuery(
-  conn = ds$connection,
-  paste0(
-    "SELECT
-     feat.name, feat.hydrocode, 
-     props.propname, props.propvalue,
-     props.propcode, slope.propvalue as watershed_slope
-  FROM dh_feature as feat
-  LEFT JOIN dh_properties as model
-     ON model.featureid = feat.hydroid
-     AND model.propcode = 'AGWRC-1.0'
-  LEFT JOIN dh_properties as props
-     ON props.featureid = model.pid
-  LEFT JOIN dh_properties as slope
-     ON slope.featureid = feat.hydroid
-     AND slope.propname = 'wshd_slope'
-  WHERE feat.bundle = 'watershed'
-     AND feat.ftype = 'usgs_full_drainage'
-     AND feat.hydrocode = '",
-  gage_obj$gage_feature$hydrocode,"'"
-  )
-)
-
-#Filter by propname to find only our QC fields
-qc_df <- qc_data[qc_data$propname %in% c(
-  "white_test_p",  "breusch_pagan_p",
-  "non_na_flow_count", "total_bf_events",
-  "jan_bf_events", "feb_bf_events", "mar_bf_events",
-   "apr_bf_events", "may_bf_events", "jun_bf_events",   
-   "jul_bf_events", "aug_bf_events", "sep_bf_events",       
-   "oct_bf_events", "dec_bf_events", "nov_bf_events",       
-   "regression_m", "regression_b", "regression_Rsq",      
-   "regression_m_pvalue", "regression_b_pvalue"
-),]
-
-#Filter for monthly bf values
-monthly_bf <- qc_df %>%
-  filter(propname %in% c (
-    "jan_bf_events", "feb_bf_events", "mar_bf_events",
-   "apr_bf_events", "may_bf_events", "jun_bf_events",   
-   "jul_bf_events", "aug_bf_events", "sep_bf_events",       
-   "oct_bf_events", "nov_bf_events", "dec_bf_events"
-  ))
-
-#Remove unwanted columns
-monthly_bf <- monthly_bf[ , -c(1,2,5,6)]
-
-#Rename values
-monthly_bf$propname[monthly_bf$propname == "jan_bf_events"] <- "January"
-monthly_bf$propname[monthly_bf$propname == "feb_bf_events"] <- "February"
-monthly_bf$propname[monthly_bf$propname == "mar_bf_events"] <- "March"
-monthly_bf$propname[monthly_bf$propname == "apr_bf_events"] <- "April"
-monthly_bf$propname[monthly_bf$propname == "may_bf_events"] <- "May"
-monthly_bf$propname[monthly_bf$propname == "jun_bf_events"] <- "June"
-monthly_bf$propname[monthly_bf$propname == "jul_bf_events"] <- "July"
-monthly_bf$propname[monthly_bf$propname == "aug_bf_events"] <- "August"
-monthly_bf$propname[monthly_bf$propname == "sep_bf_events"] <- "September"
-monthly_bf$propname[monthly_bf$propname == "oct_bf_events"] <- "October"
-monthly_bf$propname[monthly_bf$propname == "nov_bf_events"] <- "November"
-monthly_bf$propname[monthly_bf$propname == "dec_bf_events"] <- "December"
-
-#Order the months correctly
-monthly_bf <- monthly_bf %>%
-  arrange(match(propname, month.name))
-```
 
 There are **`r qc_df$propvalue[qc_df$propname == "total_bf_events"]`** identified baseflow events at this gage. As discussed further in the _DA Analysis Summary_ in Appendix A, the number of identified baseflow events is dependent on the record length of the gage; older gages have more identified baseflow events. Additionally, ten baseflow events has been deemed the appropriate number of baseflow events to perform reasonable analysis.        
 
