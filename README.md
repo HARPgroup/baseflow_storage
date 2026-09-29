@@ -38,6 +38,11 @@ devtools::install_github("HARPgroup/baseflow_storage", ref = "packageinitialize"
 <!-- badges: end -->
 
 ### Patch Notes:
+V 0.0.9 September 29, 2026
+1. Modified `regressionLimitAGWRC()` to allow limits to be NA in addition to
+NULL. NAs make it easier to run in large `apply` statements with various data
+(NULLs tend to reduce the list size)
+
 V 0.0.8 August 31, 2026
 1. Export `AGWdouble` object
 

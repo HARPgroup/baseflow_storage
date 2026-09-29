@@ -45,8 +45,9 @@ regressionLimitAGWRC <- function(Flow, m, b,
                             high_flow_limit = NULL, high_agwrc_limit = NULL) {
   #If a lower limit is provided and flow is below that limit, return the lower
   #default agwrc value or warn user if not provided
-  if(!is.null(low_flow_limit) && Flow < low_flow_limit){
-    if(!is.null(low_agwrc_limit)){
+  if(!is.null(low_flow_limit) && !is.na(low_flow_limit) &&
+     Flow < low_flow_limit){
+    if(!is.null(low_agwrc_limit) && !is.na(low_agwrc_limit)){
       return(low_agwrc_limit)
     }else{
       warning("No low_agwrc_limit provided but flow of ",Flow,
@@ -56,8 +57,9 @@ regressionLimitAGWRC <- function(Flow, m, b,
 
   #If a higher limit is provided and flow is above that limit, return the higher
   #default agwrc value or warn user if not provided
-  if(!is.null(high_flow_limit) && Flow > high_flow_limit){
-    if(!is.null(high_agwrc_limit)){
+  if(!is.null(high_flow_limit) && !is.na(high_flow_limit) &&
+     Flow > high_flow_limit){
+    if(!is.null(high_agwrc_limit) && !is.na(high_agwrc_limit)){
       return(high_agwrc_limit)
     }else{
       warning("No high_agwrc_limit provided but flow of ",Flow,
