@@ -3,13 +3,22 @@ title: "Case Study Template (Rough Draft)"
 output: html_document
 date: "2026-07-28"
 params:
-  gageid: "02056900"
-  startdates: !r as.Date(c("2008-06-11", "2007-06-10", "2002-05-01", "1986-05-12"))
+  gageid: "01620500"
+  #startdates: !r as.Date(c("2008-06-11", "2007-06-10", "1966-05-01", "1986-05-12"))
+  startdate_1: "2008-06-11"
+  startdate_2: "2002-05-11"
+  startdate_3: NA
+  startdate_4: NA
   enddate: "2026-08-28"
   today: !r as.Date(Sys.Date())
   iterative_AGWRC: 0.97
   digits: 2
   daterange: !R as.Date("2000-05-01","2000-07-31")
+  adjust_startdate: TRUE
+  adjust_startdate_1: TRUE
+  adjust_startdate_2: TRUE
+  adjust_startdate_3: TRUE
+  adjust_startdate_4: TRUE
 editor_options: 
   chunk_output_type: console
 ---
@@ -67,11 +76,132 @@ interpret_rsqr <- function(rsqr) {
 
 ```{r loop, warning = FALSE, echo = FALSE, message = FALSE}
 # Create forecast graphs loop for the given start dates
+# Convert params$startdate from class character to date
+startdate_1 <- as.Date(params$startdate_1, format = "%Y-%m-%d")
+startdate_2 <- as.Date(params$startdate_2, format = "%Y-%m-%d")
+startdate_3 <- as.Date(params$startdate_3, format = "%Y-%m-%d")
+startdate_4 <- as.Date(params$startdate_4, format = "%Y-%m-%d")
+
+# loop for adjusted startdate 1
+date_range_1 <- if (is.na(startdate_1)) {
+  as.Date(NA)
+} else { 
+  as.Date(
+    c(paste0(year(startdate_1), "-05-01"), paste0(year(startdate_1), "-07-31"))
+    )
+}
+
+adjust_startdate_1 <- if (is.na(startdate_1)) {
+  NA
+} else {
+  adjust_startdate_1 <- if (params$adjust_startdate_1) {
+    hydrotools::bf_forecast_start_date(
+      start_date = today,
+      adjust_start_date = date_range_1,
+      gage_data = gage_obj$gage_data,
+      flow_col = gage_obj$flow_col,
+      date_col = gage_obj$date_col
+    )
+  } else {
+    startdate_1
+  }
+}
+
+# loop for adjusted startdate 2
+date_range_2 <- if (is.na(startdate_2)) {
+  as.Date(NA)
+} else { 
+  as.Date(
+    c(paste0(year(startdate_2), "-05-01"), paste0(year(startdate_2), "-07-31"))
+    )
+}
+
+adjust_startdate_2 <- if (is.na(startdate_2)) {
+  NA
+} else {
+  adjust_startdate_2 <- if (params$adjust_startdate_2) {
+    hydrotools::bf_forecast_start_date(
+      start_date = today,
+      adjust_start_date = date_range_2,
+      gage_data = gage_obj$gage_data,
+      flow_col = gage_obj$flow_col,
+      date_col = gage_obj$date_col
+    )
+  } else {
+    startdate_2
+  }
+}
+
+#Loop for adjusted startdate 3
+date_range_3 <- if (is.na(startdate_3)) {
+  as.Date(NA)
+} else { 
+  as.Date(
+    c(paste0(year(startdate_3), "-05-01"), paste0(year(startdate_3), "-07-31"))
+    )
+}
+
+adjust_startdate_3 <- if (is.na(startdate_3)) {
+  NA
+} else {
+  adjust_startdate_3 <- if (params$adjust_startdate_3) {
+    hydrotools::bf_forecast_start_date(
+      start_date = today,
+      adjust_start_date = date_range_3,
+      gage_data = gage_obj$gage_data,
+      flow_col = gage_obj$flow_col,
+      date_col = gage_obj$date_col
+    )
+  } else {
+    startdate_3
+  }
+}
+
+#Loop for adjusted startdate 4
+date_range_4 <- if (is.na(startdate_4)) {
+  as.Date(NA)
+} else { 
+  as.Date(
+    c(paste0(year(startdate_4), "-05-01"), paste0(year(startdate_4), "-07-31"))
+    )
+}
+
+adjust_startdate_4 <- if (is.na(startdate_4)) {
+  NA
+} else {
+  adjust_startdate_3 <- if (params$adjust_startdate_4) {
+    hydrotools::bf_forecast_start_date(
+      start_date = today,
+      adjust_start_date = date_range_4,
+      gage_data = gage_obj$gage_data,
+      flow_col = gage_obj$flow_col,
+      date_col = gage_obj$date_col
+    )
+  } else {
+    startdate_4
+  }
+}
+
+start_dates <- c(
+  adjust_startdate_1,
+  adjust_startdate_2,
+  adjust_startdate_3,
+  adjust_startdate_4
+)
+
+if (all(is.na(start_dates))) {
+  message("No start dates have been saved")
+} else {
+  startdates <- start_dates[
+  !is.na(start_dates) & start_dates %in% gage_obj$gage_data$time
+  ]
+}
+
 forecast_plot <- list()
 forecast_table <- list()
 
-for (i in seq_along(params$startdates)) {
-  sd <- params$startdates[i]
+for (i in seq_along(startdates)) {
+  sd <- startdates[i]
   
   # Define different AGWRC forecast methods
   forecast_data <- gage_obj$baseflow_forecast(start_date = sd,
@@ -139,11 +269,15 @@ forecast_table[[as.character(sd)]] <- flextable(Forecast_df) %>%
 today <- params$today
 date_range <- c(paste0(year(today), "-05-01"), paste0(year(today), "-07-31"))
 
-adj_start <- hydrotools::bf_forecast_start_date(start_date = today,
+adjust_startdate <- if (params$adjust_startdate) {
+  adj_start <- hydrotools::bf_forecast_start_date(start_date = today,
                                                 adjust_start_date = date_range,
                                                 gage_data = gage_obj$gage_data,
                                                 flow_col = gage_obj$flow_col,
                                                 date_col = gage_obj$date_col)
+} else {
+  adj_start = today
+}
 
 current_forecast_data <- gage_obj$baseflow_forecast(adj_start,
                                                     AGWRC = "lm_constant",
@@ -177,14 +311,18 @@ cs_df <- gage_obj$get_model_or_scenario_props(model_prop_code = "AGWRC-1.0",
                                                      scenario_prop_code = "case_studies",
                                                      include_proptext = TRUE)
 
-# convert the epoch start dates to yyyy-mm-dd format
-cs_df$startdate <- as.Date(as.POSIXct(cs_df$startdate,
+if(is.null(cs_df) || nrow(cs_df) == 0){
+   message("No case studies for this gage have been saved.")
+} else {
+  # convert the epoch start dates to yyyy-mm-dd format
+  cs_df$startdate <- as.Date(as.POSIXct(cs_df$startdate,
                                              origin = "1970-01-01",
                                              tz = "UTC"))
 
 cs_df$enddate <- as.Date(as.POSIXct(cs_df$enddate,
                                              origin = "1970-01-01",
                                              tz = "UTC"))
+}
 
 # extract just the case study conclusion text from gage_props
 cs_conclusion <- gage_props$proptext[gage_props$propname == "rating_class"]
@@ -325,69 +463,77 @@ gage_obj$plot_low_flows(plot_type = "lineplot")
 
 ### First Baseflow Event Investigation
 
-```{r baseflow plot 1, warning = FALSE, echo = FALSE, message = FALSE}
-print(forecast_plot[[1]])
+```{r baseflow plot 1, warning = FALSE, echo = FALSE, message = TRUE}
+if (length(forecast_plot) >= 1) {
+  forecast_plot[[1]]
+}
 ```
 
-**Image 2.** Observed and Projected Flows from `r params$startdates[1]`
+**Image 2.** Observed and Projected Flows from `r startdates[1]`
 
-Although none of the AGWRC values were very effective in surviving the storms and catching the "troughs" following the peaks in flow, the iterative AGWRC performed the best of the three.
+**Table 1.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r startdates[1]`
 
-**Table 1.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[1]`
-
-```{r table 1, warning = FALSE, echo = FALSE, message = FALSE}
-forecast_table[[1]]
+```{r table 1, warning = FALSE, echo = FALSE, message = TRUE}
+if (length(forecast_table) >= 1) {
+  forecast_table[[1]]
+}
 ```
 
 ### Second Baseflow Event Investigation
 
-```{r baseflow plot 2, warning = FALSE, echo = FALSE, message = FALSE}
-print(forecast_plot[[2]])
+```{r baseflow plot 2, warning = FALSE, echo = FALSE, message = TRUE}
+if (length(forecast_plot) >= 2) {
+  forecast_plot[[2]]
+}
 ```
 
-**Image 3.** Observed and Projected Flows from `r params$startdates[2]`
-
-The iterative AGWRC overpredicted the first trough, but predicted the subsequent three troughs well. The iterative and variable AGWRC predictions were effective in surviving the first storm and predicting the first trough, but they greatly underpredicted the remaining flows.
+**Image 3.** Observed and Projected Flows from `r startdates[2]`
 
 **Table 2.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[2]`
 
-```{r table 2, warning = FALSE, echo = FALSE, message = FALSE}
-forecast_table[[2]]
+```{r table 2, warning = FALSE, echo = FALSE, message = TRUE}
+if (length(forecast_table) >= 2) {
+  forecast_table[[2]]
+}
 ```
 
 ### Third Baseflow Event Investigation
 
-```{r baseflow plot3, warning = FALSE, echo = FALSE, message = FALSE}
-print(forecast_plot[[3]])
+```{r baseflow plot3, warning = FALSE, echo = FALSE, message = TRUE}
+if (length(forecast_plot) >= 3) {
+  forecast_plot[[3]]
+}
 ```
 
-**Image 4.** Observed and Projected Flows from `r params$startdates[3]`
-
-The iterative AGWRC was effective in the predicting the first trough, but overpredicted flow in the second trough where the flow approached 0 cfs. The iterative AGWRC and constant AGWRC produced very similar predictions and also overpredicted flow in mid August.
+**Image 4.** Observed and Projected Flows from `r startdates[3]`
 
 **Table 3.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[3]`
 
-```{r table 3, warning = FALSE, echo = FALSE, message = FALSE}
-forecast_table[[3]]
+```{r table 3, warning = FALSE, echo = FALSE, message = TRUE}
+if (length(forecast_table) >= 3) {
+  forecast_table[[3]]
+}
 ```
 
 ### Fourth Baseflow Event Investigation
 
-```{r baseflow plot 4, warning = FALSE, echo = FALSE, message = FALSE}
-print(forecast_plot[[4]])
+```{r baseflow plot 4, warning = FALSE, echo = FALSE, message = TRUE}
+if (length(forecast_plot) >= 4) {
+  forecast_plot[[4]]
+}
 ```
 
-**Image 5.** Observed and Projected Flows from `r params$startdates[4]`
-
-Of the three AGWRC predictions, the iterative AGWRC was the most effective in surviving the storms. The precipitation events at the end of July and the start of August impacted the accuracy of the 90-day prediction.
+**Image 5.** Observed and Projected Flows from `r startdates[4]`
 
 **Table 4.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[4]`
 
-```{r table 4, warning = FALSE, echo = FALSE, message = FALSE}
-forecast_table[[4]]
+```{r table 4, warning = FALSE, echo = FALSE, message = TRUE}
+if (length(forecast_table) >= 4) {
+  print(forecast_table[[4]])
+}
 ```
 
-```{r 4 plots w/ patchwork, warning = FALSE, echo = FALSE, message = FALSE}
+```{r 4 plots w/ patchwork, warning = FALSE, echo = FALSE, message = TRUE}
 if (length(forecast_plot) == 4) {
 forecast_plot <- lapply(forecast_plot, function(p) {
   p + labs(title = NULL)
@@ -507,29 +653,38 @@ Determines accurate of a forecast. More text to come as function is changed.
 ## Case Studies
 
 ```{r case study graph, warning = FALSE, echo = FALSE, message = FALSE}
-cs_plot <- list()
+if (is.null(cs_df) || 
+    nrow(cs_df) == 0 || 
+    ncol(cs_df) == 0 || 
+    isTRUE(all(is.na(cs_df)))) {
+  message("No case studies for this gage have been saved")
+} else {
+   cs_plot <- list()
 
 for(i in 1:nrow(cs_df)) {
-  
+
   cs_sd <- cs_df$startdate[i]
-  cs_fl <- cs_df$enddate[i] - cs_sd
-  
+
+  cs_ed <- cs_df$enddate[i]
+
+  diff_days <- as.numeric(cs_ed - cs_sd)
+
   BPJ_AGWRC <- as.numeric(cs_df$propcode[i])
-  
+
   cs_text <- str_wrap(cs_df$proptext[i])
-  
+
   p_label <- paste0("Interpretation: ", cs_text)
-  
+
   p <- gage_obj$plot_baseflow_forecast(
   start_date = cs_sd,
-  forecast_days = 0:cs_fl,
+  forecast_days = 0:diff_days,
   AGWRC = list(Constant_AGWRC = "lm_constant",
                Variable_AGWRC = "lm_variable",
                Iterative_AGWRC = BPJ_AGWRC
   ),
   return_plotly = FALSE,
   include_days_before = 60,
-  use_limits = TRUE) + 
+  use_limits = TRUE) +
     labs(caption = cs_text) +
     theme(plot.caption = element_text(hjust = 0.5)) +
   scale_color_discrete(
@@ -540,10 +695,11 @@ for(i in 1:nrow(cs_df)) {
       "Iterative_AGWRC" = paste0("BPJ AGWRC = ", BPJ_AGWRC)
     )
   )
-  
+
   cs_plot[[i]] <- p
-  
+
   print(p)
+}
 }
 
 ```
