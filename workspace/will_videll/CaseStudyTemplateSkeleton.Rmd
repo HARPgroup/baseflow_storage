@@ -114,23 +114,33 @@ adj_start <- hydrotools::bf_forecast_start_date(start_date = today,
                                                 date_col = gage_obj$date_col)
 
 current_forecast_data <- gage_obj$baseflow_forecast(adj_start,
-                                                    AGWRC = "lm_constant",
-                                                    use_limits = TRUE) |> 
-  filter(Day %in% c(15, 30, 45, 90)) |> 
-  select(Day, Date, AGWRC, Forecast, obs_flow)
+                                                    AGWRC = list(Forecast = "lm_constant"),
+                                                    use_limits = TRUE) 
 
-current_forecast <- gage_obj$plot_baseflow_forecast(start_date = adj_start,
-                                                    forecast_days = 0:90,
-                                                    AGWRC = list(Constant_AGWRC =
-                                                                   "lm_constant",
-                                                            Variable_AGWRC = "lm_variable",
-                                                            Iterative_AGWRC =
-                                                                    params$iterative_AGWRC),
-                                                    return_plotly = FALSE,
-                                                    include_days_before = 60,
-                                                    use_limits = TRUE)
+percentiles_plot <- gage_obj$plot_percentiles(start_date = adj_start - 30,
+                          end_date = max(current_forecast_data$Date)) + 
+  ggplot2::geom_line(data = current_forecast_data, 
+                     aes(x = Date,
+                         y = Forecast,
+                         colour = "Current Forecast"))
+
+current_forecast <- gage_obj$plot_baseflow_forecast(
+  start_date = adj_start,
+  forecast_days = 0:90,
+  AGWRC = list(Constant_AGWRC = "lm_constant",
+               Variable_AGWRC = "lm_variable",
+               Iterative_AGWRC = params$iterative_AGWRC),
+  return_plotly = FALSE,
+  include_days_before = 60,
+  use_limits = TRUE
+)
 
 # create forecast table
+current_forecast_data |> 
+  filter(Day %in% c(15, 30, 45, 90)) |> 
+  select(Day, Date, AGWRC, Forecast, obs_flow) |> 
+  mutate(monthly_percentile = )
+
 current_forecast_table <- flextable(current_forecast_data) |> 
   set_header_labels(obs_flow = "Observed")
 
@@ -196,7 +206,7 @@ AGWRC analysis for USGS **`r params$gageid`: `r gage_obj$gage_data_sf$monitoring
 The current forecast begins at the the lowest flow that occurs in the month of 
 
 ```{r current forecast plot, warning = FALSE, echo = FALSE}
-current_forecast
+percentiles_plot
 ```
 **Image ?.** Current forecast plot
 

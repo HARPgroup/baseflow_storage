@@ -3,7 +3,7 @@ title: "Case Study Template (Rough Draft)"
 output: html_document
 date: "2026-07-28"
 params:
-  gageid: "02056900"
+  gageid: "02075045"
   startdates: !r as.Date(c("2008-06-11", "2007-06-10", "2002-05-01", "1986-05-12"))
   enddate: "2026-08-28"
   today: !r as.Date(Sys.Date())
@@ -135,39 +135,6 @@ forecast_table[[as.character(sd)]] <- flextable(Forecast_df) %>%
 
 ```
 
-```{r current forecast, warning = FALSE, echo = FALSE, message = FALSE}
-today <- params$today
-date_range <- c(paste0(year(today), "-05-01"), paste0(year(today), "-07-31"))
-
-adj_start <- hydrotools::bf_forecast_start_date(start_date = today,
-                                                adjust_start_date = date_range,
-                                                gage_data = gage_obj$gage_data,
-                                                flow_col = gage_obj$flow_col,
-                                                date_col = gage_obj$date_col)
-
-current_forecast_data <- gage_obj$baseflow_forecast(adj_start,
-                                                    AGWRC = "lm_constant",
-                                                    use_limits = TRUE) |> 
-  filter(Day %in% c(15, 30, 45, 90)) |> 
-  select(Day, Date, AGWRC, Forecast, obs_flow)
-
-current_forecast <- gage_obj$plot_baseflow_forecast(
-  start_date = adj_start,
-  forecast_days = 0:90,
-  AGWRC = list(Constant_AGWRC = "lm_constant",
-               Variable_AGWRC = "lm_variable",
-               Iterative_AGWRC = params$iterative_AGWRC),
-  return_plotly = FALSE,
-  include_days_before = 60,
-  use_limits = TRUE
-)
-
-# create forecast table
-current_forecast_table <- flextable(current_forecast_data) |> 
-  set_header_labels(obs_flow = "Observed")
-
-```
-
 ```{r case study data, include = FALSE}
 # load in case study data from database
 gage_props <- gage_obj$get_model_or_scenario_props(model_prop_code = "AGWRC-1.0",
@@ -262,6 +229,70 @@ monthly_bf <- monthly_bf %>%
   arrange(match(propname, month.name))
 ```
 
+```{r current forecast, warning = FALSE, echo = FALSE, message = FALSE}
+today <- params$today
+date_range <- c(paste0(year(today), "-05-01"), paste0(year(today), "-07-31"))
+
+adj_start <- hydrotools::bf_forecast_start_date(start_date = today,
+                                                adjust_start_date = date_range,
+                                                gage_data = gage_obj$gage_data,
+                                                flow_col = gage_obj$flow_col,
+                                                date_col = gage_obj$date_col)
+
+# Determine best AGWRC from rating class
+current_forecast_data <- tryCatch(
+  expr = {
+    gage_obj$baseflow_forecast(start_date = adj_start, AGWRC = list(default = "default"))},
+  error = function(e){
+    message("No default method defined: ", e$message)
+    return(NA)
+  }
+)    
+
+percentiles_plot <- gage_obj$plot_percentiles(start_date = adj_start - 30,
+                          end_date = max(current_forecast_data$Date)) + 
+  ggplot2::geom_line(data = current_forecast_data, 
+                     aes(x = Date,
+                         y = Forecast,
+                         colour = "Current Forecast"), color = "green", linewidth = 2)
+
+current_forecast <- gage_obj$plot_baseflow_forecast(
+  start_date = adj_start,
+  forecast_days = 0:90,
+  AGWRC = list(Constant_AGWRC = "lm_constant",
+               Variable_AGWRC = "lm_variable",
+               Iterative_AGWRC = params$iterative_AGWRC),
+  return_plotly = FALSE,
+  include_days_before = 60,
+  use_limits = TRUE
+)
+
+# create forecast table
+short_table <- current_forecast_data |> 
+  filter(Day %in% c(15, 30, 45, 90)) |> 
+  select(Day, Date, AGWRC, Forecast, obs_flow) |> 
+  mutate(percentile = NA)
+
+for (i in 1:nrow(short_table)){
+pctile <- ecdf(
+  gage_obj$gage_data$value[
+    lubridate::month(gage_obj$gage_data$time) == month(short_table$Date[i])
+    ]
+)
+
+short_table$percentile[i] <- paste0(round(pctile(short_table$Forecast[i]) * 100, 2), "%")
+}
+
+current_forecast_table <- flextable(short_table) |> 
+  set_header_labels(obs_flow = "Observed",
+                    percentile = "Percentile")
+
+
+```
+
+```{r NEP Table, warning = FALSE, echo = FALSE, message = FALSE}
+NEP <- flextable(gage_obj$nep_table())
+```
 ## Overview and Recommended AGWRC
 
 AGWRC analysis for USGS **`r params$gageid`: `r gage_obj$station_name`**. `r cs_conclusion` 
@@ -287,14 +318,16 @@ AGWRC analysis for USGS **`r params$gageid`: `r gage_obj$station_name`**. `r cs_
 The current forecast begins at the the lowest flow that occurs in the month of 
 
 ```{r current forecast plot, warning = FALSE, echo = FALSE}
-current_forecast
+percentiles_plot
 ```
-**Image ?.** Current forecast plot
+
+**Image ?.** This plot contains the forecast from the best identified start date between May and July of the current year.
 
 ```{r current forecast table, warning = FALSE, echo = FALSE}
 current_forecast_table
 ```
-**Table ?.** Current forecast table
+
+**Table ?.** This table contains flow predictions for 15, 30, 45, and 90 day horizons, and monthly percentile values for forecasted flows. 
 
 
 ## Regression Analysis
@@ -320,6 +353,16 @@ gage_obj$plot_low_flows(plot_type = "lineplot")
 ```
 
 **Image 2.** Annual low flow plot for 1-day, 7-day, 30-day, and 90-day low flows
+
+## Non-Exceedance Probability Table
+
+Non-Exceedance Probability is the statistical chance that stream flow is recorded at or below a specific value. A 5% NEP of 40 cfs indicates that stream flow will be at or below 40 cfs 5% of the time.
+
+```{r NEP Table1, warning = FALSE, echo = FALSE, message = FALSE}
+NEP
+```
+
+**Table x.** Non-Exceedance Probabilities at gage `r params$gageid`.
 
 ## Baseflow Analysis
 
