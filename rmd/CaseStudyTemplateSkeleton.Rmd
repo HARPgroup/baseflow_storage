@@ -3,12 +3,13 @@ title: "Case Study Template (Rough Draft)"
 output: html_document
 date: "2026-07-28"
 params:
-  gageid: "01620500"
-  #startdates: !r as.Date(c("2008-06-11", "2007-06-10", "1966-05-01", "1986-05-12"))
-  startdate_1: "2008-06-11"
-  startdate_2: "2002-05-11"
-  startdate_3: NA
-  startdate_4: NA
+  gageid: "01672500"
+  #enter dates in "yyyy-mm-dd" format
+  #enter null if no dates
+  startdate_1: "2002-05-10"
+  startdate_2: "1966-05-10"
+  startdate_3: null
+  startdate_4: null
   enddate: "2026-08-28"
   today: !r as.Date(Sys.Date())
   iterative_AGWRC: 0.97
@@ -74,29 +75,33 @@ interpret_rsqr <- function(rsqr) {
 }
 ```
 
-```{r loop, warning = FALSE, echo = FALSE, message = FALSE}
-# Create forecast graphs loop for the given start dates
-# Convert params$startdate from class character to date
-startdate_1 <- as.Date(params$startdate_1, format = "%Y-%m-%d")
-startdate_2 <- as.Date(params$startdate_2, format = "%Y-%m-%d")
-startdate_3 <- as.Date(params$startdate_3, format = "%Y-%m-%d")
-startdate_4 <- as.Date(params$startdate_4, format = "%Y-%m-%d")
+```{r loop, warning = FALSE, echo = FALSE, message = TRUE}
+#read in start date params
+startdate_1 <- if (is.null(params$startdate_1)) as.Date(NA) else as.Date(params$startdate_1)
 
+startdate_2 <- if (is.null(params$startdate_2)) as.Date(NA) else as.Date(params$startdate_2)
+
+startdate_3 <- if (is.null(params$startdate_3)) as.Date(NA) else as.Date(params$startdate_3)
+
+startdate_4 <- if (is.null(params$startdate_4)) as.Date(NA) else as.Date(params$startdate_4)
+
+# Create forecast graphs loop for the given start dates
 # loop for adjusted startdate 1
 date_range_1 <- if (is.na(startdate_1)) {
   as.Date(NA)
-} else { 
-  as.Date(
-    c(paste0(year(startdate_1), "-05-01"), paste0(year(startdate_1), "-07-31"))
-    )
+} else {
+  as.Date(c(
+    paste0(year(startdate_1), "-05-01"),
+    paste0(year(startdate_1), "-07-31")
+  ))
 }
 
-adjust_startdate_1 <- if (is.na(startdate_1)) {
-  NA
+adjusted_startdate_1 <- if (is.na(startdate_1)) {
+  as.Date(NA)
 } else {
-  adjust_startdate_1 <- if (params$adjust_startdate_1) {
+  if (params$adjust_startdate_1) {
     hydrotools::bf_forecast_start_date(
-      start_date = today,
+      start_date = params$today,
       adjust_start_date = date_range_1,
       gage_data = gage_obj$gage_data,
       flow_col = gage_obj$flow_col,
@@ -110,18 +115,19 @@ adjust_startdate_1 <- if (is.na(startdate_1)) {
 # loop for adjusted startdate 2
 date_range_2 <- if (is.na(startdate_2)) {
   as.Date(NA)
-} else { 
-  as.Date(
-    c(paste0(year(startdate_2), "-05-01"), paste0(year(startdate_2), "-07-31"))
-    )
+} else {
+  as.Date(c(
+    paste0(year(startdate_2), "-05-01"),
+    paste0(year(startdate_2), "-07-31")
+  ))
 }
 
-adjust_startdate_2 <- if (is.na(startdate_2)) {
-  NA
+adjusted_startdate_2 <- if (is.na(startdate_2)) {
+  as.Date(NA)
 } else {
-  adjust_startdate_2 <- if (params$adjust_startdate_2) {
+  if (params$adjust_startdate_2) {
     hydrotools::bf_forecast_start_date(
-      start_date = today,
+      start_date = params$today,
       adjust_start_date = date_range_2,
       gage_data = gage_obj$gage_data,
       flow_col = gage_obj$flow_col,
@@ -135,18 +141,19 @@ adjust_startdate_2 <- if (is.na(startdate_2)) {
 #Loop for adjusted startdate 3
 date_range_3 <- if (is.na(startdate_3)) {
   as.Date(NA)
-} else { 
-  as.Date(
-    c(paste0(year(startdate_3), "-05-01"), paste0(year(startdate_3), "-07-31"))
-    )
+} else {
+  as.Date(c(
+    paste0(year(startdate_3), "-05-01"),
+    paste0(year(startdate_3), "-07-31")
+  ))
 }
 
-adjust_startdate_3 <- if (is.na(startdate_3)) {
-  NA
+adjusted_startdate_3 <- if (is.na(startdate_3)) {
+  as.Date(NA)
 } else {
-  adjust_startdate_3 <- if (params$adjust_startdate_3) {
+  if (params$adjust_startdate_3) {
     hydrotools::bf_forecast_start_date(
-      start_date = today,
+      start_date = params$today,
       adjust_start_date = date_range_3,
       gage_data = gage_obj$gage_data,
       flow_col = gage_obj$flow_col,
@@ -160,18 +167,19 @@ adjust_startdate_3 <- if (is.na(startdate_3)) {
 #Loop for adjusted startdate 4
 date_range_4 <- if (is.na(startdate_4)) {
   as.Date(NA)
-} else { 
-  as.Date(
-    c(paste0(year(startdate_4), "-05-01"), paste0(year(startdate_4), "-07-31"))
-    )
+} else {
+  as.Date(c(
+    paste0(year(startdate_4), "-05-01"),
+    paste0(year(startdate_4), "-07-31")
+  ))
 }
 
-adjust_startdate_4 <- if (is.na(startdate_4)) {
-  NA
+adjusted_startdate_4 <- if (is.na(startdate_4)) {
+  as.Date(NA)
 } else {
-  adjust_startdate_3 <- if (params$adjust_startdate_4) {
+  if (params$adjust_startdate_4) {
     hydrotools::bf_forecast_start_date(
-      start_date = today,
+      start_date = params$today,
       adjust_start_date = date_range_4,
       gage_data = gage_obj$gage_data,
       flow_col = gage_obj$flow_col,
@@ -183,17 +191,19 @@ adjust_startdate_4 <- if (is.na(startdate_4)) {
 }
 
 start_dates <- c(
-  adjust_startdate_1,
-  adjust_startdate_2,
-  adjust_startdate_3,
-  adjust_startdate_4
+  adjusted_startdate_1,
+  adjusted_startdate_2,
+  adjusted_startdate_3,
+  adjusted_startdate_4
 )
 
 if (all(is.na(start_dates))) {
   message("No start dates have been saved")
+  startdates <- as.Date(character(0))
 } else {
   startdates <- start_dates[
-  !is.na(start_dates) & start_dates %in% gage_obj$gage_data$time
+    !is.na(start_dates) &
+      start_dates %in% gage_obj$gage_data$time
   ]
 }
 
@@ -652,7 +662,7 @@ Determines accurate of a forecast. More text to come as function is changed.
 
 ## Case Studies
 
-```{r case study graph, warning = FALSE, echo = FALSE, message = FALSE}
+```{r case study graph, warning = FALSE, echo = FALSE, message = TRUE}
 if (is.null(cs_df) || 
     nrow(cs_df) == 0 || 
     ncol(cs_df) == 0 || 
