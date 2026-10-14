@@ -3,7 +3,7 @@ title: "Case Study Template (Rough Draft)"
 output: html_document
 date: "2026-07-28"
 params:
-  gageid: "01620500"
+  gageid: "02056900"
   #enter dates in "yyyy-mm-dd" format
   #enter null if no dates
   startdate_1: "2002-05-10"
@@ -342,6 +342,23 @@ if(length(cs_conclusion) == 0){
 
 ```
 
+```{r rating_class function, include = FALSE}
+# function for determining AGWRC method based on the case study rating_class
+  rating_class_method <- function(cs_rating_class) {
+    if (cs_rating_class == 0 | cs_rating_class == 1 | cs_rating_class == 4) {
+      method = "lm_variable"
+    } else if (cs_rating_class == 2) {
+      method = "lm_constant"
+    } else if (cs_rating_class == 3) {
+      method = BPJ_AGWRC
+    } else if (cs_rating_class == 5 | cs_rating_class == 6 | cs_rating_class == 7) {
+      message("No projection available")
+      method <- NA
+    }
+    return(method)
+  }
+```
+
 ```{r QC metrics code, warning = FALSE, echo = FALSE, message = FALSE}
 #Query QC data from database
 qc_data <- DBI::dbGetQuery(
@@ -432,20 +449,21 @@ AGWRC analysis for USGS **`r params$gageid`: `r gage_obj$station_name`**. `r cs_
 
 ## Current Forecast
 
-The current forecast begins at the the lowest flow that occurs in the month of 
+The current forecast begins at the the lowest flow that occurs between the months of the previous May and July, and extends through today's date. This forecast is based on the assumption that evapotranspiration (ET) occurs at a constant rate of  and that no additional groundwater recharge may occur. As ET decreases in the Fall (usually around late September and early October), it is typical to see a small increase in flow of between 5 – 10%.   
 
 ```{r current forecast plot, warning = FALSE, echo = FALSE}
 current_forecast
 ```
-**Image ?.** Current forecast plot
+
+**Figure 1.** Current baseflow forecast at USGS `r params$gageid` based on a variably calculated AGWRC. 
+
+**Table 1.** Current baseflow forecast flow projections at USGS `r params$gageid` based on a variably calculated AGWRC. 
 
 ```{r current forecast table, warning = FALSE, echo = FALSE}
 current_forecast_table
 ```
-**Table ?.** Current forecast table
 
-
-## Regression Analysis
+## AGWRC Regression Analysis
 
 ```{r regression plot, warning = FALSE, echo = FALSE}
 gage_obj$plot_baseflow_agwrc(CI = TRUE, omsite = omsite, return_plotly = FALSE)
@@ -457,9 +475,7 @@ rsqr_interpretation <- interpret_rsqr(rsqr)
 
 ```
 
-**Image 1.** AGWRC vs Flow Regression
-
-AGWRC vs Median Flow Regression. **`r qc_df$propvalue[qc_df$propname == "total_bf_events"]`** baseflow events were identified at USGS 01638500. An AGWRC value was calculated for each event based on the exponential decay of flow during the identified baseflow event. The R-squared value is: `r rsqr`. `r rsqr_interpretation`
+**Figure 2.** AGWRC vs Median Flow Regression. **`r qc_df$propvalue[qc_df$propname == "total_bf_events"]`** baseflow events were identified at USGS 01638500. An AGWRC value was calculated for each event based on the exponential decay of flow during the identified baseflow event. The R-squared value is: `r rsqr`. `r rsqr_interpretation`
 
 ## Annual Low Flow Plot
 
@@ -467,9 +483,11 @@ AGWRC vs Median Flow Regression. **`r qc_df$propvalue[qc_df$propname == "total_b
 gage_obj$plot_low_flows(plot_type = "lineplot")
 ```
 
-**Image 2.** Annual low flow plot for 1-day, 7-day, 30-day, and 90-day low flows
+**Figure 3.** Annual low flow plot for 1-day, 7-day, 30-day, and 90-day low flows at USGS `r params$gageid` showing the droughts on record.
 
 ## Baseflow Analysis
+
+The following baseflow investigations are based on user-defined start dates. Similar to the current forecast, these start dates are automatically adjusted to begin at the the lowest flow that occurs between the months of the previous May and July and to project flows 90 days beyond this date. 
 
 ### First Baseflow Event Investigation
 
@@ -479,11 +497,11 @@ if (length(forecast_plot) >= 1) {
 }
 ```
 
-**Image 2.** Observed and Projected Flows from `r startdates[1]`
+**Figure 4.** Observed and projected flows for USGS `r params$gageid` from `r startdates[1]`
 
-**Table 1.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r startdates[1]`
+**Table 2.** Constant, variable, and iterative AGWRC flow forecasts for USGS `r params$gageid` from `r startdates[1]`
 
-```{r table 1, warning = FALSE, echo = FALSE, message = TRUE}
+```{r forecast table 1, warning = FALSE, echo = FALSE, message = TRUE}
 if (length(forecast_table) >= 1) {
   forecast_table[[1]]
 }
@@ -497,11 +515,11 @@ if (length(forecast_plot) >= 2) {
 }
 ```
 
-**Image 3.** Observed and Projected Flows from `r startdates[2]`
+**Figure 5.** Observed and projected flows for USGS `r params$gageid` from `r startdates[2]`
 
-**Table 2.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[2]`
+**Table 3.** Constant, variable, and iterative AGWRC flow forecasts for USGS `r params$gageid` from `r startdates[2]`
 
-```{r table 2, warning = FALSE, echo = FALSE, message = TRUE}
+```{r forecast table 2, warning = FALSE, echo = FALSE, message = TRUE}
 if (length(forecast_table) >= 2) {
   forecast_table[[2]]
 }
@@ -515,11 +533,11 @@ if (length(forecast_plot) >= 3) {
 }
 ```
 
-**Image 4.** Observed and Projected Flows from `r startdates[3]`
+**Figure 6.** Observed and projected flows for USGS `r params$gageid` from `r startdates[3]`
 
-**Table 3.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[3]`
+**Table 4.** Constant, variable, and iterative AGWRC flow forecasts for USGS `r params$gageid` from `r startdates[3]`
 
-```{r table 3, warning = FALSE, echo = FALSE, message = TRUE}
+```{r forecast table 3, warning = FALSE, echo = FALSE, message = TRUE}
 if (length(forecast_table) >= 3) {
   forecast_table[[3]]
 }
@@ -533,11 +551,11 @@ if (length(forecast_plot) >= 4) {
 }
 ```
 
-**Image 5.** Observed and Projected Flows from `r startdates[4]`
+**Figure 7.** Observed and projected flows for USGS `r params$gageid` from `r startdates[4]`
 
-**Table 4.** Constant, Variable, and Iterative AGWRC Flow Forecast from `r params$startdates[4]`
+**Table 5.** Constant, variable, and iterative AGWRC flow forecasts for USGS `r params$gageid` from `r startdates[4]`
 
-```{r table 4, warning = FALSE, echo = FALSE, message = TRUE}
+```{r forecast table 4, warning = FALSE, echo = FALSE, message = TRUE}
 if (length(forecast_table) >= 4) {
   print(forecast_table[[4]])
 }
@@ -562,13 +580,23 @@ forecast_plot <- lapply(forecast_plot, function(p) {
 }
 ```
 
-**Image 5.** Observed and Projected Flows for All Four Start Dates
+**Figure 8.** Observed and projected flows for all four baseflow events
 
 ## Prediction Accuracy Analysis
 
+Below is a summary of common forecast accuracy metrics that highlight the difference between predicted and actual flow values for each identified baseflow event at USGS `r params$gageid`. Each of these methods emphasize different aspects of error and should be interpreted together. 
+
 ### MAE, RMSE, MAPE, Bias, and $R^2$ Analysis 
 
-**Table 5.** Calculations of the MAE, RMSE, MAPE, Bias, and $R^2$ values for all group IDs for **`r params$gageid`: `r gage_obj$station_name`**
+Both MAE and RMSE are scale-dependent metrics. MAE provides the absolute difference between actual and predicted flow values without indicating relative error size. RMSE provides the square root of the average squared error. Unlike MAE which ignores the magnitude of outliers, RMSE penalizes large errors more heavily. 
+
+MAPE is a scale-independent metric that provides the average absolute error as a percentage of the actual flow value. However, the MAPE calculation fails if the actual flow value is zero and produces unrealistically high values when the actual flow value is close to zero. This can be an issue for small gages that occasionally run dry or approach extreme low-flow condition. MAPE also tends to over-penalize over- and under-forecasting. 
+
+Forecast bias provides an average error where a positive value is indicative of over-forecasting flow and a negative value is indicative of under-forecasting flow. 
+
+The R-squared value, or coefficient of determination, explains the proportion of variance in the actual flow values that is explained by the predicted flow values. This shows how well the model captures any patterns in the data. A value of 1 or -1 suggests a perfect fit while a value of 0 suggests that the model does no better than predicting the mean flow value each time.
+
+**Table 6.** Calculations of the MAE, RMSE, MAPE, Bias, and $R^2$ values for all USGS `r params$gageid` GroupIDs 
 
 ```{r error calculations, warning = FALSE, echo = FALSE, message = FALSE}
 devtools::source_url("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/Emily_bf_workflow/PredictionAccuracyUpdated.R")
@@ -601,7 +629,7 @@ Results$summary_table <- Results$summary_table %>%
 Results$summary_table
 ```
 
-**Table 6.** All GroupIDs with an MAPE over 20%
+**Table 7.** All GroupIDs with an MAPE over 20%. These events did not perform well and further analysis with these events should be preceded with caution.
 
 ```{r high MAPE, warning = FALSE, echo = FALSE, message = FALSE}
 filtered_group_stats <- Results$group_stats %>%
@@ -612,8 +640,6 @@ flextable(filtered_group_stats) %>%
   theme_vanilla() %>%
   autofit()
 ```
-
-The following GroupIDs in table 6 present a list of event that did not preform well and should be treated with caution.
 
 ### Minimum Flow Forecast Accuracy
 
@@ -640,27 +666,29 @@ Determines accurate of a forecast. More text to come as function is changed.
 # plot_gage_event_minima[[1]]
 ```
 
-**Image 6.** Observed and Projected Flows from `r params$startdates[1]`
+**Figure 9.** Observed and projected Flows from `r params$startdates[1]`
 
 ```{r second minima plot, warning = FALSE, echo = FALSE, message = FALSE}
 # plot_gage_event_minima[[2]]
 ```
 
-**Image 7.** Observed and Projected Flows from `r params$startdates[2]`
+**Figure 10.** Observed and projected Flows from `r params$startdates[2]`
 
 ```{r third minima plot, warning = FALSE, echo = FALSE, message = FALSE}
 # plot_gage_event_minima[[3]]
 ```
 
-**Image 8.** Observed and Projected Flows from `r params$startdates[3]`
+**Figure 11.** Observed and projected Flows from `r params$startdates[3]`
 
 ```{r fourth minima plot, warning = FALSE, echo = FALSE, message = FALSE}
 # plot_gage_event_minima[[4]]
 ```
 
-**Image 9.** Observed and Projected Flows from `r params$startdates[4]`
+**Figure 12.** Observed and projected Flows from `r params$startdates[4]`
 
 ## Case Studies
+
+Below are recorded case studies conducted by DEQ employees. These case studies are typically done for historical low flow years in Virginia, such as 2023, 2008, 2007, 2002, 1998, and 1966. Additional years may be investigated based on historical low flows at the particular gage of interest. These case studies provide insight into gage behavior at low flow conditions to aid in selecting the most appropriate projection method for making current forecasts. The selected projection method (Variable AGWRC, Constant AGWRC, or BPJ AGWRC) is included on each plot (if applicable), and a brief commentary and analysis is written below each plot.  
 
 ```{r case study graph, warning = FALSE, echo = FALSE, message = TRUE}
 if (is.null(cs_df) || 
@@ -686,20 +714,6 @@ for(i in 1:nrow(cs_df)) {
   p_label <- paste0("Interpretation: ", cs_text)
   
   cs_rating_class <- cs_df$propvalue[i]
-  
-  rating_class_method <- function(cs_rating_class) {
-    if (cs_rating_class == 0 | cs_rating_class == 1 | cs_rating_class == 4) {
-      method = "lm_variable"
-    } else if (cs_rating_class == 2) {
-      method = "lm_constant"
-    } else if (cs_rating_class == 3) {
-      method = BPJ_AGWRC
-    } else if (cs_rating_class == 5 | cs_rating_class == 6 | cs_rating_class == 7) {
-      message("No projection available")
-      method <- NA
-    }
-    return(method)
-  }
   
   projection_method <- rating_class_method(cs_rating_class)   
   
@@ -737,9 +751,9 @@ for(i in 1:nrow(cs_df)) {
 
 ## QC Metrics
 
-There are **`r qc_df$propvalue[qc_df$propname == "total_bf_events"]`** identified baseflow events at this gage. As discussed further in the _DA Analysis Summary_ in Appendix A, the number of identified baseflow events is dependent on the record length of the gage; older gages have more identified baseflow events. Additionally, ten baseflow events has been deemed the appropriate number of baseflow events to perform reasonable analysis.        
+There are **`r qc_df$propvalue[qc_df$propname == "total_bf_events"]`** identified baseflow events at this gage. The number of identified baseflow events is dependent on the record length of the gage; older gages have more identified baseflow events. Additionally, ten baseflow events have been deemed the appropriate number of baseflow events to perform reasonable analysis.     
 
-**Table ?.** Number of baseflow events per month 
+**Table 8.** Number of baseflow events per month for USGS `r params$gageid`
 
 ```{r QC bf table, warning = FALSE, echo = FALSE, message = FALSE}
 #print table
@@ -764,9 +778,9 @@ ggplot(monthly_bf, aes(x = factor(propname, levels = month.name), y = propvalue)
 
 ```
 
-**Figure ?.** Number of identified baseflow events per month
+**Figure 13.** Number of identified baseflow events per month for USGS `r params$gageid`
 
-**Table ?.** Other relevant QC metrics. The Breusch–Pagan test and the White test are statistical methods to quantify heteroscedasticity (when the variability of the dependent variable is not constant). Both tests check for heteroskedasticity; the Breusch–Pagan test assumes normal residuals and detects linear heteroscedasticity while the White test is more general and detects both linear and nonlinear heteroskedasticity. A significant p-value (less than 0.05) suggests sufficient evidence for heteroskedasticity in the flow data. The recorded flow values indicate the gage length, or the total number of non-NA flow values recorded over the entire date range of data collection. The watershed slope is the average slope in the entire drainage basin expressed as a percentage of the vertical rise over the the horizontal distance. 
+**Table 9.** Other relevant QC metrics. The Breusch–Pagan test and the White test are statistical methods to quantify heteroscedasticity (when the variability of the dependent variable is not constant). Both tests check for heteroskedasticity; the Breusch–Pagan test assumes normal residuals and detects linear heteroscedasticity while the White test is more general and detects both linear and nonlinear heteroskedasticity. A significant p-value (less than 0.05) suggests sufficient evidence for heteroskedasticity in the flow data. The recorded flow values indicate the gage length, or the total number of non-NA flow values recorded over the entire date range of data collection. The watershed slope is the average slope in the entire drainage basin expressed as a percentage of the vertical rise over the the horizontal distance. 
 
 ```{r misc QC metrics, warning = FALSE, echo = FALSE, message = FALSE}
 #filter for values of interest
