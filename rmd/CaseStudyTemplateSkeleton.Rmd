@@ -3,7 +3,7 @@ title: "Case Study Template (Rough Draft)"
 output: html_document
 date: "2026-07-28"
 params:
-  gageid: "02075045"
+  gageid: "02061500"
   startdates: !r as.Date(c("2008-06-11", "2007-06-10", "2002-05-01", "1986-05-12"))
   enddate: "2026-08-28"
   today: !r as.Date(Sys.Date())
@@ -245,11 +245,12 @@ current_forecast_data <- tryCatch(
     gage_obj$baseflow_forecast(start_date = adj_start, AGWRC = list(default = "default"))},
   error = function(e){
     message("No default method defined: ", e$message)
-    return(NA)
+    "No current forecast available."
   }
 )    
 
-percentiles_plot <- gage_obj$plot_percentiles(start_date = adj_start - 30,
+if (is.character(current_forecast_data) == FALSE){
+  percentiles_plot <- gage_obj$plot_percentiles(start_date = adj_start - 30,
                           end_date = max(current_forecast_data$Date)) + 
   ggplot2::geom_line(data = current_forecast_data, 
                      aes(x = Date,
@@ -287,7 +288,10 @@ current_forecast_table <- flextable(short_table) |>
   set_header_labels(obs_flow = "Observed",
                     percentile = "Percentile")
 
-
+} else {
+  percentiles_plot <- "Percentile plot not available."
+  current_forecast_table <- "Table not available."
+}
 ```
 
 ```{r NEP Table, warning = FALSE, echo = FALSE, message = FALSE}
