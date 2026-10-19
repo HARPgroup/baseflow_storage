@@ -177,9 +177,28 @@ solve_double_C <- function(
   
   agws <- agws1 + agws2
   
-
+  ##############################
+  ##7. return timestep results##
+  ##############################
+  
+  return(
+    list(
+      agwo = agwo,
+      agws = agws,
+      agws1 = agws1,
+      agws2 = agws2,
+      agwo1 = agwo1,
+      agwo2 = agwo2,
+      agwin1 = agwin1,
+      agwin2 = agwin2,
+      ce = ce
+    )
+  )
+  
+}
+  
   #################################
-  ##7. run groundwater simulation##
+  ##8. run groundwater simulation##
   #################################
   
   run_agw_model <- function(
@@ -250,7 +269,7 @@ solve_double_C <- function(
   }
   
   ###########################
-  ##8. run baseline warmup##
+  ##9. run baseline warmup##
   ###########################
   
   baseline_run <- run_agw_model(
@@ -266,7 +285,7 @@ solve_double_C <- function(
   )
   
   ########################
-  ##9. water balance check##
+  ##10. water balance check##
   ########################
   
   initial_storage <- S1_init + S2_init
@@ -286,7 +305,7 @@ solve_double_C <- function(
   water_balance_error
   
   ################################
-  ##10. plot storage through time##
+  ##11. plot storage through time##
   ################################
   
   storage_plot <- baseline_run %>%
@@ -333,7 +352,7 @@ solve_double_C <- function(
     theme_minimal()
   
   ###############################
-  ##11. plot fluxes through time##
+  ##12. plot fluxes through time##
   ###############################
   
   flux_plot <- baseline_run %>%
@@ -380,7 +399,7 @@ solve_double_C <- function(
     theme_minimal()
   
   ########################################
-  ##12. plot groundwater outflow sources##
+  ##13. plot groundwater outflow sources##
   ########################################
   
   outflow_plot <- baseline_run %>%
