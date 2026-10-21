@@ -20,6 +20,7 @@ params:
   adjust_startdate_2: TRUE
   adjust_startdate_3: TRUE
   adjust_startdate_4: TRUE
+  low_flow_date: TRUE
 editor_options: 
   chunk_output_type: console
 ---
@@ -312,6 +313,49 @@ current_forecast_table <- flextable(current_forecast_data) |>
 
 ```
 
+```{r lowest day flow, include = FALSE}
+# Calculate low flows
+gage_obj$plot_low_flows(plot_type = "lineplot")
+
+if (params$low_flow_date) {
+lowest_day_flow_df <- gage_obj$low_flows$n1Q10_annDate
+
+# return the row with the lowest flow value
+lowest_day_flow <- slice_min(
+  lowest_day_flow_df,
+  order_by = minFlow,
+  n = 1)
+
+# create baseflow forecast plot by adjusting lowest_day_flow
+date_range_low_flow <- as.Date(c(paste0(year(lowest_day_flow$Date), "-05-01"), 
+                         paste0(year(lowest_day_flow$Date), "-07-31")))
+
+adjusted_low_flow_date <- hydrotools::bf_forecast_start_date(
+  start_date = lowest_day_flow$Date,
+  adjust_start_date = date_range_low_flow,
+  gage_data = gage_obj$gage_data,
+  flow_col = gage_obj$flow_col,
+  date_col = gage_obj$date_col)
+
+forecast_plot_low_flow <- gage_obj$plot_baseflow_forecast(
+  start_date = adjusted_low_flow_date,
+  forecast_days = 0:90,
+  AGWRC = list(Constant_AGWRC = "lm_constant",
+               Variable_AGWRC = "lm_variable",
+               Iterative_AGWRC = params$iterative_AGWRC),
+  return_plotly = FALSE,
+  include_days_before = 60,
+  use_limits = TRUE
+)
+} else {
+  lowest_day_flow_df <- NA
+  lowest_day_flow <- NA
+  date_range_low_flow <- as.Date(c(NA, NA))
+  adjusted_low_flow_date <- as.Date(NA)
+  forecast_plot_low_flow <- NA
+}
+```
+
 ```{r case study data, include = FALSE}
 # load in case study data from database
 gage_props <- gage_obj$get_model_or_scenario_props(model_prop_code = "AGWRC-1.0",
@@ -485,9 +529,21 @@ gage_obj$plot_low_flows(plot_type = "lineplot")
 
 **Figure 3.** Annual low flow plot for 1-day, 7-day, 30-day, and 90-day low flows at USGS `r params$gageid` showing the droughts on record.
 
+## Lowest One-Day Flow
+
+The lowest one-day flow on record for USGS `r params$gageid` is `r if (params$low_flow_date) lowest_day_flow$minFlow else "Not Calculated"` cfs, which occurred on `r if (params$low_flow_date) lowest_day_flow$Date else "Not Calculated"`. The plot below shows the projected forecast using the variable, constant, and iterative AGWRC methods from a start date that is automatically adjusted to begin at the the lowest flow that occurs between the months of the previous May and July (if the lowest day flow occurs outside of that date range). 
+
+```{r lowest one-day flow, warning = FALSE, echo = FALSE, message = TRUE}
+if (params$low_flow_date) {
+  print(forecast_plot_low_flow)
+} else {
+  message("Lowest One-Day Flow calculation not selected to occur")
+}
+```
+
 ## Baseflow Analysis
 
-The following baseflow investigations are based on user-defined start dates. Similar to the current forecast, these start dates are automatically adjusted to begin at the the lowest flow that occurs between the months of the previous May and July and to project flows 90 days beyond this date. 
+The following baseflow investigations are based on user-defined start dates. Similar to the current forecast and the lowest one-day flow, these start dates are automatically adjusted to begin at the the lowest flow that occurs between the months of the previous May and July and to project flows 90 days beyond this date. 
 
 ### First Baseflow Event Investigation
 
