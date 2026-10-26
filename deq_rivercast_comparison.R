@@ -14,12 +14,12 @@ percentiles <- doy_stats$gage_data
 percentiles <- percentiles %>% 
 select(parent_statistic_name, time_of_year, value, computation, 
        percentile,monitoring_location_id)
-deq_forecast <- gage_obj$baseflow_forecast("2026-06-23",AGWRC = "lm_variable")
+deq_forecast <- gage_obj$baseflow_forecast("2026-07-07",AGWRC = "lm_variable")
 
-GageID = "02059500" # Goose Creek
+GageID = "02059500" # Goose Creek 
 flow_csv <- read_csv(paste0("https://deq1.bse.vt.edu/usgs/agws/", GageID, "-flow.csv"))
 
-date <- "2026-06-23"
+date <- "2026-07-07"
 rivercast <- read_csv(paste0("https://deq1.bse.vt.edu/usgs/rivercast/USGS_rc_", date, ".csv"))
 rivercast <- rivercast %>% 
   filter(StaID == "02059500") %>% 
@@ -51,7 +51,7 @@ deq_forecast_pct <- deq_forecast %>%
 # Convert predicted flow to percentile
 deq_median_pct = map2_dbl(
   Forecast,
-  j_day, \(flow, day) {
+  j_day, function(flow, day) {
         
   ref <- flow_csv_pct %>%
   filter(j_day == day)%>%
@@ -75,7 +75,7 @@ deq_median_pct = map2_dbl(
 obs_pct = map2_dbl(
   obs_flow,
   j_day,
-  \(flow, day) {
+  function(flow, day) {
         
   ref <- flow_csv_pct %>%
   filter(j_day == day)%>%
@@ -106,6 +106,12 @@ comparison_df <- comparison_df %>%
   mutate(
     rivercast_error = median_pct - obs_pct, 
     deq_error = deq_median_pct - obs_pct
+  )
+
+comparison_df %>%
+  summarise(
+    Rivercast_MAE = mean(abs(rivercast_error), na.rm = TRUE),
+    deq_Forecast_MAE = mean(abs(deq_error), na.rm = TRUE)
   )
 
 

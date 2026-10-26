@@ -283,12 +283,12 @@ The following GroupIDs in table 6 present a list of event that did not preform w
 
 ## Analysis number 3
 
-Determines accurate of a forecast. More text to come as function is changed.
+Determines accurate of a 90 day forecast. More text to come as function is changed.
 
-```{r warning = FALSE, echo = FALSE, message = FALSE, include=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 library(zoo)
 
-devtools::source_url("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/workspace/will_videll/min_flow_forecast_accuracy.R")
+devtools::source_url("https://raw.githubusercontent.com/HARPgroup/baseflow_storage/refs/heads/willv_bf_workflow/workspace/will_videll/forecast_accuracy.R")
 
 min_flow_df <- min_flow_accuracy(gage_obj, event_df = all_data$trimmed_events_df, AGWRC = c("lm_variable"))
 
