@@ -8,12 +8,12 @@ source('/var/www/R/config.R')
 
 #Read in the data
 gage_obj <- hydrotools::WaterGageDaily$new(gage_id = "02059500", ds = ds)
-deq_forecast <- gage_obj$baseflow_forecast("2026-07-07",AGWRC = "lm_variable")
+deq_forecast <- gage_obj$baseflow_forecast("2026-08-11",AGWRC = "lm_variable")
 
 GageID = "02059500" # Goose Creek 
 flow_csv <- read_csv(paste0("https://deq1.bse.vt.edu/usgs/agws/", GageID, "-flow.csv"))
 
-date <- "2026-07-07"
+date <- "2026-08-11"
 rivercast <- read_csv(paste0("https://deq1.bse.vt.edu/usgs/rivercast/USGS_rc_", date, ".csv"))
 rivercast <- rivercast %>% 
   filter(StaID == "02059500") %>% 
@@ -97,3 +97,4 @@ accuracy_df <- comparison_df %>%
     DEQ_RMSE = sqrt(mean(deq_error^2, na.rm = TRUE)),
     .groups = "drop"
   )
+
