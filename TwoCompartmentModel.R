@@ -132,28 +132,8 @@ solve_double_C <- function(
   agwo <- agwo1 + agwo2
   
   
-  ######################################
-  ##4. effective recession coefficient##
-  ######################################
-  
-  # Calculate Ce using the starting storage associated
-  # with this timestep's outflow
-  
-  starting_storage <- agws1 + agws2
-  
-  # Ce is undefined when the system begins completely empty
-  if (starting_storage > 0) {
-    
-    ce <- 1.0 - (agwo / starting_storage)
-    
-  } else {
-    
-    ce <- NA_real_
-  }
-  
-  
   #####################
-  ##5. update storage##
+  ##4. update storage##
   #####################
   
   #upper compartment:
@@ -172,13 +152,13 @@ solve_double_C <- function(
   
   
   ####################
-  ##6. total storage##
+  ##5. total storage##
   ####################
   
   agws <- agws1 + agws2
   
   ##############################
-  ##7. return timestep results##
+  ##6. return timestep results##
   ##############################
   
   return(
@@ -190,15 +170,14 @@ solve_double_C <- function(
       agwo1 = agwo1,
       agwo2 = agwo2,
       agwin1 = agwin1,
-      agwin2 = agwin2,
-      ce = ce
+      agwin2 = agwin2
     )
   )
   
 }
   
   #################################
-  ##8. run groundwater simulation##
+  ##7. run groundwater simulation##
   #################################
   
   run_agw_model <- function(
@@ -259,17 +238,22 @@ solve_double_C <- function(
           agwo = out$agwo,
           agws1 = out$agws1,
           agws2 = out$agws2,
-          agws = out$agws,
-          ce = out$ce
+          agws = out$agws
         )
       )
     }
+    
+    #calculate effective recession coefficient from consecutive outflows
+    model_out <- model_out %>%
+      mutate(
+        ce = agwo / lag(agwo)
+      )
     
     return(model_out)
   }
   
   ###########################
-  ##9. run baseline warmup##
+  ##8. run baseline warmup##
   ###########################
   
   baseline_run <- run_agw_model(
@@ -285,7 +269,7 @@ solve_double_C <- function(
   )
   
   ########################
-  ##10. water balance check##
+  ##9. water balance check##
   ########################
   
   initial_storage <- S1_init + S2_init
@@ -305,7 +289,7 @@ solve_double_C <- function(
   water_balance_error
   
   ################################
-  ##11. plot storage through time##
+  ##10. plot storage through time##
   ################################
   
   storage_plot <- baseline_run %>%
@@ -352,7 +336,7 @@ solve_double_C <- function(
     theme_minimal()
   
   ###############################
-  ##12. plot fluxes through time##
+  ##11. plot fluxes through time##
   ###############################
   
   flux_plot <- baseline_run %>%
@@ -399,7 +383,7 @@ solve_double_C <- function(
     theme_minimal()
   
   ########################################
-  ##13. plot groundwater outflow sources##
+  ##12. plot groundwater outflow sources##
   ########################################
   
   outflow_plot <- baseline_run %>%
