@@ -51,7 +51,7 @@ multi_regression_curve <- function(
   data_new <- cbind(data_new, stats::predict(model_data, newdata = data_new, interval = "confidence"))
 
   plot <- ggplot2::ggplot(data, ggplot2::aes(x = norm_flow, y = event_AGWRC)) +
-    ggplot2::geom_point(aes(color = factor(id)), size = 1.5) +
+    ggplot2::geom_point(ggplot2::aes(color = factor(id)), size = 1.5) +
     ggplot2::geom_ribbon(data = data_new, ggplot2::aes(y = fit, ymin = lwr, ymax = upr), alpha = 0.2, fill = "black") +
     ggplot2::geom_line(data = data_new, ggplot2::aes(y = fit), color = "black") +
     ggplot2::labs(title = "Multi-Regression Curve",
