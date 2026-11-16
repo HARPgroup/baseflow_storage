@@ -38,6 +38,10 @@ devtools::install_github("HARPgroup/baseflow_storage", ref = "packageinitialize"
 <!-- badges: end -->
 
 ### Patch Notes:
+V 0.0.10 November 17, 2026
+1. Added the `PrecitionAccuracy()` and its non-exported `summary_stats()`
+functions to the library to support case study Rmd
+
 V 0.0.9 September 29, 2026
 1. Modified `regressionLimitAGWRC()` to allow limits to be NA in addition to
 NULL. NAs make it easier to run in large `apply` statements with various data
